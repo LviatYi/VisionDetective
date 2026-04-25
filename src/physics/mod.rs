@@ -1,6 +1,6 @@
-use bevy::math::Vec2;
-use bevy::prelude::{Component, Deref, DerefMut, Query, Res, Time, Transform, With};
 use crate::PLAYER_RADIUS;
+use bevy::math::Vec2;
+use bevy::prelude::{Component, Deref, DerefMut, Query, Res, Time, Transform};
 
 pub const ARENA_HALF_WIDTH: f32 = 500.0;
 pub const ARENA_HALF_HEIGHT: f32 = 280.0;
