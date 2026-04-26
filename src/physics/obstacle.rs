@@ -1,7 +1,5 @@
+use crate::config::GameConfig;
 use bevy::prelude::*;
-
-const OBSTACLE_COLOR: Color = Color::srgb(0.64, 0.67, 0.78);
-const OBSTACLE_VERTEX_COLOR: Color = Color::srgb(0.78, 0.81, 0.90);
 
 #[derive(Component, Clone)]
 pub struct Obstacle {
@@ -21,7 +19,11 @@ impl Obstacle {
     }
 }
 
-pub fn draw_obstacle_paths(mut gizmos: Gizmos, obstacle_query: Query<(&Transform, &Obstacle)>) {
+pub fn draw_obstacle_paths(
+    config: Res<GameConfig>,
+    mut gizmos: Gizmos,
+    obstacle_query: Query<(&Transform, &Obstacle)>,
+) {
     for (transform, obstacle) in &obstacle_query {
         let world_path = obstacle.world_path(transform);
         if world_path.len() < 2 {
@@ -31,8 +33,8 @@ pub fn draw_obstacle_paths(mut gizmos: Gizmos, obstacle_query: Query<(&Transform
         for index in 0..world_path.len() {
             let a = world_path[index];
             let b = world_path[(index + 1) % world_path.len()];
-            gizmos.line_2d(a, b, OBSTACLE_COLOR);
-            gizmos.circle_2d(a, 3.0, OBSTACLE_VERTEX_COLOR);
+            gizmos.line_2d(a, b, config.obstacles.edge_color());
+            gizmos.circle_2d(a, config.obstacles.vertex_radius, config.obstacles.vertex_color());
         }
     }
 }

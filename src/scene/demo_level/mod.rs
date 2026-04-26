@@ -1,69 +1,43 @@
+use crate::config::{vec2_from_pair, GameConfig};
 use crate::physics::obstacle::Obstacle;
 use bevy::prelude::*;
 
-pub fn spawn_demo_obstacles(commands: &mut Commands) {
-    commands.spawn((
-        Transform::from_translation(Vec3::new(-210.0, 70.0, 1.0))
-            .with_rotation(Quat::from_rotation_z(0.34)),
-        Obstacle::new(vec![
-            Vec2::new(-90.0, -28.0),
-            Vec2::new(80.0, -22.0),
-            Vec2::new(96.0, 8.0),
-            Vec2::new(-74.0, 34.0),
-        ]),
-    ));
+pub fn spawn_demo_obstacles(commands: &mut Commands, config: &GameConfig) {
+    for obstacle in &config.scene.demo_obstacles {
+        let local_path = if let Some(path) = &obstacle.path {
+            path.iter().copied().map(vec2_from_pair).collect()
+        } else if let Some(bezier) = &obstacle.bezier {
+            sample_cubic_closed_path(
+                &bezier.anchors,
+                &bezier.controls_a,
+                &bezier.controls_b,
+                config.scene.bezier_steps_per_curve,
+            )
+        } else {
+            continue;
+        };
 
-    commands.spawn((
-        Transform::from_translation(Vec3::new(150.0, -20.0, 1.0)),
-        Obstacle::new(vec![
-            Vec2::new(-60.0, -80.0),
-            Vec2::new(12.0, -108.0),
-            Vec2::new(82.0, -18.0),
-            Vec2::new(44.0, 92.0),
-            Vec2::new(-46.0, 66.0),
-            Vec2::new(-92.0, -8.0),
-        ]),
-    ));
-
-    commands.spawn((
-        Transform::from_translation(Vec3::new(280.0, 160.0, 1.0)),
-        Obstacle::new(sample_cubic_closed_path(
-            [
-                Vec2::new(-72.0, -16.0),
-                Vec2::new(-48.0, 72.0),
-                Vec2::new(60.0, 76.0),
-                Vec2::new(86.0, 6.0),
-            ],
-            [
-                Vec2::new(-64.0, 40.0),
-                Vec2::new(4.0, 98.0),
-                Vec2::new(90.0, 54.0),
-                Vec2::new(42.0, -54.0),
-            ],
-            [
-                Vec2::new(-8.0, 96.0),
-                Vec2::new(82.0, 98.0),
-                Vec2::new(108.0, -26.0),
-                Vec2::new(-14.0, -76.0),
-            ],
-            8,
-        )),
-    ));
+        commands.spawn((
+            Transform::from_translation(obstacle.translation())
+                .with_rotation(Quat::from_rotation_z(obstacle.rotation_z)),
+            Obstacle::new(local_path),
+        ));
+    }
 }
 
 fn sample_cubic_closed_path(
-    anchors: [Vec2; 4],
-    controls_a: [Vec2; 4],
-    controls_b: [Vec2; 4],
+    anchors: &[[f32; 2]],
+    controls_a: &[[f32; 2]],
+    controls_b: &[[f32; 2]],
     steps_per_curve: usize,
 ) -> Vec<Vec2> {
     let mut points = Vec::new();
 
     for curve_index in 0..anchors.len() {
-        let start = anchors[curve_index];
-        let control_a = controls_a[curve_index];
-        let control_b = controls_b[curve_index];
-        let end = anchors[(curve_index + 1) % anchors.len()];
+        let start = vec2_from_pair(anchors[curve_index]);
+        let control_a = vec2_from_pair(controls_a[curve_index]);
+        let control_b = vec2_from_pair(controls_b[curve_index]);
+        let end = vec2_from_pair(anchors[(curve_index + 1) % anchors.len()]);
 
         for step in 0..steps_per_curve {
             let t = step as f32 / steps_per_curve as f32;

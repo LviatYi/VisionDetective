@@ -1,37 +1,29 @@
 use crate::coin::player::PlayerCoin;
+use crate::config::GameConfig;
 use crate::physics::obstacle::Obstacle;
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
-
-const VISION_RADIUS: f32 = 240.0;
-
-/// The default number of rays used in the view calculation.
-/// This determines the accuracy of the view circle calculation and rendering
-/// (the lower the value, the fewer lines are used to represent the circle).
-const VISION_RAY_COUNT: usize = 128;
-const VISION_VERTEX_EPSILON: f32 = 0.0025;
-const INTERSECTION_EPSILON: f32 = 0.0001;
-const VISION_FILL_COLOR: Color = Color::srgba(0.92, 0.95, 0.80, 0.18);
-const VISION_OUTLINE_COLOR: Color = Color::srgba(0.95, 0.98, 0.86, 0.42);
 
 #[derive(Component)]
 pub struct VisionFieldMesh;
 
 pub fn setup_vision_system(
     commands: &mut Commands,
+    config: &GameConfig,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<ColorMaterial>,
 ) {
     commands.spawn((
-        Mesh2d(meshes.add(build_vision_mesh(Vec2::ZERO, &[]))),
-        MeshMaterial2d(materials.add(VISION_FILL_COLOR)),
-        Transform::from_translation(Vec3::new(0.0, 0.0, 0.5)),
+        Mesh2d(meshes.add(build_vision_mesh(config, Vec2::ZERO, &[]))),
+        MeshMaterial2d(materials.add(config.vision.fill_color())),
+        Transform::from_translation(Vec3::new(0.0, 0.0, config.vision.mesh_z)),
         VisionFieldMesh,
     ));
 }
 
 pub fn update_vision_field_mesh(
+    config: Res<GameConfig>,
     player_query: Query<&Transform, With<PlayerCoin>>,
     obstacle_query: Query<(&Transform, &Obstacle), Without<PlayerCoin>>,
     vision_query: Query<&Mesh2d, With<VisionFieldMesh>>,
@@ -47,30 +39,35 @@ pub fn update_vision_field_mesh(
     };
 
     let player_position = player_transform.translation.truncate();
-    let visible_points = compute_visible_points(player_position, &obstacle_query);
-    *mesh = build_vision_mesh(player_position, &visible_points);
+    let visible_points = compute_visible_points(&config, player_position, &obstacle_query);
+    *mesh = build_vision_mesh(&config, player_position, &visible_points);
 }
 
-pub fn draw_vision_radius(mut gizmos: Gizmos, player_query: Query<&Transform, With<PlayerCoin>>) {
+pub fn draw_vision_radius(
+    config: Res<GameConfig>,
+    mut gizmos: Gizmos,
+    player_query: Query<&Transform, With<PlayerCoin>>,
+) {
     let Ok(player_transform) = player_query.single() else {
         return;
     };
 
     gizmos.circle_2d(
         player_transform.translation.truncate(),
-        VISION_RADIUS,
-        VISION_OUTLINE_COLOR,
+        config.vision.radius,
+        config.vision.outline_color(),
     );
 }
 
 fn compute_visible_points(
+    config: &GameConfig,
     origin: Vec2,
     obstacle_query: &Query<(&Transform, &Obstacle), Without<PlayerCoin>>,
 ) -> Vec<Vec2> {
-    let mut rays_radius = Vec::with_capacity(VISION_RAY_COUNT * 2);
+    let mut rays_radius = Vec::with_capacity(config.vision.ray_count * 2);
 
-    for index in 0..VISION_RAY_COUNT {
-        let angle = std::f32::consts::TAU * index as f32 / VISION_RAY_COUNT as f32;
+    for index in 0..config.vision.ray_count {
+        let angle = std::f32::consts::TAU * index as f32 / config.vision.ray_count as f32;
         rays_radius.push(normalize_angle(angle));
     }
 
@@ -78,14 +75,14 @@ fn compute_visible_points(
         let world_path = obstacle.world_path(transform);
         for &point in &world_path {
             let angle = normalize_angle((point.y - origin.y).atan2(point.x - origin.x));
-            rays_radius.push(normalize_angle(angle - VISION_VERTEX_EPSILON));
-            rays_radius.push(normalize_angle(angle + VISION_VERTEX_EPSILON));
+            rays_radius.push(normalize_angle(angle - config.vision.vertex_epsilon));
+            rays_radius.push(normalize_angle(angle + config.vision.vertex_epsilon));
         }
 
         for index in 0..world_path.len() {
             let start = world_path[index];
             let end = world_path[(index + 1) % world_path.len()];
-            for point in segment_circle_intersections(start, end, origin, VISION_RADIUS) {
+            for point in segment_circle_intersections(&config, start, end, origin) {
                 let angle = normalize_angle((point.y - origin.y).atan2(point.x - origin.x));
                 rays_radius.push(angle);
             }
@@ -93,21 +90,23 @@ fn compute_visible_points(
     }
 
     rays_radius.sort_by(|a, b| a.total_cmp(b));
-    rays_radius.dedup_by(|a, b| (*a - *b).abs() < INTERSECTION_EPSILON);
+    rays_radius
+        .dedup_by(|a, b| (*a - *b).abs() < config.vision.intersection_epsilon);
 
     rays_radius
         .into_iter()
-        .map(|angle| cast_visibility_ray(origin, angle, obstacle_query))
+        .map(|angle| cast_visibility_ray(&config, origin, angle, obstacle_query))
         .collect()
 }
 
 fn cast_visibility_ray(
+    config: &GameConfig,
     origin: Vec2,
     angle: f32,
     obstacle_query: &Query<(&Transform, &Obstacle), Without<PlayerCoin>>,
 ) -> Vec2 {
     let direction = Vec2::from_angle(angle);
-    let mut closest_distance = VISION_RADIUS;
+    let mut closest_distance = config.vision.radius;
 
     for (transform, obstacle) in obstacle_query.iter() {
         let world_path = obstacle.world_path(transform);
@@ -138,15 +137,14 @@ fn ray_segment_intersection(origin: Vec2, direction: Vec2, start: Vec2, end: Vec
     let ray_distance = cross(offset, segment) / denominator;
     let segment_distance = cross(offset, direction) / denominator;
 
-    if ray_distance < 0.0 || ray_distance > VISION_RADIUS || !(0.0..1.0).contains(&segment_distance)
-    {
+    if ray_distance < 0.0 || !(0.0..1.0).contains(&segment_distance) {
         return None;
     }
 
     Some(ray_distance)
 }
 
-fn build_vision_mesh(center: Vec2, visible_points: &[Vec2]) -> Mesh {
+fn build_vision_mesh(config: &GameConfig, center: Vec2, visible_points: &[Vec2]) -> Mesh {
     let mut mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::default(),
@@ -158,7 +156,7 @@ fn build_vision_mesh(center: Vec2, visible_points: &[Vec2]) -> Mesh {
 
     for point in visible_points {
         positions.push([point.x, point.y, 0.0]);
-        let uv = ((point - center) / (VISION_RADIUS * 2.0)) + Vec2::splat(0.5);
+        let uv = ((point - center) / (config.vision.radius * 2.0)) + Vec2::splat(0.5);
         uvs.push([uv.x, uv.y]);
     }
 
@@ -183,7 +181,12 @@ fn normalize_angle(angle: f32) -> f32 {
     angle.rem_euclid(std::f32::consts::TAU)
 }
 
-fn segment_circle_intersections(start: Vec2, end: Vec2, center: Vec2, radius: f32) -> Vec<Vec2> {
+fn segment_circle_intersections(
+    config: &GameConfig,
+    start: Vec2,
+    end: Vec2,
+    center: Vec2,
+) -> Vec<Vec2> {
     let segment = end - start;
     let from_center = start - center;
     let a = segment.length_squared();
@@ -192,16 +195,18 @@ fn segment_circle_intersections(start: Vec2, end: Vec2, center: Vec2, radius: f3
     }
 
     let b = 2.0 * from_center.dot(segment);
-    let c = from_center.length_squared() - radius * radius;
+    let c = from_center.length_squared() - config.vision.radius * config.vision.radius;
     let discriminant = b * b - 4.0 * a * c;
 
-    if discriminant < -INTERSECTION_EPSILON {
+    if discriminant < -config.vision.intersection_epsilon {
         return Vec::new();
     }
 
-    if discriminant.abs() <= INTERSECTION_EPSILON {
+    if discriminant.abs() <= config.vision.intersection_epsilon {
         let t = -b / (2.0 * a);
-        if (-INTERSECTION_EPSILON..=1.0 + INTERSECTION_EPSILON).contains(&t) {
+        if (-config.vision.intersection_epsilon..=1.0 + config.vision.intersection_epsilon)
+            .contains(&t)
+        {
             return vec![start + segment * t.clamp(0.0, 1.0)];
         }
         return Vec::new();
@@ -212,11 +217,14 @@ fn segment_circle_intersections(start: Vec2, end: Vec2, center: Vec2, radius: f3
     let t2 = (-b + sqrt_discriminant) / (2.0 * a);
     let mut points = Vec::with_capacity(2);
 
-    if (-INTERSECTION_EPSILON..=1.0 + INTERSECTION_EPSILON).contains(&t1) {
+    if (-config.vision.intersection_epsilon..=1.0 + config.vision.intersection_epsilon)
+        .contains(&t1)
+    {
         points.push(start + segment * t1.clamp(0.0, 1.0));
     }
-    if (-INTERSECTION_EPSILON..=1.0 + INTERSECTION_EPSILON).contains(&t2)
-        && (t2 - t1).abs() > INTERSECTION_EPSILON
+    if (-config.vision.intersection_epsilon..=1.0 + config.vision.intersection_epsilon)
+        .contains(&t2)
+        && (t2 - t1).abs() > config.vision.intersection_epsilon
     {
         points.push(start + segment * t2.clamp(0.0, 1.0));
     }

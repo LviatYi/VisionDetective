@@ -1,11 +1,5 @@
 use bevy::prelude::Component;
 
-pub const MAX_EJECT_DISTANCE: f32 = 100.0;
-pub const MAX_PLANAR_SPEED: f32 = 250.0;
-pub const MAX_VERTICAL_SPEED: f32 = 4.0;
-pub const MIN_VERTICAL_SPEED: f32 = 0.5;
-pub const HEIGHT_SCALE_FACTOR: f32 = 0.75;
-
 #[derive(Component, Default)]
 pub struct PlayerCoin {
     pub sim_z: f32,
@@ -13,13 +7,10 @@ pub struct PlayerCoin {
 }
 
 pub mod controller {
-    use crate::coin::player::{
-        HEIGHT_SCALE_FACTOR, MAX_EJECT_DISTANCE, MAX_PLANAR_SPEED, MAX_VERTICAL_SPEED,
-        MIN_VERTICAL_SPEED, PlayerCoin,
-    };
-    use crate::physics::{ARENA_HALF_HEIGHT, ARENA_HALF_WIDTH, Velocity};
-    use crate::{CursorWorldPosition, PLAYER_RADIUS};
-    use bevy::color::Color;
+    use crate::CursorWorldPosition;
+    use crate::coin::player::PlayerCoin;
+    use crate::config::GameConfig;
+    use crate::physics::Velocity;
     use bevy::input::ButtonInput;
     use bevy::math::{Vec2, Vec3};
     use bevy::prelude::{
@@ -37,6 +28,7 @@ pub mod controller {
     }
 
     pub fn handle_player_eject_input(
+        config: Res<GameConfig>,
         mouse_input: Res<ButtonInput<MouseButton>>,
         cursor_world: Res<CursorWorldPosition>,
         mut input_state: ResMut<EjectInputState>,
@@ -49,7 +41,7 @@ pub mod controller {
         let player_position = player_transform.translation.truncate();
         let cursor_position = cursor_world.0;
         input_state.aiming = cursor_position
-            .map(|cursor| cursor.distance(player_position) <= PLAYER_RADIUS)
+            .map(|cursor| cursor.distance(player_position) <= config.visuals.player_radius)
             .map(|in_range| in_range && velocity.length_squared() <= 0.0)
             .unwrap_or(false);
 
@@ -60,18 +52,20 @@ pub mod controller {
         if input_state.charging {
             if mouse_input.pressed(MouseButton::Left) {
                 if let Some(cursor) = cursor_position {
-                    input_state.eject_vector =
-                        (player_position - cursor).clamp_length_max(MAX_EJECT_DISTANCE);
+                    input_state.eject_vector = (player_position - cursor)
+                        .clamp_length_max(config.player.max_eject_distance);
                 }
             } else {
                 // eject the player coin
-                if input_state.eject_vector.length() > 6.0 {
-                    let charge_ratio = input_state.eject_vector.length() / MAX_EJECT_DISTANCE;
+                if input_state.eject_vector.length() > config.player.min_launch_distance {
+                    let charge_ratio =
+                        input_state.eject_vector.length() / config.player.max_eject_distance;
                     let planar_velocity = charge_ratio
-                        * MAX_PLANAR_SPEED
+                        * config.player.max_planar_speed
                         * input_state.eject_vector.normalize_or_zero();
-                    let vertical_velocity = MIN_VERTICAL_SPEED
-                        + charge_ratio * (MAX_VERTICAL_SPEED - MIN_VERTICAL_SPEED);
+                    let vertical_velocity = config.player.min_vertical_speed
+                        + charge_ratio
+                            * (config.player.max_vertical_speed - config.player.min_vertical_speed);
 
                     velocity.x = planar_velocity.x;
                     velocity.y = planar_velocity.y;
@@ -88,6 +82,7 @@ pub mod controller {
     }
 
     pub fn update_aiming_marker(
+        config: Res<GameConfig>,
         cursor_world: Res<CursorWorldPosition>,
         drag_state: Res<EjectInputState>,
         mut marker_query: Query<(&mut Transform, &mut Visibility), With<PointerMarker>>,
@@ -98,7 +93,7 @@ pub mod controller {
 
         if drag_state.aiming || drag_state.charging {
             if let Some(cursor) = cursor_world.0 {
-                transform.translation = cursor.extend(4.0);
+                transform.translation = cursor.extend(config.visuals.marker_z);
                 *visibility = Visibility::Visible;
                 return;
             }
@@ -108,26 +103,31 @@ pub mod controller {
     }
 
     pub fn update_player_visuals(
+        config: Res<GameConfig>,
         mut player_query: Query<(&PlayerCoin, &mut Transform), With<PlayerCoin>>,
     ) {
         let Ok((player, mut transform)) = player_query.single_mut() else {
             return;
         };
 
-        let scale = 1.0 + player.sim_z * HEIGHT_SCALE_FACTOR;
+        let scale = 1.0 + player.sim_z * config.player.height_scale_factor;
 
         transform.scale = Vec3::splat(scale);
     }
 
     pub fn draw_arena_and_aim(
+        config: Res<GameConfig>,
         mut gizmos: Gizmos,
         drag_state: Res<EjectInputState>,
         player_query: Query<&Transform, With<PlayerCoin>>,
     ) {
         gizmos.rect_2d(
             Vec2::ZERO,
-            Vec2::new(ARENA_HALF_WIDTH * 2.0, ARENA_HALF_HEIGHT * 2.0),
-            Color::srgb(0.22, 0.28, 0.31),
+            Vec2::new(
+                config.physics.arena_half_width * 2.0,
+                config.physics.arena_half_height * 2.0,
+            ),
+            config.player.arena_outline_color(),
         );
 
         let Ok(player_transform) = player_query.single() else {
@@ -137,8 +137,8 @@ pub mod controller {
         let player_position = player_transform.translation.truncate();
         gizmos.circle_2d(
             player_position,
-            PLAYER_RADIUS + 6.0,
-            Color::srgba(1.0, 1.0, 1.0, 0.12),
+            config.visuals.player_radius + config.player.aim_ring_padding,
+            config.player.aim_ring_color(),
         );
 
         if drag_state.charging && drag_state.eject_vector != Vec2::ZERO {
@@ -148,14 +148,18 @@ pub mod controller {
             gizmos.line_2d(
                 player_position,
                 cursor_position,
-                Color::srgb(0.98, 0.43, 0.29),
+                config.player.charge_line_color(),
             );
             gizmos.line_2d(
                 player_position,
                 launch_target,
-                Color::srgb(0.26, 0.87, 0.71),
+                config.player.launch_line_color(),
             );
-            gizmos.circle_2d(launch_target, 12.0, Color::srgb(0.26, 0.87, 0.71));
+            gizmos.circle_2d(
+                launch_target,
+                config.player.launch_marker_radius,
+                config.player.launch_line_color(),
+            );
         }
     }
 }

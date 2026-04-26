@@ -1,0 +1,155 @@
+# Centralized gameplay, rendering and scene configuration.
+
+[window]
+title = "Vision Detective"
+# Primary window width in logical pixels.
+width = 1280
+# Primary window height in logical pixels.
+height = 720
+resizable = false
+# Background clear color, RGB in 0..1.
+clear_color = [0.06, 0.09, 0.11]
+
+[visuals]
+# Player coin radius in world units.
+player_radius = 28.0
+player_color = [0.90, 0.84, 0.35]
+# Render layer for the player mesh.
+player_z = 2.0
+# Cursor marker radius in world units.
+pointer_radius = 10.0
+pointer_color = [0.98, 0.43, 0.29]
+# Render layer for the cursor marker mesh.
+pointer_z = 4.0
+# Runtime marker translation z used while aiming/charging.
+marker_z = 4.0
+
+[player]
+# Maximum drag distance used for charge accumulation.
+max_eject_distance = 100.0
+# Max planar launch speed reached at full charge.
+max_planar_speed = 250.0
+# Max upward launch speed reached at full charge.
+max_vertical_speed = 4.0
+# Minimum upward launch speed when a launch is triggered.
+min_vertical_speed = 0.5
+# Launch is ignored if drag distance does not exceed this threshold.
+min_launch_distance = 6.0
+# Visual scale gain per unit of simulated z height.
+height_scale_factor = 0.75
+# Extra radius added to the player for the aim highlight ring.
+aim_ring_padding = 6.0
+# RGBA color for the player aim highlight ring.
+aim_ring_color = [1.0, 1.0, 1.0, 0.12]
+arena_outline_color = [0.22, 0.28, 0.31]
+charge_line_color = [0.98, 0.43, 0.29]
+launch_line_color = [0.26, 0.87, 0.71]
+# Radius of the predicted landing marker while charging.
+launch_marker_radius = 12.0
+
+[ui]
+tutorial_text = "左键按住主角蓄力，松开后朝反方向弹射"
+status_initial_text = "状态初始化中"
+tutorial_font_size = 28.0
+status_font_size = 22.0
+# Absolute UI offset from left/top, in pixels.
+tutorial_offset = [24.0, 20.0]
+# Absolute UI offset from left/bottom, in pixels.
+status_offset = [24.0, 20.0]
+status_color = [0.75, 0.81, 0.85]
+
+[physics]
+# Half extents of the rectangular arena in world units.
+arena_half_width = 500.0
+arena_half_height = 280.0
+# Velocity multiplier applied after wall or obstacle bounce.
+bounce_factor = 0.72
+# Horizontal damping applied on each ground contact and vertical rebound.
+landing_speed_loss = 0.72
+# Linear friction applied after the final ground contact.
+sliding_friction = 180.0
+# Planar speed below this value snaps to rest.
+stop_speed = 8.0
+# Vertical acceleration used by the pseudo-3D jump arc.
+gravity = -9.8
+# Number of ground contacts before the coin starts pure sliding.
+max_ground_bounce_count = 2
+
+[vision]
+# Visibility radius centered on the player.
+radius = 240.0
+# Base angular ray count for field-of-view sampling.
+ray_count = 128
+# Small angular offset around obstacle vertices to avoid missing edges.
+vertex_epsilon = 0.0025
+# Tolerance used for ray angle dedup and circle-segment intersection tests.
+intersection_epsilon = 0.0001
+fill_color = [0.92, 0.95, 0.80, 0.18]
+outline_color = [0.95, 0.98, 0.86, 0.42]
+# Render layer for the visibility mesh.
+mesh_z = 0.5
+
+[obstacles]
+edge_color = [0.64, 0.67, 0.78]
+vertex_color = [0.78, 0.81, 0.90]
+# Debug vertex gizmo radius.
+vertex_radius = 3.0
+
+[scene]
+# Number of samples generated per cubic bezier segment.
+bezier_steps_per_curve = 8
+
+[[scene.demo_obstacles]]
+# Obstacle world translation [x, y, z].
+translation = [-210.0, 70.0, 1.0]
+# Z-axis rotation in radians.
+rotation_z = 0.34
+# Closed polygon points in local space [x, y].
+path = [
+    [-90.0, -28.0],
+    [80.0, -22.0],
+    [96.0, 8.0],
+    [-74.0, 34.0],
+]
+
+[[scene.demo_obstacles]]
+translation = [150.0, -20.0, 1.0]
+rotation_z = 0.0
+path = [
+    [-60.0, -80.0],
+    [12.0, -108.0],
+    [82.0, -18.0],
+    [44.0, 92.0],
+    [-46.0, 66.0],
+    [-92.0, -8.0],
+]
+
+[[scene.demo_obstacles]]
+translation = [280.0, 160.0, 1.0]
+rotation_z = 0.0
+
+[scene.demo_obstacles.bezier]
+# Closed bezier anchor points in local space [x, y].
+anchors = [
+    [-72.0, -16.0],
+    [-48.0, 72.0],
+    [60.0, 76.0],
+    [86.0, 6.0],
+]
+# First control handle for each anchor.
+controls_a = [
+    [-64.0, 40.0],
+    [4.0, 98.0],
+    [90.0, 54.0],
+    [42.0, -54.0],
+]
+# Second control handle for each anchor.
+controls_b = [
+    [-8.0, 96.0],
+    [82.0, 98.0],
+    [108.0, -26.0],
+    [-14.0, -76.0],
+]
+
+[assets]
+default_font = "fonts/LXGWWenKai/LXGWWenKai-Regular.ttf"

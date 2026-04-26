@@ -1,5 +1,5 @@
-use crate::PLAYER_RADIUS;
 use crate::coin::player::PlayerCoin;
+use crate::config::GameConfig;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::{Component, Deref, DerefMut, Query, Res, Time, Transform, Without};
 use obstacle::Obstacle;
@@ -7,19 +7,11 @@ use obstacle::Obstacle;
 pub mod obstacle;
 pub mod vision;
 
-pub const ARENA_HALF_WIDTH: f32 = 500.0;
-pub const ARENA_HALF_HEIGHT: f32 = 280.0;
-pub const BOUNCE_FACTOR: f32 = 0.72;
-pub const LANDING_SPEED_LOSS: f32 = 0.72;
-pub const SLIDING_FRICTION: f32 = 180.0;
-pub const STOP_SPEED: f32 = 8.0;
-pub const GRAVITY: f32 = -9.8;
-pub const MAX_GROUND_BOUNCE_COUNT: u8 = 2;
-
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct Velocity(Vec3);
 
 pub fn move_player_coin_transform(
+    config: Res<GameConfig>,
     time: Res<Time>,
     mut transform_query: Query<(&mut Transform, &mut PlayerCoin, &mut Velocity)>,
     obstacle_query: Query<(&Transform, &Obstacle), Without<PlayerCoin>>,
@@ -29,60 +21,60 @@ pub fn move_player_coin_transform(
     };
 
     let dt = time.delta_secs();
-    let airborne = coin.ground_contact_count < MAX_GROUND_BOUNCE_COUNT;
+    let airborne = coin.ground_contact_count < config.physics.max_ground_bounce_count;
 
     if airborne {
         coin.sim_z += velocity.z * dt;
-        velocity.z += GRAVITY * dt;
+        velocity.z += config.physics.gravity * dt;
     }
 
     transform.translation += velocity.with_z(0.0) * dt;
 
-    let min_x = -ARENA_HALF_WIDTH + PLAYER_RADIUS;
-    let max_x = ARENA_HALF_WIDTH - PLAYER_RADIUS;
-    let min_y = -ARENA_HALF_HEIGHT + PLAYER_RADIUS;
-    let max_y = ARENA_HALF_HEIGHT - PLAYER_RADIUS;
+    let min_x = -config.physics.arena_half_width + config.visuals.player_radius;
+    let max_x = config.physics.arena_half_width - config.visuals.player_radius;
+    let min_y = -config.physics.arena_half_height + config.visuals.player_radius;
+    let max_y = config.physics.arena_half_height - config.visuals.player_radius;
 
     if transform.translation.x < min_x {
         transform.translation.x = min_x;
-        velocity.x = velocity.x.abs() * BOUNCE_FACTOR;
+        velocity.x = velocity.x.abs() * config.physics.bounce_factor;
     } else if transform.translation.x > max_x {
         transform.translation.x = max_x;
-        velocity.x = -velocity.x.abs() * BOUNCE_FACTOR;
+        velocity.x = -velocity.x.abs() * config.physics.bounce_factor;
     }
 
     if transform.translation.y < min_y {
         transform.translation.y = min_y;
-        velocity.y = velocity.y.abs() * BOUNCE_FACTOR;
+        velocity.y = velocity.y.abs() * config.physics.bounce_factor;
     } else if transform.translation.y > max_y {
         transform.translation.y = max_y;
-        velocity.y = -velocity.y.abs() * BOUNCE_FACTOR;
+        velocity.y = -velocity.y.abs() * config.physics.bounce_factor;
     }
 
-    resolve_obstacle_collisions(&mut transform, &mut velocity, &obstacle_query);
+    resolve_obstacle_collisions(&config, &mut transform, &mut velocity, &obstacle_query);
 
     if airborne && coin.sim_z <= 0.0 {
         coin.sim_z = 0.0;
         coin.ground_contact_count += 1;
-        velocity.x *= LANDING_SPEED_LOSS;
-        velocity.y *= LANDING_SPEED_LOSS;
+        velocity.x *= config.physics.landing_speed_loss;
+        velocity.y *= config.physics.landing_speed_loss;
 
-        if coin.ground_contact_count >= MAX_GROUND_BOUNCE_COUNT {
+        if coin.ground_contact_count >= config.physics.max_ground_bounce_count {
             velocity.z = 0.0;
         } else {
-            velocity.z = -velocity.z * LANDING_SPEED_LOSS;
+            velocity.z = -velocity.z * config.physics.landing_speed_loss;
         }
     }
 
-    if coin.ground_contact_count >= MAX_GROUND_BOUNCE_COUNT {
+    if coin.ground_contact_count >= config.physics.max_ground_bounce_count {
         let planar_velocity = velocity.truncate();
         let planar_speed = planar_velocity.length();
 
-        if planar_speed < STOP_SPEED {
+        if planar_speed < config.physics.stop_speed {
             velocity.x = 0.0;
             velocity.y = 0.0;
         } else {
-            let friction_delta = SLIDING_FRICTION * dt;
+            let friction_delta = config.physics.sliding_friction * dt;
             let next_speed = (planar_speed - friction_delta).max(0.0);
             let next_planar_velocity = planar_velocity.normalize() * next_speed;
 
@@ -93,6 +85,7 @@ pub fn move_player_coin_transform(
 }
 
 fn resolve_obstacle_collisions(
+    config: &GameConfig,
     transform: &mut Transform,
     velocity: &mut Velocity,
     obstacle_query: &Query<(&Transform, &Obstacle), Without<PlayerCoin>>,
@@ -102,7 +95,7 @@ fn resolve_obstacle_collisions(
     for (obstacle_transform, obstacle) in obstacle_query.iter() {
         let world_path = obstacle.world_path(obstacle_transform);
         if let Some((normal, penetration)) =
-            collide_circle_with_polygon(player_position, PLAYER_RADIUS, &world_path)
+            collide_circle_with_polygon(player_position, config.visuals.player_radius, &world_path)
         {
             player_position += normal * penetration;
 
@@ -110,7 +103,8 @@ fn resolve_obstacle_collisions(
             let normal_speed = planar_velocity.dot(normal);
             if normal_speed < 0.0 {
                 let tangential_velocity = planar_velocity - normal * normal_speed;
-                let reflected_normal_velocity = -normal * normal_speed * BOUNCE_FACTOR;
+                let reflected_normal_velocity =
+                    -normal * normal_speed * config.physics.bounce_factor;
                 let next_velocity = tangential_velocity + reflected_normal_velocity;
 
                 velocity.x = next_velocity.x;

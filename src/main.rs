@@ -1,25 +1,22 @@
 pub mod asset;
 pub mod coin;
+pub mod config;
 pub mod physics;
 pub mod scene;
 
 use crate::asset::font;
+use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{
     EjectInputState, PointerMarker, draw_arena_and_aim, handle_player_eject_input,
     update_aiming_marker, update_player_visuals,
 };
-use crate::coin::player::{MAX_EJECT_DISTANCE, MAX_PLANAR_SPEED, PlayerCoin};
+use crate::config::GameConfig;
 use crate::physics::{Velocity, move_player_coin_transform};
 use crate::scene::demo_level::spawn_demo_obstacles;
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution};
 use physics::obstacle::draw_obstacle_paths;
 use physics::vision::{draw_vision_radius, setup_vision_system, update_vision_field_mesh};
-
-const WINDOW_WIDTH: f32 = 1280.0;
-const WINDOW_HEIGHT: f32 = 720.0;
-const PLAYER_RADIUS: f32 = 28.0;
-const POINTER_RADIUS: f32 = 10.0;
 
 #[derive(Component)]
 struct StatusText;
@@ -28,15 +25,18 @@ struct StatusText;
 pub struct CursorWorldPosition(pub Option<Vec2>);
 
 fn main() {
+    let config = GameConfig::load();
+
     App::new()
-        .insert_resource(ClearColor(Color::srgb(0.06, 0.09, 0.11)))
+        .insert_resource(ClearColor(config.window.clear_color()))
+        .insert_resource(config.clone())
         .init_resource::<CursorWorldPosition>()
         .init_resource::<EjectInputState>()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                title: "Vision Detective".into(),
-                resolution: WindowResolution::new(WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32),
-                resizable: false,
+                title: config.window.title.clone().into(),
+                resolution: WindowResolution::new(config.window.width, config.window.height),
+                resizable: config.window.resizable,
                 ..default()
             }),
             ..default()
@@ -63,59 +63,60 @@ fn main() {
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    config: Res<GameConfig>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2d);
-    spawn_demo_obstacles(&mut commands);
-    setup_vision_system(&mut commands, &mut meshes, &mut materials);
+    spawn_demo_obstacles(&mut commands, &config);
+    setup_vision_system(&mut commands, &config, &mut meshes, &mut materials);
 
     commands.spawn((
-        Mesh2d(meshes.add(Circle::new(PLAYER_RADIUS))),
-        MeshMaterial2d(materials.add(Color::srgb(0.90, 0.84, 0.35))),
-        Transform::from_translation(Vec3::new(0.0, 0.0, 2.0)),
+        Mesh2d(meshes.add(Circle::new(config.visuals.player_radius))),
+        MeshMaterial2d(materials.add(config.visuals.player_color())),
+        Transform::from_translation(Vec3::new(0.0, 0.0, config.visuals.player_z)),
         PlayerCoin::default(),
         Velocity::default(),
     ));
 
     commands.spawn((
-        Mesh2d(meshes.add(Circle::new(POINTER_RADIUS))),
-        MeshMaterial2d(materials.add(Color::srgb(0.98, 0.43, 0.29))),
-        Transform::from_translation(Vec3::new(0.0, 0.0, 4.0)),
+        Mesh2d(meshes.add(Circle::new(config.visuals.pointer_radius))),
+        MeshMaterial2d(materials.add(config.visuals.pointer_color())),
+        Transform::from_translation(Vec3::new(0.0, 0.0, config.visuals.pointer_z)),
         Visibility::Hidden,
         PointerMarker,
     ));
 
-    let ui_font = font::load_assets(asset_server, font::FontType::Default);
+    let ui_font = font::load_assets(asset_server, &config, font::FontType::Default);
 
     commands.spawn((
-        Text::new("左键按住主角蓄力，松开后朝反方向弹射"),
+        Text::new(config.ui.tutorial_text.clone()),
         TextFont {
             font: ui_font.clone(),
-            font_size: 28.0,
+            font_size: config.ui.tutorial_font_size,
             ..default()
         },
         TextColor(Color::WHITE),
         Node {
             position_type: PositionType::Absolute,
-            top: px(20),
-            left: px(24),
+            top: px(config.ui.tutorial_offset[1]),
+            left: px(config.ui.tutorial_offset[0]),
             ..default()
         },
     ));
 
     commands.spawn((
-        Text::new("状态初始化中"),
+        Text::new(config.ui.status_initial_text.clone()),
         TextFont {
             font: ui_font,
-            font_size: 22.0,
+            font_size: config.ui.status_font_size,
             ..default()
         },
-        TextColor(Color::srgb(0.75, 0.81, 0.85)),
+        TextColor(config.ui.status_color()),
         Node {
             position_type: PositionType::Absolute,
-            bottom: px(20),
-            left: px(24),
+            bottom: px(config.ui.status_offset[1]),
+            left: px(config.ui.status_offset[0]),
             ..default()
         },
         StatusText,
@@ -139,6 +140,7 @@ fn track_cursor_world_position(
 }
 
 fn update_status_text(
+    config: Res<GameConfig>,
     drag_state: Res<EjectInputState>,
     player_query: Query<&Velocity, With<PlayerCoin>>,
     mut text_query: Query<&mut Text, With<StatusText>>,
@@ -151,11 +153,11 @@ fn update_status_text(
     };
 
     let status = if drag_state.charging {
-        let charge_ratio = drag_state.eject_vector.length() / MAX_EJECT_DISTANCE;
+        let charge_ratio = drag_state.eject_vector.length() / config.player.max_eject_distance;
         format!(
             "蓄力中 | 拉距 {:.0}px | 预计平面速度 {:.0}",
             drag_state.eject_vector.length(),
-            charge_ratio * MAX_PLANAR_SPEED
+            charge_ratio * config.player.max_planar_speed
         )
     } else if drag_state.aiming {
         format!(
