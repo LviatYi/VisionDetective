@@ -3,11 +3,11 @@ pub mod coin;
 pub mod physics;
 
 use crate::asset::font;
-use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{
     EjectInputState, PointerMarker, draw_arena_and_aim, handle_player_eject_input,
     update_aiming_marker, update_player_visuals,
 };
+use crate::coin::player::{EJECT_POWER, PlayerCoin};
 use crate::physics::{Velocity, move_transform};
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution};
@@ -16,9 +16,6 @@ const WINDOW_WIDTH: f32 = 1280.0;
 const WINDOW_HEIGHT: f32 = 720.0;
 const PLAYER_RADIUS: f32 = 28.0;
 const POINTER_RADIUS: f32 = 10.0;
-const MAX_EJECT_DISTANCE: f32 = 150.0;
-const EJECT_POWER: f32 = 8.5;
-const MAX_SPEED: f32 = 1400.0;
 
 #[derive(Component)]
 struct StatusText;

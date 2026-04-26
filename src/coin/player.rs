@@ -1,12 +1,16 @@
 use bevy::prelude::Component;
 
+pub const EJECT_POWER: f32 = 8.5;
+pub const MAX_EJECT_DISTANCE: f32 = 150.0;
+pub const MAX_SPEED: f32 = 1400.0;
+
 #[derive(Component)]
 pub struct PlayerCoin;
 
 pub mod controller {
-    use crate::coin::player::PlayerCoin;
-    use crate::physics::{ARENA_HALF_HEIGHT, ARENA_HALF_WIDTH, Velocity};
-    use crate::{CursorWorldPosition, EJECT_POWER, MAX_EJECT_DISTANCE, MAX_SPEED, PLAYER_RADIUS};
+    use crate::coin::player::{PlayerCoin, EJECT_POWER, MAX_EJECT_DISTANCE, MAX_SPEED};
+    use crate::physics::{Velocity, ARENA_HALF_HEIGHT, ARENA_HALF_WIDTH};
+    use crate::{CursorWorldPosition, PLAYER_RADIUS};
     use bevy::color::Color;
     use bevy::input::ButtonInput;
     use bevy::math::{Vec2, Vec3};
