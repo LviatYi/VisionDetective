@@ -4,11 +4,11 @@ pub mod physics;
 
 use crate::asset::font;
 use crate::coin::player::controller::{
-    EjectInputState, PointerMarker, draw_arena_and_aim, handle_player_eject_input,
-    update_aiming_marker, update_player_visuals,
+    draw_arena_and_aim, handle_player_eject_input, update_aiming_marker, update_player_visuals,
+    EjectInputState, PointerMarker,
 };
-use crate::coin::player::{EJECT_POWER, PlayerCoin};
-use crate::physics::{Velocity, move_transform};
+use crate::coin::player::{PlayerCoin, EJECT_POWER};
+use crate::physics::{move_player_coin_transform, Velocity};
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution};
 
@@ -43,7 +43,7 @@ fn main() {
             (
                 track_cursor_world_position,
                 handle_player_eject_input,
-                move_transform,
+                move_player_coin_transform,
                 update_player_visuals,
                 update_aiming_marker,
                 update_status_text,
@@ -65,7 +65,7 @@ fn setup(
         Mesh2d(meshes.add(Circle::new(PLAYER_RADIUS))),
         MeshMaterial2d(materials.add(Color::srgb(0.90, 0.84, 0.35))),
         Transform::from_translation(Vec3::new(0.0, 0.0, 2.0)),
-        PlayerCoin,
+        PlayerCoin::default(),
         Velocity::default(),
     ));
 

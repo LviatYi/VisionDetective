@@ -1,11 +1,13 @@
 use bevy::prelude::Component;
 
 pub const EJECT_POWER: f32 = 8.5;
-pub const MAX_EJECT_DISTANCE: f32 = 150.0;
+pub const MAX_EJECT_DISTANCE: f32 = 15.0;
 pub const MAX_SPEED: f32 = 1400.0;
 
-#[derive(Component)]
-pub struct PlayerCoin;
+#[derive(Component, Default)]
+pub struct PlayerCoin {
+    pub sim_z: f32,
+}
 
 pub mod controller {
     use crate::coin::player::{PlayerCoin, EJECT_POWER, MAX_EJECT_DISTANCE, MAX_SPEED};
@@ -57,8 +59,8 @@ pub mod controller {
                 }
             } else {
                 if input_state.eject_vector.length() > 6.0 {
-                    **velocity =
-                        (input_state.eject_vector * EJECT_POWER).clamp_length_max(MAX_SPEED);
+                    **velocity = (input_state.eject_vector.extend(1.0) * EJECT_POWER)
+                        .clamp_length_max(MAX_SPEED);
                 }
                 input_state.building_up = false;
                 input_state.eject_vector = Vec2::ZERO;
@@ -89,14 +91,14 @@ pub mod controller {
     }
 
     pub fn update_player_visuals(
-        mut player_query: Query<(&Velocity, &mut Transform), With<PlayerCoin>>,
+        mut player_query: Query<(&Velocity, &PlayerCoin, &mut Transform), With<PlayerCoin>>,
     ) {
-        let Ok((velocity, mut transform)) = player_query.single_mut() else {
+        let Ok((velocity, player, mut transform)) = player_query.single_mut() else {
             return;
         };
 
         let speed_ratio = velocity.length() / MAX_SPEED;
-        let scale = 1.0 + speed_ratio;
+        let scale = 1.0 + player.sim_z / 10.0;
 
         transform.scale = Vec3::splat(scale);
         transform.translation.z = 2.0 + speed_ratio * 8.0;
