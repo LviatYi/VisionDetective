@@ -1,5 +1,6 @@
 pub mod asset;
 pub mod coin;
+pub mod obstacle;
 pub mod physics;
 
 use crate::asset::font;
@@ -8,6 +9,7 @@ use crate::coin::player::controller::{
     update_aiming_marker, update_player_visuals,
 };
 use crate::coin::player::{MAX_EJECT_DISTANCE, MAX_PLANAR_SPEED, PlayerCoin};
+use crate::obstacle::{draw_obstacle_paths, spawn_demo_obstacles};
 use crate::physics::{Velocity, move_player_coin_transform};
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution};
@@ -47,6 +49,7 @@ fn main() {
                 update_player_visuals,
                 update_aiming_marker,
                 update_status_text,
+                draw_obstacle_paths,
                 draw_arena_and_aim,
             ),
         )
@@ -60,6 +63,7 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2d);
+    spawn_demo_obstacles(&mut commands);
 
     commands.spawn((
         Mesh2d(meshes.add(Circle::new(PLAYER_RADIUS))),

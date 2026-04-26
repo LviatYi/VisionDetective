@@ -1,10 +1,10 @@
 use bevy::prelude::Component;
 
-pub const MAX_EJECT_DISTANCE: f32 = 60.0;
-pub const MAX_PLANAR_SPEED: f32 = 200.0;
+pub const MAX_EJECT_DISTANCE: f32 = 100.0;
+pub const MAX_PLANAR_SPEED: f32 = 250.0;
 pub const MAX_VERTICAL_SPEED: f32 = 4.0;
 pub const MIN_VERTICAL_SPEED: f32 = 0.5;
-pub const HEIGHT_SCALE_FACTOR: f32 = 0.5;
+pub const HEIGHT_SCALE_FACTOR: f32 = 0.75;
 
 #[derive(Component, Default)]
 pub struct PlayerCoin {
