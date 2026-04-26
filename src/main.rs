@@ -12,6 +12,7 @@ use crate::physics::{Velocity, move_player_coin_transform};
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution};
 use physics::obstacle::{draw_obstacle_paths, spawn_demo_obstacles};
+use physics::vision::{draw_vision_radius, setup_vision_system, update_vision_field_mesh};
 
 const WINDOW_WIDTH: f32 = 1280.0;
 const WINDOW_HEIGHT: f32 = 720.0;
@@ -45,9 +46,11 @@ fn main() {
                 track_cursor_world_position,
                 handle_player_eject_input,
                 move_player_coin_transform,
+                update_vision_field_mesh,
                 update_player_visuals,
                 update_aiming_marker,
                 update_status_text,
+                draw_vision_radius,
                 draw_obstacle_paths,
                 draw_arena_and_aim,
             ),
@@ -63,6 +66,7 @@ fn setup(
 ) {
     commands.spawn(Camera2d);
     spawn_demo_obstacles(&mut commands);
+    setup_vision_system(&mut commands, &mut meshes, &mut materials);
 
     commands.spawn((
         Mesh2d(meshes.add(Circle::new(PLAYER_RADIUS))),

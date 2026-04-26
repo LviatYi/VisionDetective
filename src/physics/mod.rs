@@ -5,6 +5,7 @@ use bevy::prelude::{Component, Deref, DerefMut, Query, Res, Time, Transform, Wit
 use obstacle::Obstacle;
 
 pub mod obstacle;
+pub mod vision;
 
 pub const ARENA_HALF_WIDTH: f32 = 500.0;
 pub const ARENA_HALF_HEIGHT: f32 = 280.0;
