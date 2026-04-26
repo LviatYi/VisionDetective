@@ -1,3 +1,8 @@
+use crate::coin::player::controller::{
+    CursorWorldPosition, EjectInputState, draw_arena_and_aim, handle_player_eject_input,
+    track_cursor_world_position, update_aiming_marker, update_player_visuals,
+};
+use bevy::app::{Startup, Update};
 use bevy::prelude::{App, Component, Plugin};
 
 #[derive(Component, Default)]
@@ -15,9 +20,9 @@ pub mod controller {
     use bevy::input::ButtonInput;
     use bevy::math::{Vec2, Vec3};
     use bevy::prelude::{
-        App, Assets, Camera, Camera2d, Circle, ColorMaterial, Commands, Component, Gizmos,
-        GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, MouseButton, Query, Res, ResMut,
-        Resource, Startup, Transform, Update, Visibility, With,
+        Assets, Camera, Camera2d, Circle, ColorMaterial, Commands, Component, Gizmos,
+        GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, MouseButton, Query, Res, ResMut, Resource,
+        Transform, Visibility, With,
     };
     use bevy::window::{PrimaryWindow, Window};
 
@@ -34,23 +39,7 @@ pub mod controller {
     #[derive(Resource, Default)]
     pub struct CursorWorldPosition(pub Option<Vec2>);
 
-    pub fn build_plugin(app: &mut App) {
-        app.init_resource::<CursorWorldPosition>()
-            .init_resource::<EjectInputState>()
-            .add_systems(Startup, setup_player)
-            .add_systems(
-                Update,
-                (
-                    track_cursor_world_position,
-                    handle_player_eject_input,
-                    update_player_visuals,
-                    update_aiming_marker,
-                    draw_arena_and_aim,
-                ),
-            );
-    }
-
-    fn setup_player(
+    pub fn setup_player(
         mut commands: Commands,
         config: Res<GameConfig>,
         mut meshes: ResMut<Assets<Mesh>>,
@@ -228,6 +217,18 @@ pub mod controller {
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        controller::build_plugin(app);
+        app.init_resource::<CursorWorldPosition>()
+            .init_resource::<EjectInputState>()
+            .add_systems(Startup, controller::setup_player)
+            .add_systems(
+                Update,
+                (
+                    track_cursor_world_position,
+                    handle_player_eject_input,
+                    update_player_visuals,
+                    update_aiming_marker,
+                    draw_arena_and_aim,
+                ),
+            );
     }
 }
