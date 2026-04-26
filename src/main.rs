@@ -5,24 +5,18 @@ pub mod physics;
 pub mod scene;
 
 use crate::asset::font;
-use crate::coin::player::PlayerCoin;
-use crate::coin::player::controller::{
-    EjectInputState, PointerMarker, draw_arena_and_aim, handle_player_eject_input,
-    update_aiming_marker, update_player_visuals,
-};
+use crate::coin::player::controller::EjectInputState;
+use crate::coin::player::PlayerPlugin;
 use crate::config::GameConfig;
-use crate::physics::{Velocity, move_player_coin_transform};
+use crate::physics::vision::VisionPlugin;
+use crate::physics::PhysicsPlugin;
+use crate::physics::Velocity;
 use crate::scene::demo_level::spawn_demo_obstacles;
 use bevy::prelude::*;
-use bevy::window::{PrimaryWindow, WindowResolution};
-use physics::obstacle::draw_obstacle_paths;
-use physics::vision::{draw_vision_radius, setup_vision_system, update_vision_field_mesh};
+use bevy::window::WindowResolution;
 
 #[derive(Component)]
 struct StatusText;
-
-#[derive(Resource, Default)]
-pub struct CursorWorldPosition(pub Option<Vec2>);
 
 fn main() {
     let config = GameConfig::load();
@@ -30,8 +24,6 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(config.window.clear_color()))
         .insert_resource(config.clone())
-        .init_resource::<CursorWorldPosition>()
-        .init_resource::<EjectInputState>()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: config.window.title.clone().into(),
@@ -41,22 +33,9 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins((PlayerPlugin, PhysicsPlugin, VisionPlugin))
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (
-                track_cursor_world_position,
-                handle_player_eject_input,
-                move_player_coin_transform,
-                update_vision_field_mesh,
-                update_player_visuals,
-                update_aiming_marker,
-                update_status_text,
-                draw_vision_radius,
-                draw_obstacle_paths,
-                draw_arena_and_aim,
-            ),
-        )
+        .add_systems(Update, update_status_text)
         .run();
 }
 
@@ -64,28 +43,9 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     config: Res<GameConfig>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2d);
     spawn_demo_obstacles(&mut commands, &config);
-    setup_vision_system(&mut commands, &config, &mut meshes, &mut materials);
-
-    commands.spawn((
-        Mesh2d(meshes.add(Circle::new(config.visuals.player_radius))),
-        MeshMaterial2d(materials.add(config.visuals.player_color())),
-        Transform::from_translation(Vec3::new(0.0, 0.0, config.visuals.player_z)),
-        PlayerCoin::default(),
-        Velocity::default(),
-    ));
-
-    commands.spawn((
-        Mesh2d(meshes.add(Circle::new(config.visuals.pointer_radius))),
-        MeshMaterial2d(materials.add(config.visuals.pointer_color())),
-        Transform::from_translation(Vec3::new(0.0, 0.0, config.visuals.pointer_z)),
-        Visibility::Hidden,
-        PointerMarker,
-    ));
 
     let ui_font = font::load_assets(asset_server, &config, font::FontType::Default);
 
@@ -123,26 +83,10 @@ fn setup(
     ));
 }
 
-fn track_cursor_world_position(
-    window_query: Query<&Window, With<PrimaryWindow>>,
-    camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
-    mut cursor_world: ResMut<CursorWorldPosition>,
-) {
-    let (Ok(window), Ok((camera, camera_transform))) =
-        (window_query.single(), camera_query.single())
-    else {
-        return;
-    };
-
-    cursor_world.0 = window
-        .cursor_position()
-        .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok());
-}
-
 fn update_status_text(
     config: Res<GameConfig>,
     drag_state: Res<EjectInputState>,
-    player_query: Query<&Velocity, With<PlayerCoin>>,
+    player_query: Query<&Velocity, With<coin::player::PlayerCoin>>,
     mut text_query: Query<&mut Text, With<StatusText>>,
 ) {
     let Ok(velocity) = player_query.single() else {

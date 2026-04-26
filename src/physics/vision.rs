@@ -5,17 +5,28 @@ use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 
+pub struct VisionPlugin;
+
 #[derive(Component)]
 pub struct VisionFieldMesh;
 
+impl Plugin for VisionPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, setup_vision_system).add_systems(
+            Update,
+            (update_vision_field_mesh, draw_vision_radius),
+        );
+    }
+}
+
 pub fn setup_vision_system(
-    commands: &mut Commands,
-    config: &GameConfig,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<ColorMaterial>,
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn((
-        Mesh2d(meshes.add(build_vision_mesh(config, Vec2::ZERO, &[]))),
+        Mesh2d(meshes.add(build_vision_mesh(&config, Vec2::ZERO, &[]))),
         MeshMaterial2d(materials.add(config.vision.fill_color())),
         Transform::from_translation(Vec3::new(0.0, 0.0, config.vision.mesh_z)),
         VisionFieldMesh,

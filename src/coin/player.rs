@@ -1,4 +1,4 @@
-use bevy::prelude::Component;
+use bevy::prelude::{App, Component, Plugin};
 
 #[derive(Component, Default)]
 pub struct PlayerCoin {
@@ -6,16 +6,20 @@ pub struct PlayerCoin {
     pub ground_contact_count: u8,
 }
 
+pub struct PlayerPlugin;
+
 pub mod controller {
-    use crate::CursorWorldPosition;
     use crate::coin::player::PlayerCoin;
     use crate::config::GameConfig;
     use crate::physics::Velocity;
     use bevy::input::ButtonInput;
     use bevy::math::{Vec2, Vec3};
     use bevy::prelude::{
-        Component, Gizmos, MouseButton, Query, Res, ResMut, Resource, Transform, Visibility, With,
+        App, Assets, Camera, Camera2d, Circle, ColorMaterial, Commands, Component, Gizmos,
+        GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, MouseButton, Query, Res, ResMut,
+        Resource, Startup, Transform, Update, Visibility, With,
     };
+    use bevy::window::{PrimaryWindow, Window};
 
     #[derive(Component)]
     pub struct PointerMarker;
@@ -25,6 +29,64 @@ pub mod controller {
         pub aiming: bool,
         pub charging: bool,
         pub eject_vector: Vec2,
+    }
+
+    #[derive(Resource, Default)]
+    pub struct CursorWorldPosition(pub Option<Vec2>);
+
+    pub fn build_plugin(app: &mut App) {
+        app.init_resource::<CursorWorldPosition>()
+            .init_resource::<EjectInputState>()
+            .add_systems(Startup, setup_player)
+            .add_systems(
+                Update,
+                (
+                    track_cursor_world_position,
+                    handle_player_eject_input,
+                    update_player_visuals,
+                    update_aiming_marker,
+                    draw_arena_and_aim,
+                ),
+            );
+    }
+
+    fn setup_player(
+        mut commands: Commands,
+        config: Res<GameConfig>,
+        mut meshes: ResMut<Assets<Mesh>>,
+        mut materials: ResMut<Assets<ColorMaterial>>,
+    ) {
+        commands.spawn((
+            Mesh2d(meshes.add(Circle::new(config.visuals.player_radius))),
+            MeshMaterial2d(materials.add(config.visuals.player_color())),
+            Transform::from_translation(Vec3::new(0.0, 0.0, config.visuals.player_z)),
+            PlayerCoin::default(),
+            Velocity::default(),
+        ));
+
+        commands.spawn((
+            Mesh2d(meshes.add(Circle::new(config.visuals.pointer_radius))),
+            MeshMaterial2d(materials.add(config.visuals.pointer_color())),
+            Transform::from_translation(Vec3::new(0.0, 0.0, config.visuals.pointer_z)),
+            Visibility::Hidden,
+            PointerMarker,
+        ));
+    }
+
+    pub fn track_cursor_world_position(
+        window_query: Query<&Window, With<PrimaryWindow>>,
+        camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+        mut cursor_world: ResMut<CursorWorldPosition>,
+    ) {
+        let (Ok(window), Ok((camera, camera_transform))) =
+            (window_query.single(), camera_query.single())
+        else {
+            return;
+        };
+
+        cursor_world.0 = window
+            .cursor_position()
+            .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok());
     }
 
     pub fn handle_player_eject_input(
@@ -161,5 +223,11 @@ pub mod controller {
                 config.player.launch_line_color(),
             );
         }
+    }
+}
+
+impl Plugin for PlayerPlugin {
+    fn build(&self, app: &mut App) {
+        controller::build_plugin(app);
     }
 }

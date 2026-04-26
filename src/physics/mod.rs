@@ -1,14 +1,22 @@
 use crate::coin::player::PlayerCoin;
 use crate::config::GameConfig;
 use bevy::math::{Vec2, Vec3};
-use bevy::prelude::{Component, Deref, DerefMut, Query, Res, Time, Transform, Without};
+use bevy::prelude::{App, Component, Deref, DerefMut, Plugin, Query, Res, Time, Transform, Update, Without};
 use obstacle::Obstacle;
 
 pub mod obstacle;
 pub mod vision;
 
+pub struct PhysicsPlugin;
+
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct Velocity(Vec3);
+
+impl Plugin for PhysicsPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Update, (move_player_coin_transform, obstacle::draw_obstacle_paths));
+    }
+}
 
 pub fn move_player_coin_transform(
     config: Res<GameConfig>,
