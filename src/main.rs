@@ -3,8 +3,12 @@ pub mod coin;
 pub mod physics;
 
 use crate::asset::font;
-use crate::coin::player::{LaunchDragState, PlayerCoin, PointerMarker, handle_player_drag};
-use crate::physics::{ARENA_HALF_HEIGHT, ARENA_HALF_WIDTH, Velocity, move_transform};
+use crate::coin::player::PlayerCoin;
+use crate::coin::player::controller::{
+    PlayerEjectState, PointerMarker, draw_arena_and_aim, handle_player_drag, update_player_visuals,
+    update_pointer_marker,
+};
+use crate::physics::{Velocity, move_transform};
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution};
 
@@ -12,21 +16,21 @@ const WINDOW_WIDTH: f32 = 1280.0;
 const WINDOW_HEIGHT: f32 = 720.0;
 const PLAYER_RADIUS: f32 = 28.0;
 const POINTER_RADIUS: f32 = 10.0;
-const MAX_PULL_DISTANCE: f32 = 150.0;
-const SHOT_POWER: f32 = 8.5;
+const MAX_EJECT_DISTANCE: f32 = 150.0;
+const EJECT_POWER: f32 = 8.5;
 const MAX_SPEED: f32 = 1400.0;
 
 #[derive(Component)]
 struct StatusText;
 
 #[derive(Resource, Default)]
-pub struct CursorWorldPosition(Option<Vec2>);
+pub struct CursorWorldPosition(pub Option<Vec2>);
 
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::srgb(0.06, 0.09, 0.11)))
         .init_resource::<CursorWorldPosition>()
-        .init_resource::<LaunchDragState>()
+        .init_resource::<PlayerEjectState>()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Vision Detective".into(),
@@ -117,10 +121,9 @@ fn track_cursor_world_position(
     camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
     mut cursor_world: ResMut<CursorWorldPosition>,
 ) {
-    let Ok(window) = window_query.single() else {
-        return;
-    };
-    let Ok((camera, camera_transform)) = camera_query.single() else {
+    let (Ok(window), Ok((camera, camera_transform))) =
+        (window_query.single(), camera_query.single())
+    else {
         return;
     };
 
@@ -129,45 +132,8 @@ fn track_cursor_world_position(
         .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok());
 }
 
-fn update_player_visuals(
-    drag_state: Res<LaunchDragState>,
-    mut player_query: Query<(&Velocity, &mut Transform), With<PlayerCoin>>,
-) {
-    let Ok((velocity, mut transform)) = player_query.single_mut() else {
-        return;
-    };
-
-    let speed_ratio = velocity.length() / MAX_SPEED;
-    let charge_ratio = drag_state.pull_vector.length() / MAX_PULL_DISTANCE;
-    let lift = speed_ratio.max(charge_ratio);
-    let scale = 1.0 + lift * 0.35;
-
-    transform.scale = Vec3::splat(scale);
-    transform.translation.z = 2.0 + lift * 8.0;
-}
-
-fn update_pointer_marker(
-    cursor_world: Res<CursorWorldPosition>,
-    drag_state: Res<LaunchDragState>,
-    mut marker_query: Query<(&mut Transform, &mut Visibility), With<PointerMarker>>,
-) {
-    let Ok((mut transform, mut visibility)) = marker_query.single_mut() else {
-        return;
-    };
-
-    if drag_state.hover_player || drag_state.active {
-        if let Some(cursor) = cursor_world.0 {
-            transform.translation = cursor.extend(4.0);
-            *visibility = Visibility::Visible;
-            return;
-        }
-    }
-
-    *visibility = Visibility::Hidden;
-}
-
 fn update_status_text(
-    drag_state: Res<LaunchDragState>,
+    drag_state: Res<PlayerEjectState>,
     player_query: Query<&Velocity, With<PlayerCoin>>,
     mut text_query: Query<&mut Text, With<StatusText>>,
 ) {
@@ -178,57 +144,17 @@ fn update_status_text(
         return;
     };
 
-    let status = if drag_state.active {
+    let status = if drag_state.building_up {
         format!(
             "蓄力中 | 拉距 {:.0}px | 预计速度 {:.0}",
-            drag_state.pull_vector.length(),
-            drag_state.pull_vector.length() * SHOT_POWER
+            drag_state.eject_vector.length(),
+            drag_state.eject_vector.length() * EJECT_POWER
         )
-    } else if drag_state.hover_player {
+    } else if drag_state.aiming {
         format!("待发射 | 当前速度 {:.0}", velocity.length())
     } else {
         format!("移动中 | 当前速度 {:.0}", velocity.length())
     };
 
     **text = status;
-}
-
-fn draw_arena_and_aim(
-    mut gizmos: Gizmos,
-    drag_state: Res<LaunchDragState>,
-    player_query: Query<&Transform, With<PlayerCoin>>,
-) {
-    gizmos.rect_2d(
-        Vec2::ZERO,
-        Vec2::new(ARENA_HALF_WIDTH * 2.0, ARENA_HALF_HEIGHT * 2.0),
-        Color::srgb(0.22, 0.28, 0.31),
-    );
-
-    let Ok(player_transform) = player_query.single() else {
-        return;
-    };
-
-    let player_position = player_transform.translation.truncate();
-    gizmos.circle_2d(
-        player_position,
-        PLAYER_RADIUS + 6.0,
-        Color::srgba(1.0, 1.0, 1.0, 0.12),
-    );
-
-    if drag_state.active && drag_state.pull_vector != Vec2::ZERO {
-        let cursor_position = player_position + drag_state.pull_vector;
-        let launch_target = player_position - drag_state.pull_vector;
-
-        gizmos.line_2d(
-            player_position,
-            cursor_position,
-            Color::srgb(0.98, 0.43, 0.29),
-        );
-        gizmos.line_2d(
-            player_position,
-            launch_target,
-            Color::srgb(0.26, 0.87, 0.71),
-        );
-        gizmos.circle_2d(launch_target, 12.0, Color::srgb(0.26, 0.87, 0.71));
-    }
 }
