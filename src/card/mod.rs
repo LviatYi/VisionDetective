@@ -44,7 +44,10 @@ pub struct InteractionState {
 
 impl Plugin for CardPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (spawn_card_visuals, handle_hello_world_interactions));
+        app.add_systems(
+            Update,
+            (spawn_card_visuals, handle_hello_world_interactions),
+        );
     }
 }
 
