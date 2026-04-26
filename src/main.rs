@@ -5,8 +5,8 @@ pub mod physics;
 use crate::asset::font;
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{
-    PlayerEjectState, PointerMarker, draw_arena_and_aim, handle_player_drag, update_player_visuals,
-    update_pointer_marker,
+    EjectInputState, PointerMarker, draw_arena_and_aim, handle_player_eject_input,
+    update_player_visuals, update_pointer_marker,
 };
 use crate::physics::{Velocity, move_transform};
 use bevy::prelude::*;
@@ -30,7 +30,7 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::srgb(0.06, 0.09, 0.11)))
         .init_resource::<CursorWorldPosition>()
-        .init_resource::<PlayerEjectState>()
+        .init_resource::<EjectInputState>()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Vision Detective".into(),
@@ -45,7 +45,7 @@ fn main() {
             Update,
             (
                 track_cursor_world_position,
-                handle_player_drag,
+                handle_player_eject_input,
                 move_transform,
                 update_player_visuals,
                 update_pointer_marker,
@@ -133,7 +133,7 @@ fn track_cursor_world_position(
 }
 
 fn update_status_text(
-    drag_state: Res<PlayerEjectState>,
+    drag_state: Res<EjectInputState>,
     player_query: Query<&Velocity, With<PlayerCoin>>,
     mut text_query: Query<&mut Text, With<StatusText>>,
 ) {

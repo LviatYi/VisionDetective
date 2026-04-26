@@ -18,16 +18,16 @@ pub mod controller {
     pub struct PointerMarker;
 
     #[derive(Resource, Default)]
-    pub struct PlayerEjectState {
+    pub struct EjectInputState {
         pub building_up: bool,
         pub aiming: bool,
         pub eject_vector: Vec2,
     }
 
-    pub fn handle_player_drag(
+    pub fn handle_player_eject_input(
         mouse_input: Res<ButtonInput<MouseButton>>,
         cursor_world: Res<CursorWorldPosition>,
-        mut drag_state: ResMut<PlayerEjectState>,
+        mut input_state: ResMut<EjectInputState>,
         mut player_query: Query<(&Transform, &mut Velocity), With<PlayerCoin>>,
     ) {
         let Ok((player_transform, mut velocity)) = player_query.single_mut() else {
@@ -36,37 +36,37 @@ pub mod controller {
 
         let player_position = player_transform.translation.truncate();
         let cursor_position = cursor_world.0;
-        drag_state.aiming = cursor_position
+        input_state.aiming = cursor_position
             .map(|cursor| cursor.distance(player_position) <= PLAYER_RADIUS)
             .map(|in_range| in_range && velocity.length() <= 0.0)
             .unwrap_or(false);
 
-        if mouse_input.just_pressed(MouseButton::Left) && drag_state.aiming {
-            drag_state.building_up = true;
+        if mouse_input.just_pressed(MouseButton::Left) && input_state.aiming {
+            input_state.building_up = true;
         }
 
-        if drag_state.building_up {
+        if input_state.building_up {
             if mouse_input.pressed(MouseButton::Left) {
                 if let Some(cursor) = cursor_position {
-                    drag_state.eject_vector =
+                    input_state.eject_vector =
                         (player_position - cursor).clamp_length_max(MAX_EJECT_DISTANCE);
                 }
             } else {
-                if drag_state.eject_vector.length() > 6.0 {
+                if input_state.eject_vector.length() > 6.0 {
                     **velocity =
-                        (drag_state.eject_vector * EJECT_POWER).clamp_length_max(MAX_SPEED);
+                        (input_state.eject_vector * EJECT_POWER).clamp_length_max(MAX_SPEED);
                 }
-                drag_state.building_up = false;
-                drag_state.eject_vector = Vec2::ZERO;
+                input_state.building_up = false;
+                input_state.eject_vector = Vec2::ZERO;
             }
         } else {
-            drag_state.eject_vector = Vec2::ZERO;
+            input_state.eject_vector = Vec2::ZERO;
         }
     }
 
     pub fn update_pointer_marker(
         cursor_world: Res<CursorWorldPosition>,
-        drag_state: Res<PlayerEjectState>,
+        drag_state: Res<EjectInputState>,
         mut marker_query: Query<(&mut Transform, &mut Visibility), With<PointerMarker>>,
     ) {
         let Ok((mut transform, mut visibility)) = marker_query.single_mut() else {
@@ -100,7 +100,7 @@ pub mod controller {
 
     pub fn draw_arena_and_aim(
         mut gizmos: Gizmos,
-        drag_state: Res<PlayerEjectState>,
+        drag_state: Res<EjectInputState>,
         player_query: Query<&Transform, With<PlayerCoin>>,
     ) {
         gizmos.rect_2d(
