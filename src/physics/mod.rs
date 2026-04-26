@@ -1,8 +1,10 @@
 use crate::PLAYER_RADIUS;
 use crate::coin::player::PlayerCoin;
-use crate::obstacle::Obstacle;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::{Component, Deref, DerefMut, Query, Res, Time, Transform, Without};
+use obstacle::Obstacle;
+
+pub mod obstacle;
 
 pub const ARENA_HALF_WIDTH: f32 = 500.0;
 pub const ARENA_HALF_HEIGHT: f32 = 280.0;
