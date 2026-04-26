@@ -6,9 +6,11 @@ use bevy::prelude::{Component, Deref, DerefMut, Query, Res, Time, Transform};
 pub const ARENA_HALF_WIDTH: f32 = 500.0;
 pub const ARENA_HALF_HEIGHT: f32 = 280.0;
 pub const BOUNCE_FACTOR: f32 = 0.72;
-pub const FRICTION: f32 = -1000.0;
+pub const LANDING_SPEED_LOSS: f32 = 0.72;
+pub const SLIDING_FRICTION: f32 = 180.0;
 pub const STOP_SPEED: f32 = 8.0;
 pub const GRAVITY: f32 = -9.8;
+pub const MAX_GROUND_BOUNCE_COUNT: u8 = 2;
 
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct Velocity(Vec3);
@@ -22,7 +24,13 @@ pub fn move_player_coin_transform(
     };
 
     let dt = time.delta_secs();
-    coin.sim_z = (coin.sim_z + velocity.z * dt).max(0.0);
+    let airborne = coin.ground_contact_count < MAX_GROUND_BOUNCE_COUNT;
+
+    if airborne {
+        coin.sim_z += velocity.z * dt;
+        velocity.z += GRAVITY * dt;
+    }
+
     transform.translation += velocity.with_z(0.0) * dt;
 
     //region TODO_LviatYi: 根据地形进行碰撞检测和响应，而非简单的盒模型
@@ -47,15 +55,34 @@ pub fn move_player_coin_transform(
         velocity.y = -velocity.y.abs() * BOUNCE_FACTOR;
     }
 
-    velocity.z += GRAVITY * dt;
-    let on_ground = coin.sim_z <= 0.0;
-    if velocity.z < 0.0 && on_ground {
+    if airborne && coin.sim_z <= 0.0 {
         coin.sim_z = 0.0;
-        velocity.z = 0.0;
+        coin.ground_contact_count += 1;
+        velocity.x *= LANDING_SPEED_LOSS;
+        velocity.y *= LANDING_SPEED_LOSS;
+
+        if coin.ground_contact_count >= MAX_GROUND_BOUNCE_COUNT {
+            velocity.z = 0.0;
+        } else {
+            velocity.z = -velocity.z * LANDING_SPEED_LOSS;
+        }
     }
-    if on_ground {
-        velocity.x = velocity.x.signum() * (velocity.x.abs() + FRICTION * dt).max(0.0);
-        velocity.y = velocity.y.signum() * (velocity.y.abs() + FRICTION * dt).max(0.0);
+
+    if coin.ground_contact_count >= MAX_GROUND_BOUNCE_COUNT {
+        let planar_velocity = velocity.truncate();
+        let planar_speed = planar_velocity.length();
+
+        if planar_speed < STOP_SPEED {
+            velocity.x = 0.0;
+            velocity.y = 0.0;
+        } else {
+            let friction_delta = SLIDING_FRICTION * dt;
+            let next_speed = (planar_speed - friction_delta).max(0.0);
+            let next_planar_velocity = planar_velocity.normalize() * next_speed;
+
+            velocity.x = next_planar_velocity.x;
+            velocity.y = next_planar_velocity.y;
+        }
     }
 
     //endregion

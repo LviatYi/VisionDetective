@@ -4,11 +4,11 @@ pub mod physics;
 
 use crate::asset::font;
 use crate::coin::player::controller::{
-    draw_arena_and_aim, handle_player_eject_input, update_aiming_marker, update_player_visuals,
-    EjectInputState, PointerMarker,
+    EjectInputState, PointerMarker, draw_arena_and_aim, handle_player_eject_input,
+    update_aiming_marker, update_player_visuals,
 };
-use crate::coin::player::{PlayerCoin, EJECT_POWER};
-use crate::physics::{move_player_coin_transform, Velocity};
+use crate::coin::player::{MAX_EJECT_DISTANCE, MAX_PLANAR_SPEED, PlayerCoin};
+use crate::physics::{Velocity, move_player_coin_transform};
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution};
 
@@ -141,16 +141,23 @@ fn update_status_text(
         return;
     };
 
-    let status = if drag_state.building_up {
+    let status = if drag_state.charging {
+        let charge_ratio = drag_state.eject_vector.length() / MAX_EJECT_DISTANCE;
         format!(
-            "蓄力中 | 拉距 {:.0}px | 预计速度 {:.0}",
+            "蓄力中 | 拉距 {:.0}px | 预计平面速度 {:.0}",
             drag_state.eject_vector.length(),
-            drag_state.eject_vector.length() * EJECT_POWER
+            charge_ratio * MAX_PLANAR_SPEED
         )
     } else if drag_state.aiming {
-        format!("待发射 | 当前速度 {:.0}", velocity.length())
+        format!(
+            "待发射 | 当前速度 x:{:.0} y:{:.0} z:{:.0}",
+            velocity.x, velocity.y, velocity.z
+        )
     } else {
-        format!("移动中 | 当前速度 {:.0}", velocity.length())
+        format!(
+            "移动中 | 当前速度 x:{:.0} y:{:.0} z:{:.0}",
+            velocity.x, velocity.y, velocity.z
+        )
     };
 
     **text = status;
