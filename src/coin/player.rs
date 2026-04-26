@@ -64,7 +64,7 @@ pub mod controller {
         }
     }
 
-    pub fn update_pointer_marker(
+    pub fn update_aiming_marker(
         cursor_world: Res<CursorWorldPosition>,
         drag_state: Res<EjectInputState>,
         mut marker_query: Query<(&mut Transform, &mut Visibility), With<PointerMarker>>,

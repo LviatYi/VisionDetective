@@ -6,7 +6,7 @@ use crate::asset::font;
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{
     EjectInputState, PointerMarker, draw_arena_and_aim, handle_player_eject_input,
-    update_player_visuals, update_pointer_marker,
+    update_aiming_marker, update_player_visuals,
 };
 use crate::physics::{Velocity, move_transform};
 use bevy::prelude::*;
@@ -48,7 +48,7 @@ fn main() {
                 handle_player_eject_input,
                 move_transform,
                 update_player_visuals,
-                update_pointer_marker,
+                update_aiming_marker,
                 update_status_text,
                 draw_arena_and_aim,
             ),
