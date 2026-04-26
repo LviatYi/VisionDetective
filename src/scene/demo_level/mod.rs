@@ -1,27 +1,64 @@
-use crate::config::{vec2_from_pair, GameConfig};
+use crate::card::{Card, CardKind, HelloWorldInteraction, InteractionState};
+use crate::config::{
+    DemoCardConfig, DemoCardKind, GameConfig, InteractionEffectConfig, vec2_from_pair,
+};
 use crate::physics::obstacle::Obstacle;
 use bevy::prelude::*;
 
-pub fn spawn_demo_obstacles(commands: &mut Commands, config: &GameConfig) {
-    for obstacle in &config.scene.demo_obstacles {
-        let local_path = if let Some(path) = &obstacle.path {
-            path.iter().copied().map(vec2_from_pair).collect()
-        } else if let Some(bezier) = &obstacle.bezier {
+pub fn spawn_demo_cards(commands: &mut Commands, config: &GameConfig) {
+    for card in &config.scene.demo_cards {
+        spawn_demo_card(commands, config, card);
+    }
+}
+
+fn spawn_demo_card(commands: &mut Commands, config: &GameConfig, card: &DemoCardConfig) {
+    let kind = match card.kind {
+        DemoCardKind::Scenery => CardKind::Scenery,
+        DemoCardKind::Obstacle => CardKind::Obstacle,
+        DemoCardKind::Interaction => CardKind::Interaction,
+    };
+
+    let mut entity = commands.spawn((
+        Transform::from_translation(card.translation()).with_rotation(Quat::from_rotation_z(
+            card.rotation_z,
+        )),
+        Card {
+            kind,
+            size: card.size(),
+            title: card.title.clone(),
+        },
+    ));
+
+    if matches!(card.kind, DemoCardKind::Obstacle) {
+        entity.insert(Obstacle::new(resolve_local_path(card, config)));
+    }
+
+    if matches!(
+        card.interaction_effect,
+        Some(InteractionEffectConfig::LogHelloWorld)
+    ) {
+        entity.insert((HelloWorldInteraction, InteractionState::default()));
+    }
+}
+
+fn resolve_local_path(card: &DemoCardConfig, config: &GameConfig) -> Vec<Vec2> {
+    if let Some(path) = &card.path {
+        path.iter().copied().map(vec2_from_pair).collect()
+    } else if let Some(bezier) = &card.bezier {
             sample_cubic_closed_path(
                 &bezier.anchors,
                 &bezier.controls_a,
                 &bezier.controls_b,
                 config.scene.bezier_steps_per_curve,
             )
-        } else {
-            continue;
-        };
-
-        commands.spawn((
-            Transform::from_translation(obstacle.translation())
-                .with_rotation(Quat::from_rotation_z(obstacle.rotation_z)),
-            Obstacle::new(local_path),
-        ));
+    } else {
+        let half_size = card.size() * 0.5;
+        vec![
+            Vec2::new(-half_size.x, -half_size.y),
+            Vec2::new(half_size.x, -half_size.y),
+            Vec2::new(half_size.x, half_size.y),
+            Vec2::new(-half_size.x, half_size.y),
+        ]
     }
 }
 

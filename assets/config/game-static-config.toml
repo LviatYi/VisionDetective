@@ -58,6 +58,11 @@ tutorial_offset = [24.0, 20.0]
 status_offset = [24.0, 20.0]
 status_color = [0.75, 0.81, 0.85]
 
+[cards]
+scenery_fill_color = [0.33, 0.53, 0.41, 0.85]
+obstacle_fill_color = [0.49, 0.38, 0.28, 0.92]
+interaction_fill_color = [0.78, 0.47, 0.24, 0.9]
+
 [physics]
 # Half extents of the rectangular arena in world units.
 arena_half_width = 500.0
@@ -99,36 +104,43 @@ vertex_radius = 3.0
 # Number of samples generated per cubic bezier segment.
 bezier_steps_per_curve = 8
 
-[[scene.demo_obstacles]]
-# Obstacle world translation [x, y, z].
-translation = [-210.0, 70.0, 1.0]
-# Z-axis rotation in radians.
-rotation_z = 0.34
-# Closed polygon points in local space [x, y].
+[[scene.demo_cards]]
+title = "景观卡"
+kind = "scenery"
+translation = [-310.0, -110.0, 0.8]
+rotation_z = -0.06
+size = [220.0, 140.0]
+
+[[scene.demo_cards]]
+title = "障碍卡"
+kind = "obstacle"
+translation = [-10.0, 20.0, 0.8]
+rotation_z = 0.18
+size = [210.0, 150.0]
 path = [
-    [-90.0, -28.0],
-    [80.0, -22.0],
-    [96.0, 8.0],
-    [-74.0, 34.0],
+    [-90.0, -56.0],
+    [74.0, -68.0],
+    [102.0, 12.0],
+    [18.0, 72.0],
+    [-88.0, 42.0],
 ]
 
-[[scene.demo_obstacles]]
-translation = [150.0, -20.0, 1.0]
-rotation_z = 0.0
-path = [
-    [-60.0, -80.0],
-    [12.0, -108.0],
-    [82.0, -18.0],
-    [44.0, 92.0],
-    [-46.0, 66.0],
-    [-92.0, -8.0],
-]
+[[scene.demo_cards]]
+title = "交互卡"
+kind = "interaction"
+translation = [265.0, -120.0, 0.8]
+rotation_z = 0.1
+size = [180.0, 120.0]
+interaction_effect = "log_hello_world"
 
-[[scene.demo_obstacles]]
-translation = [280.0, 160.0, 1.0]
+[[scene.demo_cards]]
+title = "曲线障碍卡"
+kind = "obstacle"
+translation = [280.0, 150.0, 0.8]
 rotation_z = 0.0
+size = [180.0, 160.0]
 
-[scene.demo_obstacles.bezier]
+[scene.demo_cards.bezier]
 # Closed bezier anchor points in local space [x, y].
 anchors = [
     [-72.0, -16.0],

@@ -11,6 +11,7 @@ pub struct GameConfig {
     pub visuals: VisualConfig,
     pub player: PlayerConfig,
     pub ui: UiConfig,
+    pub cards: CardConfig,
     pub physics: PhysicsConfig,
     pub vision: VisionConfig,
     pub obstacles: ObstacleRenderConfig,
@@ -219,7 +220,66 @@ impl ObstacleRenderConfig {
 #[derive(Clone, Deserialize)]
 pub struct SceneConfig {
     pub bezier_steps_per_curve: usize,
-    pub demo_obstacles: Vec<ObstacleConfig>,
+    pub demo_cards: Vec<DemoCardConfig>,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct CardConfig {
+    pub scenery_fill_color: [f32; 4],
+    pub obstacle_fill_color: [f32; 4],
+    pub interaction_fill_color: [f32; 4],
+}
+
+impl CardConfig {
+    pub fn fill_color(&self, kind: crate::card::CardKind) -> Color {
+        let rgba = match kind {
+            crate::card::CardKind::Scenery => self.scenery_fill_color,
+            crate::card::CardKind::Obstacle => self.obstacle_fill_color,
+            crate::card::CardKind::Interaction => self.interaction_fill_color,
+        };
+
+        Color::srgba(rgba[0], rgba[1], rgba[2], rgba[3])
+    }
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DemoCardKind {
+    Scenery,
+    Obstacle,
+    Interaction,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InteractionEffectConfig {
+    LogHelloWorld,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct DemoCardConfig {
+    pub title: String,
+    pub kind: DemoCardKind,
+    pub translation: [f32; 3],
+    pub rotation_z: f32,
+    pub size: [f32; 2],
+    pub path: Option<Vec<[f32; 2]>>,
+    pub bezier: Option<BezierObstacleConfig>,
+    pub interaction_effect: Option<InteractionEffectConfig>,
+}
+
+impl DemoCardConfig {
+    pub fn translation(&self) -> Vec3 {
+        Vec3::new(
+            self.translation[0],
+            self.translation[1],
+            self.translation[2],
+        )
+    }
+
+    pub fn size(&self) -> Vec2 {
+        Vec2::new(self.size[0], self.size[1])
+    }
 }
 
 #[derive(Clone, Deserialize)]

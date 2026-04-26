@@ -1,17 +1,19 @@
 pub mod asset;
+pub mod card;
 pub mod coin;
 pub mod config;
 pub mod physics;
 pub mod scene;
 
 use crate::asset::font;
+use crate::card::CardPlugin;
 use crate::coin::player::controller::EjectInputState;
 use crate::coin::player::PlayerPlugin;
 use crate::config::GameConfig;
 use crate::physics::vision::VisionPlugin;
 use crate::physics::PhysicsPlugin;
 use crate::physics::Velocity;
-use crate::scene::demo_level::spawn_demo_obstacles;
+use crate::scene::demo_level::spawn_demo_cards;
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 
@@ -33,7 +35,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins((PlayerPlugin, PhysicsPlugin, VisionPlugin))
+        .add_plugins((PlayerPlugin, PhysicsPlugin, VisionPlugin, CardPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, update_status_text)
         .run();
@@ -45,7 +47,7 @@ fn setup(
     config: Res<GameConfig>,
 ) {
     commands.spawn(Camera2d);
-    spawn_demo_obstacles(&mut commands, &config);
+    spawn_demo_cards(&mut commands, &config);
 
     let ui_font = font::load_assets(asset_server, &config, font::FontType::Default);
 
