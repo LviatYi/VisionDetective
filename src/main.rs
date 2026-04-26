@@ -1,6 +1,7 @@
 pub mod asset;
 pub mod coin;
 pub mod physics;
+pub mod scene;
 
 use crate::asset::font;
 use crate::coin::player::controller::{
@@ -9,9 +10,10 @@ use crate::coin::player::controller::{
 };
 use crate::coin::player::{MAX_EJECT_DISTANCE, MAX_PLANAR_SPEED, PlayerCoin};
 use crate::physics::{Velocity, move_player_coin_transform};
+use crate::scene::demo_level::spawn_demo_obstacles;
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution};
-use physics::obstacle::{draw_obstacle_paths, spawn_demo_obstacles};
+use physics::obstacle::draw_obstacle_paths;
 use physics::vision::{draw_vision_radius, setup_vision_system, update_vision_field_mesh};
 
 const WINDOW_WIDTH: f32 = 1280.0;
