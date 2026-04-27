@@ -7,12 +7,12 @@ pub mod scene;
 
 use crate::asset::font;
 use crate::card::CardPlugin;
-use crate::coin::player::controller::EjectInputState;
 use crate::coin::player::PlayerPlugin;
+use crate::coin::player::controller::EjectInputState;
 use crate::config::GameConfig;
-use crate::physics::vision::VisionPlugin;
 use crate::physics::PhysicsPlugin;
 use crate::physics::Velocity;
+use crate::physics::vision::VisionPlugin;
 use crate::scene::demo_level::spawn_demo_cards;
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
@@ -41,11 +41,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    config: Res<GameConfig>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, config: Res<GameConfig>) {
     commands.spawn(Camera2d);
     spawn_demo_cards(&mut commands, &config);
 

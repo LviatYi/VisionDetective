@@ -231,8 +231,8 @@ pub struct CardConfig {
 }
 
 impl CardConfig {
-    pub fn fill_color(&self, kind: crate::card::CardKind) -> Color {
-        let rgba = match kind {
+    pub fn fill_color(&self, appearance: crate::card::CardKind) -> Color {
+        let rgba = match appearance {
             crate::card::CardKind::Scenery => self.scenery_fill_color,
             crate::card::CardKind::Obstacle => self.obstacle_fill_color,
             crate::card::CardKind::Interaction => self.interaction_fill_color,
@@ -244,14 +244,6 @@ impl CardConfig {
 
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum DemoCardKind {
-    Scenery,
-    Obstacle,
-    Interaction,
-}
-
-#[derive(Clone, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum InteractionEffectConfig {
     LogHelloWorld,
 }
@@ -259,7 +251,7 @@ pub enum InteractionEffectConfig {
 #[derive(Clone, Deserialize)]
 pub struct DemoCardConfig {
     pub title: String,
-    pub kind: DemoCardKind,
+    pub kind: crate::card::CardKind,
     pub translation: [f32; 3],
     pub rotation_z: f32,
     pub size: [f32; 2],

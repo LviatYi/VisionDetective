@@ -1,7 +1,8 @@
-use crate::card::{Card, CardKind, HelloWorldInteraction, InteractionState};
-use crate::config::{
-    DemoCardConfig, DemoCardKind, GameConfig, InteractionEffectConfig, vec2_from_pair,
+use crate::card::{
+    CardKind, HelloWorldInteraction, Interactive, spawn_interaction_card, spawn_obstacle_card,
+    spawn_scenery_card,
 };
+use crate::config::{DemoCardConfig, GameConfig, InteractionEffectConfig, vec2_from_pair};
 use crate::physics::obstacle::Obstacle;
 use bevy::prelude::*;
 
@@ -12,32 +13,28 @@ pub fn spawn_demo_cards(commands: &mut Commands, config: &GameConfig) {
 }
 
 fn spawn_demo_card(commands: &mut Commands, config: &GameConfig, card: &DemoCardConfig) {
-    let kind = match card.kind {
-        DemoCardKind::Scenery => CardKind::Scenery,
-        DemoCardKind::Obstacle => CardKind::Obstacle,
-        DemoCardKind::Interaction => CardKind::Interaction,
+    let transform = Transform::from_translation(card.translation())
+        .with_rotation(Quat::from_rotation_z(card.rotation_z));
+
+    let entity = match card.kind {
+        CardKind::Scenery => spawn_scenery_card(commands, transform, card.title.clone()),
+        CardKind::Obstacle => {
+            let entity = spawn_obstacle_card(commands, transform, card.title.clone());
+            commands
+                .entity(entity)
+                .insert(Obstacle::new(resolve_local_path(card, config)));
+            entity
+        }
+        CardKind::Interaction => spawn_interaction_card(commands, transform, card.title.clone()),
     };
-
-    let mut entity = commands.spawn((
-        Transform::from_translation(card.translation()).with_rotation(Quat::from_rotation_z(
-            card.rotation_z,
-        )),
-        Card {
-            kind,
-            size: card.size(),
-            title: card.title.clone(),
-        },
-    ));
-
-    if matches!(card.kind, DemoCardKind::Obstacle) {
-        entity.insert(Obstacle::new(resolve_local_path(card, config)));
-    }
 
     if matches!(
         card.interaction_effect,
         Some(InteractionEffectConfig::LogHelloWorld)
     ) {
-        entity.insert((HelloWorldInteraction, InteractionState::default()));
+        commands
+            .entity(entity)
+            .insert((Interactive, HelloWorldInteraction));
     }
 }
 
@@ -45,12 +42,12 @@ fn resolve_local_path(card: &DemoCardConfig, config: &GameConfig) -> Vec<Vec2> {
     if let Some(path) = &card.path {
         path.iter().copied().map(vec2_from_pair).collect()
     } else if let Some(bezier) = &card.bezier {
-            sample_cubic_closed_path(
-                &bezier.anchors,
-                &bezier.controls_a,
-                &bezier.controls_b,
-                config.scene.bezier_steps_per_curve,
-            )
+        sample_cubic_closed_path(
+            &bezier.anchors,
+            &bezier.controls_a,
+            &bezier.controls_b,
+            config.scene.bezier_steps_per_curve,
+        )
     } else {
         let half_size = card.size() * 0.5;
         vec![

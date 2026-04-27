@@ -12,10 +12,8 @@ pub struct VisionFieldMesh;
 
 impl Plugin for VisionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_vision_system).add_systems(
-            Update,
-            (update_vision_field_mesh, draw_vision_radius),
-        );
+        app.add_systems(Startup, setup_vision_system)
+            .add_systems(Update, (update_vision_field_mesh, draw_vision_radius));
     }
 }
 
@@ -101,8 +99,7 @@ fn compute_visible_points(
     }
 
     rays_radius.sort_by(|a, b| a.total_cmp(b));
-    rays_radius
-        .dedup_by(|a, b| (*a - *b).abs() < config.vision.intersection_epsilon);
+    rays_radius.dedup_by(|a, b| (*a - *b).abs() < config.vision.intersection_epsilon);
 
     rays_radius
         .into_iter()

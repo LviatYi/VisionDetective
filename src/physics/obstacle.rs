@@ -34,7 +34,11 @@ pub fn draw_obstacle_paths(
             let a = world_path[index];
             let b = world_path[(index + 1) % world_path.len()];
             gizmos.line_2d(a, b, config.obstacles.edge_color());
-            gizmos.circle_2d(a, config.obstacles.vertex_radius, config.obstacles.vertex_color());
+            gizmos.circle_2d(
+                a,
+                config.obstacles.vertex_radius,
+                config.obstacles.vertex_color(),
+            );
         }
     }
 }
