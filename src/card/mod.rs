@@ -14,7 +14,12 @@ pub enum CardKind {
     Interaction,
 }
 
-pub const CARD_SIZE: Vec2 = Vec2::new(250.0, 150.0);
+pub const STANDARD_CARD_SIZE: Vec2 = Vec2::new(85.6, 53.9);
+pub const IN_GAME_CARD_SIZE_SCALE: f32 = 2.0;
+pub const CARD_SIZE: Vec2 = Vec2::new(
+    STANDARD_CARD_SIZE.x * IN_GAME_CARD_SIZE_SCALE,
+    STANDARD_CARD_SIZE.y * IN_GAME_CARD_SIZE_SCALE,
+);
 
 #[derive(Component, Clone, Debug)]
 pub struct Card {
