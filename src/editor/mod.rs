@@ -327,8 +327,8 @@ fn spawn_prefab_preview_card(
                     preview_wrap
                         .spawn((
                             Node {
-                                width: px(150.0),
-                                height: px(96.0),
+                                width: px(96.0),
+                                height: px(150.0),
                                 padding: UiRect::all(px(10.0)),
                                 justify_content: JustifyContent::SpaceBetween,
                                 align_items: AlignItems::Start,
