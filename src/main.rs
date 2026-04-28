@@ -2,6 +2,8 @@ pub mod asset;
 pub mod card;
 pub mod coin;
 pub mod config;
+pub mod editor;
+mod game_view;
 pub mod physics;
 pub mod scene;
 
@@ -10,12 +12,18 @@ use crate::card::CardPlugin;
 use crate::coin::player::PlayerPlugin;
 use crate::coin::player::controller::EjectInputState;
 use crate::config::GameConfig;
+use crate::editor::EditorPlugin;
+use crate::game_view::main_view::{cleanup_view, handle_esc_to_main_menu};
+use crate::game_view::{AppScreen, GameViewPlugin};
 use crate::physics::PhysicsPlugin;
 use crate::physics::Velocity;
 use crate::physics::vision::VisionPlugin;
 use crate::scene::demo_level::spawn_demo_cards;
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
+
+#[derive(Component)]
+pub struct GameView;
 
 #[derive(Component)]
 struct StatusText;
@@ -35,14 +43,32 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins((PlayerPlugin, PhysicsPlugin, VisionPlugin, CardPlugin))
-        .add_systems(Startup, setup)
-        .add_systems(Update, update_status_text)
+        .init_state::<AppScreen>()
+        .add_plugins((
+            GameViewPlugin,
+            PlayerPlugin,
+            PhysicsPlugin,
+            VisionPlugin,
+            CardPlugin,
+            EditorPlugin,
+        ))
+        .add_systems(OnEnter(AppScreen::Game), setup_game_scene)
+        .add_systems(Update, update_status_text.run_if(in_state(AppScreen::Game)))
+        .add_systems(
+            Update,
+            handle_esc_to_main_menu
+                .run_if(in_state(AppScreen::Game).or(in_state(AppScreen::Editor))),
+        )
+        .add_systems(OnExit(AppScreen::Game), cleanup_view::<GameView>)
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, config: Res<GameConfig>) {
-    commands.spawn(Camera2d);
+fn setup_game_scene(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    config: Res<GameConfig>,
+) {
+    commands.spawn((Camera2d, GameView));
     spawn_demo_cards(&mut commands, &config);
 
     let ui_font = font::load_assets(asset_server, &config, font::FontType::Default);
@@ -61,6 +87,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, config: Res<Gam
             left: px(config.ui.tutorial_offset[0]),
             ..default()
         },
+        GameView,
     ));
 
     commands.spawn((
@@ -78,6 +105,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, config: Res<Gam
             ..default()
         },
         StatusText,
+        GameView,
     ));
 }
 

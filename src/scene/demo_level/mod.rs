@@ -4,6 +4,7 @@ use crate::card::{
 };
 use crate::config::{DemoCardConfig, GameConfig, InteractionEffectConfig, vec2_from_pair};
 use crate::physics::obstacle::Obstacle;
+use crate::GameView;
 use bevy::prelude::*;
 
 pub fn spawn_demo_cards(commands: &mut Commands, config: &GameConfig) {
@@ -36,6 +37,8 @@ fn spawn_demo_card(commands: &mut Commands, config: &GameConfig, card: &DemoCard
             .entity(entity)
             .insert((Interactive, HelloWorldInteraction));
     }
+
+    commands.entity(entity).insert(GameView);
 }
 
 fn resolve_local_path(card: &DemoCardConfig, config: &GameConfig) -> Vec<Vec2> {

@@ -1,6 +1,7 @@
 use crate::coin::player::PlayerCoin;
 use crate::config::GameConfig;
 use crate::physics::obstacle::Obstacle;
+use crate::{AppScreen, GameView};
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
@@ -12,8 +13,11 @@ pub struct VisionFieldMesh;
 
 impl Plugin for VisionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_vision_system)
-            .add_systems(Update, (update_vision_field_mesh, draw_vision_radius));
+        app.add_systems(OnEnter(AppScreen::Game), setup_vision_system)
+            .add_systems(
+                Update,
+                (update_vision_field_mesh, draw_vision_radius).run_if(in_state(AppScreen::Game)),
+            );
     }
 }
 
@@ -28,6 +32,7 @@ pub fn setup_vision_system(
         MeshMaterial2d(materials.add(config.vision.fill_color())),
         Transform::from_translation(Vec3::new(0.0, 0.0, config.vision.mesh_z)),
         VisionFieldMesh,
+        GameView,
     ));
 }
 

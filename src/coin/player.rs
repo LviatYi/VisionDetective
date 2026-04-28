@@ -2,8 +2,8 @@ use crate::coin::player::controller::{
     CursorWorldPosition, EjectInputState, draw_arena_and_aim, handle_player_eject_input,
     track_cursor_world_position, update_aiming_marker, update_player_visuals,
 };
-use bevy::app::{Startup, Update};
-use bevy::prelude::{App, Component, Plugin};
+use crate::AppScreen;
+use bevy::prelude::*;
 
 #[derive(Component, Default)]
 pub struct PlayerCoin {
@@ -16,6 +16,7 @@ pub struct PlayerPlugin;
 pub mod controller {
     use crate::coin::player::PlayerCoin;
     use crate::config::GameConfig;
+    use crate::editor::{EditorInteractionState, cursor_is_over_scene};
     use crate::physics::Velocity;
     use bevy::input::ButtonInput;
     use bevy::math::{Vec2, Vec3};
@@ -51,6 +52,7 @@ pub mod controller {
             Transform::from_translation(Vec3::new(0.0, 0.0, config.visuals.player_z)),
             PlayerCoin::default(),
             Velocity::default(),
+            crate::GameView,
         ));
 
         commands.spawn((
@@ -59,6 +61,7 @@ pub mod controller {
             Transform::from_translation(Vec3::new(0.0, 0.0, config.visuals.pointer_z)),
             Visibility::Hidden,
             PointerMarker,
+            crate::GameView,
         ));
     }
 
@@ -82,6 +85,8 @@ pub mod controller {
         config: Res<GameConfig>,
         mouse_input: Res<ButtonInput<MouseButton>>,
         cursor_world: Res<CursorWorldPosition>,
+        window_query: Query<&Window, With<PrimaryWindow>>,
+        editor_state: Option<Res<EditorInteractionState>>,
         mut input_state: ResMut<EjectInputState>,
         mut player_query: Query<(&Transform, &mut PlayerCoin, &mut Velocity), With<PlayerCoin>>,
     ) {
@@ -91,6 +96,28 @@ pub mod controller {
 
         let player_position = player_transform.translation.truncate();
         let cursor_position = cursor_world.0;
+        let pointer_captured = editor_state
+            .as_ref()
+            .and_then(|state| {
+                window_query
+                    .single()
+                    .ok()
+                    .and_then(|window| window.cursor_position().map(|cursor| (window, cursor)))
+                    .map(|(window, cursor)| {
+                        !cursor_is_over_scene(window, cursor) || state.captures_pointer()
+                    })
+            })
+            .unwrap_or(false);
+
+        if pointer_captured {
+            input_state.aiming = false;
+            if !mouse_input.pressed(MouseButton::Left) {
+                input_state.charging = false;
+                input_state.eject_vector = Vec2::ZERO;
+            }
+            return;
+        }
+
         input_state.aiming = cursor_position
             .map(|cursor| cursor.distance(player_position) <= config.visuals.player_radius)
             .map(|in_range| in_range && velocity.length_squared() <= 0.0)
@@ -219,16 +246,17 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CursorWorldPosition>()
             .init_resource::<EjectInputState>()
-            .add_systems(Startup, controller::setup_player)
+            .add_systems(OnEnter(AppScreen::Game), controller::setup_player)
+            .add_systems(Update, track_cursor_world_position)
             .add_systems(
                 Update,
                 (
-                    track_cursor_world_position,
                     handle_player_eject_input,
                     update_player_visuals,
                     update_aiming_marker,
                     draw_arena_and_aim,
-                ),
+                )
+                    .run_if(in_state(AppScreen::Game)),
             );
     }
 }
