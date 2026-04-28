@@ -1,21 +1,28 @@
+use crate::AppScreen;
 use crate::asset::font;
-use crate::card::{spawn_obstacle_card, Card, CardKind, CARD_SIZE};
+use crate::card::{CARD_SIZE, Card, CardKind, spawn_obstacle_card};
 use crate::coin::player::controller::CursorWorldPosition;
 use crate::config::GameConfig;
-use crate::editor::editor_view::{setup_editor_view, EditorView};
+use crate::editor::editor_view::{EditorView, setup_editor_view};
+use crate::game_view::main_view::cleanup_view;
 use crate::physics::obstacle::Obstacle;
-use crate::AppScreen;
 use bevy::input::ButtonInput;
+use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, Window};
+use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::FRAC_PI_4;
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::game_view::main_view::cleanup_view;
 
-const SIDEBAR_WIDTH: f32 = 200.0;
-const TOOLBAR_HEIGHT: f32 = 40.0;
+const SIDEBAR_WIDTH: f32 = 264.0;
+const TOOLBAR_HEIGHT: f32 = 48.0;
+const COMPACT_BUTTON_HEIGHT: f32 = 30.0;
+const PREFAB_LIST_HEIGHT: f32 = 252.0;
+const PREFAB_CARD_HEIGHT: f32 = 148.0;
+const PREFAB_CARD_GAP: f32 = 12.0;
+const PREFAB_SCROLL_STEP: f32 = 28.0;
 const ROTATION_HANDLE_RADIUS: f32 = 14.0;
 const EDITOR_SCENE_DIR: &str = "assets/editor";
 const EDITOR_SCENE_TOML: &str = "editor_scene.toml";
@@ -25,11 +32,12 @@ pub struct EditorPlugin;
 
 #[derive(Resource, Default)]
 pub struct EditorInteractionState {
-    pub selected_entity: Option<Entity>,
-    pub dragging_prefab: bool,
-    pub moving_entity: Option<MovingEntityState>,
-    pub rotating_entity: Option<RotatingEntityState>,
-    pub status_message: String,
+    selected_entity: Option<Entity>,
+    dragging_prefab: Option<EditorPrefabKind>,
+    moving_entity: Option<MovingEntityState>,
+    rotating_entity: Option<RotatingEntityState>,
+    prefab_scroll_offset: f32,
+    status_message: String,
 }
 
 #[derive(Bundle)]
@@ -42,7 +50,9 @@ struct EditorButtonBundle {
 
 impl EditorInteractionState {
     pub fn captures_pointer(&self) -> bool {
-        self.dragging_prefab || self.moving_entity.is_some() || self.rotating_entity.is_some()
+        self.dragging_prefab.is_some()
+            || self.moving_entity.is_some()
+            || self.rotating_entity.is_some()
     }
 }
 
@@ -62,11 +72,21 @@ struct EditorStatusText;
 
 #[derive(Component, Clone, Copy)]
 enum EditorButtonAction {
-    SpawnObstaclePrefab,
-    ExportToml,
-    ExportBinary,
-    ImportToml,
-    ImportBinary,
+    ExportScene,
+    ImportScene,
+}
+
+#[derive(Component, Clone, Copy)]
+struct PrefabPreviewButton {
+    prefab: EditorPrefabKind,
+}
+
+#[derive(Component)]
+struct PrefabListContent;
+
+#[derive(Clone, Copy)]
+enum EditorPrefabKind {
+    ObstacleCard,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -85,22 +105,27 @@ struct EditorObstacleCard {
 impl Plugin for EditorPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<EditorInteractionState>()
-           .add_systems(OnEnter(AppScreen::Editor), reset_editor_state)
-           .add_systems(OnEnter(AppScreen::Editor), setup_editor_view)
-           .add_systems(OnEnter(AppScreen::Editor), setup_editor_ui)
-           .add_systems(OnExit(AppScreen::Editor), cleanup_view::<EditorView>)
-           .add_systems(
-               Update,
-               (
-                   handle_editor_buttons,
-                   handle_prefab_drop,
-                   handle_scene_editing,
-                   handle_editor_shortcuts,
-                   update_editor_status_text,
-                   draw_editor_gizmos,
-               )
-                   .run_if(in_state(AppScreen::Editor)),
-           );
+            .add_systems(OnEnter(AppScreen::Editor), reset_editor_state)
+            .add_systems(OnEnter(AppScreen::Editor), setup_editor_view)
+            .add_systems(OnEnter(AppScreen::Editor), setup_editor_ui)
+            .add_systems(OnExit(AppScreen::Editor), cleanup_view::<EditorView>)
+            .add_systems(
+                Update,
+                (
+                    handle_toolbar_buttons,
+                    handle_prefab_drag_start,
+                    handle_prefab_list_scroll,
+                    handle_prefab_drop,
+                    handle_scene_editing,
+                    handle_editor_shortcuts,
+                    update_editor_status_text,
+                )
+                    .run_if(in_state(AppScreen::Editor)),
+            )
+            .add_systems(
+                Update,
+                draw_editor_gizmos.run_if(in_state(AppScreen::Editor)),
+            );
     }
 }
 
@@ -137,33 +162,15 @@ fn setup_editor_ui(
                         height: px(TOOLBAR_HEIGHT),
                         justify_content: JustifyContent::Start,
                         align_items: AlignItems::Center,
-                        column_gap: px(8.0),
-                        padding: UiRect::axes(px(12.0), px(10.0)),
+                        column_gap: px(6.0),
+                        padding: UiRect::axes(px(10.0), px(8.0)),
                         ..default()
                     },
-                    BackgroundColor(Color::srgba(0.08, 0.10, 0.14, 0.92)),
+                    BackgroundColor(Color::srgba(0.07, 0.09, 0.12, 0.96)),
                 ))
                 .with_children(|toolbar| {
-                    spawn_button(
-                        toolbar,
-                        &ui_font,
-                        "拖拽障碍卡",
-                        EditorButtonAction::SpawnObstaclePrefab,
-                    );
-                    spawn_button(toolbar, &ui_font, "导出 TOML", EditorButtonAction::ExportToml);
-                    spawn_button(
-                        toolbar,
-                        &ui_font,
-                        "导出 BIN",
-                        EditorButtonAction::ExportBinary,
-                    );
-                    spawn_button(toolbar, &ui_font, "导入 TOML", EditorButtonAction::ImportToml);
-                    spawn_button(
-                        toolbar,
-                        &ui_font,
-                        "导入 BIN",
-                        EditorButtonAction::ImportBinary,
-                    );
+                    spawn_button(toolbar, &ui_font, "导出", EditorButtonAction::ExportScene);
+                    spawn_button(toolbar, &ui_font, "导入", EditorButtonAction::ImportScene);
                 });
 
             parent
@@ -175,47 +182,78 @@ fn setup_editor_ui(
                         top: px(TOOLBAR_HEIGHT),
                         left: px(0.0),
                         flex_direction: FlexDirection::Column,
-                        row_gap: px(14.0),
-                        padding: UiRect::all(px(14.0)),
+                        row_gap: px(12.0),
+                        padding: UiRect::all(px(16.0)),
                         ..default()
                     },
-                    BackgroundColor(Color::srgba(0.11, 0.12, 0.16, 0.95)),
+                    BackgroundColor(Color::srgba(0.10, 0.11, 0.15, 0.97)),
                 ))
                 .with_children(|sidebar| {
                     sidebar.spawn((
                         Text::new("卡牌预制体"),
                         TextFont {
                             font: ui_font.clone(),
-                            font_size: 22.0,
+                            font_size: 20.0,
                             ..default()
                         },
                         TextColor(Color::WHITE),
                     ));
 
-                    spawn_button(
-                        sidebar,
-                        &ui_font,
-                        "障碍卡（整卡碰撞）",
-                        EditorButtonAction::SpawnObstaclePrefab,
-                    );
+                    sidebar
+                        .spawn((
+                            Node {
+                                width: percent(100.0),
+                                height: px(PREFAB_LIST_HEIGHT),
+                                position_type: PositionType::Relative,
+                                overflow: Overflow::clip_y(),
+                                padding: UiRect::all(px(2.0)),
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgba(0.14, 0.16, 0.20, 0.72)),
+                        ))
+                        .with_children(|viewport| {
+                            viewport
+                                .spawn((
+                                    Node {
+                                        width: percent(100.0),
+                                        position_type: PositionType::Absolute,
+                                        top: px(0.0),
+                                        left: px(0.0),
+                                        flex_direction: FlexDirection::Column,
+                                        row_gap: px(PREFAB_CARD_GAP),
+                                        padding: UiRect::all(px(8.0)),
+                                        ..default()
+                                    },
+                                    PrefabListContent,
+                                ))
+                                .with_children(|list| {
+                                    spawn_prefab_preview_card(
+                                        list,
+                                        &ui_font,
+                                        "障碍卡",
+                                        "整卡碰撞",
+                                        EditorPrefabKind::ObstacleCard,
+                                    );
+                                });
+                        });
 
                     sidebar.spawn((
                         Text::new(
-                            "操作说明\n1. 按住左侧预制体按钮，拖到主场景松开即可生成。\n2. 左键拖动卡牌位置。\n3. 拖动右上角旋转控制点可直接旋转。\n4. Delete 删除选中卡牌。\n5. Ctrl+E / Ctrl+B 导出，Ctrl+I / Ctrl+Shift+I 导入。",
+                            "操作说明\n1. 直接按住卡牌预览并拖到主场景，松开后会克隆一张。\n2. 左键拖动卡牌位置。\n3. 拖动右上角旋转控制点可直接旋转。\n4. Delete 删除选中卡牌。\n5. Ctrl+E / Ctrl+B 导出，Ctrl+I / Ctrl+Shift+I 导入。",
                         ),
                         TextFont {
                             font: ui_font.clone(),
-                            font_size: 15.0,
+                            font_size: 14.0,
                             ..default()
                         },
-                        TextColor(Color::srgb(0.82, 0.85, 0.90)),
+                        TextColor(Color::srgb(0.78, 0.82, 0.88)),
                     ));
 
                     sidebar.spawn((
                         Text::new("编辑器已就绪"),
                         TextFont {
                             font: ui_font,
-                            font_size: 16.0,
+                            font_size: 15.0,
                             ..default()
                         },
                         TextColor(Color::srgb(0.62, 0.87, 0.72)),
@@ -235,13 +273,13 @@ fn spawn_button(
         .spawn(EditorButtonBundle {
             button: Button,
             node: Node {
-                height: px(36.0),
-                padding: UiRect::axes(px(12.0), px(8.0)),
+                height: px(COMPACT_BUTTON_HEIGHT),
+                padding: UiRect::axes(px(10.0), px(6.0)),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
             },
-            background_color: BackgroundColor(Color::srgb(0.24, 0.35, 0.47)),
+            background_color: BackgroundColor(Color::srgb(0.19, 0.29, 0.40)),
             action,
         })
         .with_children(|button| {
@@ -249,7 +287,7 @@ fn spawn_button(
                 Text::new(label),
                 TextFont {
                     font: font.clone(),
-                    font_size: 15.0,
+                    font_size: 13.0,
                     ..default()
                 },
                 TextColor(Color::WHITE),
@@ -257,7 +295,83 @@ fn spawn_button(
         });
 }
 
-fn handle_editor_buttons(
+fn spawn_prefab_preview_card(
+    parent: &mut ChildSpawnerCommands,
+    font: &Handle<Font>,
+    title: &str,
+    subtitle: &str,
+    prefab: EditorPrefabKind,
+) {
+    parent
+        .spawn((
+            Button,
+            Node {
+                width: percent(100.0),
+                min_height: px(PREFAB_CARD_HEIGHT),
+                padding: UiRect::all(px(12.0)),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::SpaceBetween,
+                row_gap: px(10.0),
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.16, 0.22, 0.29)),
+            PrefabPreviewButton { prefab },
+        ))
+        .with_children(|card| {
+            card.spawn((Node {
+                width: percent(100.0),
+                justify_content: JustifyContent::Center,
+                ..default()
+            },))
+                .with_children(|preview_wrap| {
+                    preview_wrap
+                        .spawn((
+                            Node {
+                                width: px(150.0),
+                                height: px(96.0),
+                                padding: UiRect::all(px(10.0)),
+                                justify_content: JustifyContent::SpaceBetween,
+                                align_items: AlignItems::Start,
+                                flex_direction: FlexDirection::Column,
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgb(0.49, 0.38, 0.28)),
+                        ))
+                        .with_children(|mini_card| {
+                            mini_card.spawn((
+                                Text::new(title),
+                                TextFont {
+                                    font: font.clone(),
+                                    font_size: 14.0,
+                                    ..default()
+                                },
+                                TextColor(Color::WHITE),
+                            ));
+                            mini_card.spawn((
+                                Text::new("碰撞轮廓：矩形"),
+                                TextFont {
+                                    font: font.clone(),
+                                    font_size: 11.0,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(1.0, 1.0, 1.0, 0.78)),
+                            ));
+                        });
+                });
+
+            card.spawn((
+                Text::new(format!("{title}\n{subtitle}")),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 14.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+            ));
+        });
+}
+
+fn handle_toolbar_buttons(
     mut commands: Commands,
     interaction_query: Query<(&Interaction, &EditorButtonAction), Changed<Interaction>>,
     card_query: Query<(Entity, &CardKind, &Card, &Transform)>,
@@ -269,28 +383,73 @@ fn handle_editor_buttons(
         }
 
         match action {
-            EditorButtonAction::SpawnObstaclePrefab => {
-                state.dragging_prefab = true;
-                state.status_message = "正在拖拽障碍卡预制体".into();
+            EditorButtonAction::ExportScene => {
+                state.status_message = match pick_scene_export_path() {
+                    Some(path) => save_scene_to_path(&card_query, &path),
+                    None => "已取消导出".into(),
+                };
             }
-            EditorButtonAction::ExportToml => {
-                state.status_message = save_scene(&card_query, SceneFileFormat::Toml);
-            }
-            EditorButtonAction::ExportBinary => {
-                state.status_message = save_scene(&card_query, SceneFileFormat::Binary);
-            }
-            EditorButtonAction::ImportToml => {
-                state.status_message =
-                    load_scene(&mut commands, &card_query, SceneFileFormat::Toml);
-                state.selected_entity = None;
-            }
-            EditorButtonAction::ImportBinary => {
-                state.status_message =
-                    load_scene(&mut commands, &card_query, SceneFileFormat::Binary);
+            EditorButtonAction::ImportScene => {
+                state.status_message = match pick_scene_import_path() {
+                    Some(path) => load_scene_from_path(&mut commands, &card_query, &path),
+                    None => "已取消导入".into(),
+                };
                 state.selected_entity = None;
             }
         }
     }
+}
+
+fn handle_prefab_drag_start(
+    interaction_query: Query<(&Interaction, &PrefabPreviewButton), Changed<Interaction>>,
+    mut state: ResMut<EditorInteractionState>,
+) {
+    for (interaction, preview_button) in &interaction_query {
+        if *interaction != Interaction::Pressed {
+            continue;
+        }
+
+        state.dragging_prefab = Some(preview_button.prefab);
+        state.moving_entity = None;
+        state.rotating_entity = None;
+        state.status_message = "正在拖拽障碍卡预制体".into();
+    }
+}
+
+fn handle_prefab_list_scroll(
+    mut mouse_wheel_events: MessageReader<MouseWheel>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    prefab_query: Query<&PrefabPreviewButton>,
+    mut content_query: Query<&mut Node, With<PrefabListContent>>,
+    mut state: ResMut<EditorInteractionState>,
+) {
+    let scroll_units: f32 = mouse_wheel_events.read().map(|event| event.y).sum();
+    if scroll_units.abs() <= f32::EPSILON {
+        return;
+    }
+
+    let Ok(window) = window_query.single() else {
+        return;
+    };
+    let Some(cursor_position) = window.cursor_position() else {
+        return;
+    };
+    if !cursor_is_over_sidebar(window, cursor_position) {
+        return;
+    }
+
+    let item_count = prefab_query.iter().count();
+    let content_height = item_count as f32 * PREFAB_CARD_HEIGHT
+        + item_count.saturating_sub(1) as f32 * PREFAB_CARD_GAP
+        + 16.0;
+    let max_offset = (content_height - PREFAB_LIST_HEIGHT).max(0.0);
+    state.prefab_scroll_offset =
+        (state.prefab_scroll_offset - scroll_units * PREFAB_SCROLL_STEP).clamp(0.0, max_offset);
+
+    let Ok(mut content_node) = content_query.single_mut() else {
+        return;
+    };
+    content_node.top = px(-state.prefab_scroll_offset);
 }
 
 fn handle_prefab_drop(
@@ -300,11 +459,14 @@ fn handle_prefab_drop(
     cursor_world: Res<CursorWorldPosition>,
     mut state: ResMut<EditorInteractionState>,
 ) {
-    if !state.dragging_prefab || !mouse_input.just_released(MouseButton::Left) {
+    let Some(prefab) = state.dragging_prefab else {
+        return;
+    };
+    if !mouse_input.just_released(MouseButton::Left) {
         return;
     }
 
-    state.dragging_prefab = false;
+    state.dragging_prefab = None;
 
     let Ok(window) = window_query.single() else {
         state.status_message = "放置障碍卡失败：窗口不可用".into();
@@ -326,11 +488,13 @@ fn handle_prefab_drop(
         return;
     };
 
-    let entity = spawn_editor_obstacle(
-        &mut commands,
-        Transform::from_translation(world_position.extend(0.0)),
-        "障碍卡".into(),
-    );
+    let entity = match prefab {
+        EditorPrefabKind::ObstacleCard => spawn_editor_obstacle(
+            &mut commands,
+            Transform::from_translation(world_position.extend(0.0)),
+            "障碍卡".into(),
+        ),
+    };
     state.selected_entity = Some(entity);
     state.status_message = format!(
         "已放置障碍卡 ({:.0}, {:.0})",
@@ -373,7 +537,11 @@ fn handle_scene_editing(
             let card_query = card_queries.p0();
 
             if let Some(selected_entity) = state.selected_entity
-                && rotation_handle_contains_point(selected_entity, cursor_world_position, &card_query)
+                && rotation_handle_contains_point(
+                    selected_entity,
+                    cursor_world_position,
+                    &card_query,
+                )
             {
                 state.rotating_entity = Some(RotatingEntityState {
                     entity: selected_entity,
@@ -383,7 +551,9 @@ fn handle_scene_editing(
                 return;
             }
 
-            if let Some((entity, transform)) = pick_obstacle_card(cursor_world_position, &card_query) {
+            if let Some((entity, transform)) =
+                pick_obstacle_card(cursor_world_position, &card_query)
+            {
                 state.selected_entity = Some(entity);
                 state.rotating_entity = None;
                 state.moving_entity = Some(MovingEntityState {
@@ -500,7 +670,7 @@ fn draw_editor_gizmos(
     state: Res<EditorInteractionState>,
     card_query: Query<(Entity, &CardKind, &Transform)>,
 ) {
-    if state.dragging_prefab
+    if state.dragging_prefab.is_some()
         && let Some(cursor) = cursor_world.0
     {
         let preview = Transform::from_translation(cursor.extend(0.0));
@@ -603,6 +773,10 @@ pub fn cursor_is_over_scene(window: &Window, cursor_position: Vec2) -> bool {
     cursor_position.x > SIDEBAR_WIDTH && cursor_position.y < window.height() - TOOLBAR_HEIGHT
 }
 
+fn cursor_is_over_sidebar(window: &Window, cursor_position: Vec2) -> bool {
+    cursor_position.x <= SIDEBAR_WIDTH && cursor_position.y < window.height() - TOOLBAR_HEIGHT
+}
+
 fn spawn_editor_obstacle(commands: &mut Commands, transform: Transform, title: String) -> Entity {
     let entity = spawn_obstacle_card(commands, transform, title);
     commands
@@ -631,6 +805,13 @@ fn save_scene(
     card_query: &Query<(Entity, &CardKind, &Card, &Transform)>,
     format: SceneFileFormat,
 ) -> String {
+    save_scene_to_path(card_query, &scene_path(format))
+}
+
+fn save_scene_to_path(
+    card_query: &Query<(Entity, &CardKind, &Card, &Transform)>,
+    path: &Path,
+) -> String {
     let scene = EditorSceneFile {
         obstacle_cards: card_query
             .iter()
@@ -648,18 +829,23 @@ fn save_scene(
             .collect(),
     };
 
-    let output_dir = editor_scene_dir();
-    if let Err(error) = fs::create_dir_all(&output_dir) {
-        return format!("导出失败：无法创建目录 {}: {error}", output_dir.display());
+    if let Some(parent) = path.parent()
+        && let Err(error) = fs::create_dir_all(parent)
+    {
+        return format!("导出失败：无法创建目录 {}: {error}", parent.display());
     }
 
-    let path = scene_path(format);
+    let format = match scene_file_format_from_path(path) {
+        Ok(format) => format,
+        Err(error) => return error,
+    };
+
     let result = match format {
         SceneFileFormat::Toml => toml::to_string_pretty(&scene)
             .map_err(|error| error.to_string())
-            .and_then(|raw| fs::write(&path, raw).map_err(|error| error.to_string())),
+            .and_then(|raw| fs::write(path, raw).map_err(|error| error.to_string())),
         SceneFileFormat::Binary => {
-            write_scene_binary(&scene, &path).map_err(|error| error.to_string())
+            write_scene_binary(&scene, path).map_err(|error| error.to_string())
         }
     };
 
@@ -678,7 +864,19 @@ fn load_scene(
     card_query: &Query<(Entity, &CardKind, &Card, &Transform)>,
     format: SceneFileFormat,
 ) -> String {
-    let path = scene_path(format);
+    load_scene_from_path(commands, card_query, &scene_path(format))
+}
+
+fn load_scene_from_path(
+    commands: &mut Commands,
+    card_query: &Query<(Entity, &CardKind, &Card, &Transform)>,
+    path: &Path,
+) -> String {
+    let format = match scene_file_format_from_path(path) {
+        Ok(format) => format,
+        Err(error) => return error,
+    };
+
     let scene = match format {
         SceneFileFormat::Toml => match fs::read_to_string(&path) {
             Ok(raw) => toml::from_str::<EditorSceneFile>(&raw).map_err(|error| error.to_string()),
@@ -706,7 +904,7 @@ fn load_scene(
             card.translation[1],
             card.translation[2],
         ))
-            .with_rotation(Quat::from_rotation_z(card.rotation_z));
+        .with_rotation(Quat::from_rotation_z(card.rotation_z));
         spawn_editor_obstacle(commands, transform, card.title.clone());
     }
 
@@ -728,6 +926,41 @@ fn scene_path(format: SceneFileFormat) -> PathBuf {
     };
 
     editor_scene_dir().join(file_name)
+}
+
+fn pick_scene_export_path() -> Option<PathBuf> {
+    FileDialog::new()
+        .set_title("导出场景")
+        .set_directory(editor_scene_dir())
+        .set_file_name(EDITOR_SCENE_TOML)
+        .add_filter("场景文件", &["toml", "bin"])
+        .save_file()
+}
+
+fn pick_scene_import_path() -> Option<PathBuf> {
+    FileDialog::new()
+        .set_title("导入场景")
+        .set_directory(editor_scene_dir())
+        .add_filter("场景文件", &["toml", "bin"])
+        .pick_file()
+}
+
+fn scene_file_format_from_path(path: &Path) -> Result<SceneFileFormat, String> {
+    let Some(extension) = path.extension().and_then(|ext| ext.to_str()) else {
+        return Err(format!(
+            "文件格式不受支持 {}：请使用 .toml 或 .bin",
+            path.display()
+        ));
+    };
+
+    match extension.to_ascii_lowercase().as_str() {
+        "toml" => Ok(SceneFileFormat::Toml),
+        "bin" => Ok(SceneFileFormat::Binary),
+        _ => Err(format!(
+            "文件格式不受支持 {}：请使用 .toml 或 .bin",
+            path.display()
+        )),
+    }
 }
 
 fn write_scene_binary(scene: &EditorSceneFile, path: &Path) -> std::io::Result<()> {

@@ -9,15 +9,15 @@ pub mod scene;
 
 use crate::asset::font;
 use crate::card::CardPlugin;
-use crate::coin::player::PlayerPlugin;
 use crate::coin::player::controller::EjectInputState;
+use crate::coin::player::PlayerPlugin;
 use crate::config::GameConfig;
 use crate::editor::EditorPlugin;
 use crate::game_view::main_view::{cleanup_view, handle_esc_to_main_menu};
 use crate::game_view::{AppScreen, GameViewPlugin};
+use crate::physics::vision::VisionPlugin;
 use crate::physics::PhysicsPlugin;
 use crate::physics::Velocity;
-use crate::physics::vision::VisionPlugin;
 use crate::scene::demo_level::spawn_demo_cards;
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
