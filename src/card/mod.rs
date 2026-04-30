@@ -1,3 +1,6 @@
+pub mod card_params;
+pub mod obstacle;
+
 use crate::coin::player::PlayerCoin;
 use crate::config::GameConfig;
 use bevy::prelude::*;
@@ -110,12 +113,24 @@ fn spawn_card(
     commands.spawn((transform, card, appearance)).id()
 }
 
-pub fn spawn_scenery_card(commands: &mut Commands, transform: Transform, title: String) -> Entity {
-    spawn_card(commands, transform, Card { title }, CardKind::Scenery)
+pub(crate) fn generate_card_bundle(
+    transform: Transform,
+    title: impl Into<String>,
+    card_kind: CardKind,
+    extra_bundle: impl Bundle,
+) -> impl Bundle {
+    (
+        transform,
+        Card {
+            title: title.into(),
+        },
+        card_kind,
+        extra_bundle,
+    )
 }
 
-pub fn spawn_obstacle_card(commands: &mut Commands, transform: Transform, title: String) -> Entity {
-    spawn_card(commands, transform, Card { title }, CardKind::Obstacle)
+pub fn spawn_scenery_card(commands: &mut Commands, transform: Transform, title: String) -> Entity {
+    spawn_card(commands, transform, Card { title }, CardKind::Scenery)
 }
 
 pub fn spawn_interaction_card(

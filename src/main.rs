@@ -9,18 +9,19 @@ pub mod scene;
 
 use crate::asset::font;
 use crate::card::CardPlugin;
-use crate::coin::player::controller::EjectInputState;
 use crate::coin::player::PlayerPlugin;
+use crate::coin::player::controller::EjectInputState;
 use crate::config::GameConfig;
 use crate::editor::EditorPlugin;
 use crate::game_view::main_view::{cleanup_view, handle_esc_to_main_menu};
 use crate::game_view::{AppScreen, GameViewPlugin};
-use crate::physics::vision::VisionPlugin;
 use crate::physics::PhysicsPlugin;
 use crate::physics::Velocity;
+use crate::physics::vision::VisionPlugin;
 use crate::scene::demo_level::spawn_demo_cards;
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
+use crate::config::card_config::CardPresetsConfig;
 
 #[derive(Component)]
 pub struct GameView;
@@ -30,10 +31,12 @@ struct StatusText;
 
 fn main() {
     let config = GameConfig::load();
+    let card_presets_config = CardPresetsConfig::load();
 
     App::new()
         .insert_resource(ClearColor(config.window.clear_color()))
         .insert_resource(config.clone())
+        .insert_resource(card_presets_config.clone())
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: config.window.title.clone().into(),

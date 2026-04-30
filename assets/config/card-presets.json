@@ -1,0 +1,9 @@
+[
+  {
+    "id": 1001,
+    "title": "Wall",
+    "background_color": "#000000",
+    "image_layout_type": "full",
+    "image_res_path": "/assets/config/pics/wall-bricks.png"
+  }
+]

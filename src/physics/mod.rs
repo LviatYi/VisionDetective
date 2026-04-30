@@ -1,6 +1,6 @@
+use crate::AppScreen;
 use crate::coin::player::PlayerCoin;
 use crate::config::GameConfig;
-use crate::AppScreen;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::*;
 use obstacle::Obstacle;
@@ -15,8 +15,11 @@ pub struct Velocity(Vec3);
 
 impl Plugin for PhysicsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, move_player_coin_transform.run_if(in_state(AppScreen::Game)))
-            .add_systems(Update, obstacle::draw_obstacle_paths);
+        app.add_systems(
+            Update,
+            move_player_coin_transform.run_if(in_state(AppScreen::Game)),
+        )
+        .add_systems(Update, obstacle::draw_obstacle_paths);
     }
 }
 

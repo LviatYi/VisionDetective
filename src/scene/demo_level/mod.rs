@@ -1,10 +1,9 @@
+use crate::GameView;
+use crate::card::obstacle::spawn_obstacle_card;
 use crate::card::{
-    CardKind, HelloWorldInteraction, Interactive, spawn_interaction_card, spawn_obstacle_card,
-    spawn_scenery_card,
+    CardKind, HelloWorldInteraction, Interactive, spawn_interaction_card, spawn_scenery_card,
 };
 use crate::config::{DemoCardConfig, GameConfig, InteractionEffectConfig, vec2_from_pair};
-use crate::physics::obstacle::Obstacle;
-use crate::GameView;
 use bevy::prelude::*;
 
 pub fn spawn_demo_cards(commands: &mut Commands, config: &GameConfig) {
@@ -19,13 +18,12 @@ fn spawn_demo_card(commands: &mut Commands, config: &GameConfig, card: &DemoCard
 
     let entity = match card.kind {
         CardKind::Scenery => spawn_scenery_card(commands, transform, card.title.clone()),
-        CardKind::Obstacle => {
-            let entity = spawn_obstacle_card(commands, transform, card.title.clone());
-            commands
-                .entity(entity)
-                .insert(Obstacle::new(resolve_local_path(card, config)));
-            entity
-        }
+        CardKind::Obstacle => spawn_obstacle_card(
+            commands,
+            transform,
+            card.title.clone(),
+            resolve_local_path(card, config),
+        ),
         CardKind::Interaction => spawn_interaction_card(commands, transform, card.title.clone()),
     };
 

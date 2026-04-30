@@ -1,11 +1,11 @@
 use crate::AppScreen;
 use crate::asset::font;
-use crate::card::{CARD_SIZE, Card, CardKind, spawn_obstacle_card};
+use crate::card::obstacle::spawn_obstacle_card;
+use crate::card::{CARD_SIZE, Card, CardKind};
 use crate::coin::player::controller::CursorWorldPosition;
 use crate::config::GameConfig;
 use crate::editor::editor_view::{EditorView, setup_editor_view};
 use crate::game_view::main_view::cleanup_view;
-use crate::physics::obstacle::Obstacle;
 use bevy::input::ButtonInput;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
@@ -778,10 +778,8 @@ fn cursor_is_over_sidebar(window: &Window, cursor_position: Vec2) -> bool {
 }
 
 fn spawn_editor_obstacle(commands: &mut Commands, transform: Transform, title: String) -> Entity {
-    let entity = spawn_obstacle_card(commands, transform, title);
-    commands
-        .entity(entity)
-        .insert((Obstacle::new(rect_path(CARD_SIZE)), EditorView));
+    let entity = spawn_obstacle_card(commands, transform, title, rect_path(CARD_SIZE));
+    commands.entity(entity).insert(EditorView);
     entity
 }
 

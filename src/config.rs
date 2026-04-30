@@ -1,3 +1,5 @@
+pub mod card_config;
+
 use bevy::color::Color;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::Resource;

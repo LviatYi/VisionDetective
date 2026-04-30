@@ -1,8 +1,8 @@
+use crate::AppScreen;
 use crate::coin::player::controller::{
     CursorWorldPosition, EjectInputState, draw_arena_and_aim, handle_player_eject_input,
     track_cursor_world_position, update_aiming_marker, update_player_visuals,
 };
-use crate::AppScreen;
 use bevy::prelude::*;
 
 #[derive(Component, Default)]
