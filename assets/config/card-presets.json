@@ -1,9 +1,20 @@
-[
-  {
-    "id": 1001,
-    "title": "Wall",
-    "background_color": "#000000",
-    "image_layout_type": "full",
-    "image_res_path": "/assets/config/pics/wall-bricks.png"
-  }
-]
+{
+  "appearances": [
+    {
+      "id": 1001,
+      "title": "Wall",
+      "background_color_appearance_override": "#000000",
+      "image_layout_type": "full",
+      "image_res_path": "/assets/config/pics/wall-bricks.png"
+    }
+  ],
+  "specialized": [
+    {
+      "id": 10000001,
+      "type": "obstacle",
+      "params": {
+        "obstacle_def": "full"
+      }
+    }
+  ]
+}

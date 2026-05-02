@@ -1,7 +1,12 @@
 pub mod card_params;
 pub mod obstacle;
 
+use crate::card::card_params::{
+    CardAppearanceConfig, CardParam, CardSceneParam, CardSpecialized,
+    CardSpecializedRegistry,
+};
 use crate::coin::player::PlayerCoin;
+use crate::config::card_config::CardPresetsConfig;
 use crate::config::GameConfig;
 use bevy::prelude::*;
 use serde::Deserialize;
@@ -93,6 +98,7 @@ impl CardInteraction for HelloWorldInteraction {
 impl Plugin for CardPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ActiveInteraction>();
+        app.init_resource::<CardSpecializedRegistry>();
         app.add_systems(Update, (spawn_card_visuals, update_active_interaction));
         app.add_plugins(InteractionPlugin::<HelloWorldInteraction>::default());
     }
@@ -117,7 +123,6 @@ pub(crate) fn generate_card_bundle(
     transform: Transform,
     title: impl Into<String>,
     card_kind: CardKind,
-    extra_bundle: impl Bundle,
 ) -> impl Bundle {
     (
         transform,
@@ -125,7 +130,6 @@ pub(crate) fn generate_card_bundle(
             title: title.into(),
         },
         card_kind,
-        extra_bundle,
     )
 }
 
@@ -211,4 +215,37 @@ fn dispatch_interaction_events<T: CardInteraction>(
     {
         interaction.on_enter(entity, card);
     }
+}
+
+pub fn spawn_card_by_card_param(
+    commands: &mut Commands,
+    scene_param: &CardSceneParam,
+    appearance_param: &CardAppearanceConfig,
+    specialized_param: Option<Box<dyn CardSpecialized>>,
+) {
+    let mut entity = commands.spawn((
+        Transform::from_translation(scene_param.position.extend(0.0))
+            .with_rotation(Quat::from_rotation_z(scene_param.rotation)),
+        Card {
+            title: appearance_param.title.clone(),
+        },
+    ));
+
+    specialized_param.inspect(|p| {
+        entity.insert(p.kind());
+        p.insert_components(&mut entity);
+    });
+}
+
+pub fn spawn_card_from_param(
+    commands: &mut Commands,
+    card_presets_config: &CardPresetsConfig,
+    card_specialized_registration: Res<CardSpecializedRegistry>,
+    card_param: &CardParam,
+) {
+    let appearance = card_param.load_appearance(card_presets_config);
+    let specialized =
+        card_param.load_specialized_config(card_presets_config, card_specialized_registration);
+
+    spawn_card_by_card_param(commands, &card_param.scene_param, &appearance, specialized);
 }

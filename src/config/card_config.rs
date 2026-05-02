@@ -1,13 +1,14 @@
-use crate::card::card_params::CardAppearances;
+use crate::card::card_params::{CardAppearanceConfig, CardSpecializedConfig};
 use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
 #[derive(Resource, Debug, Serialize, Deserialize, Clone)]
-#[serde(transparent)]
 pub struct CardPresetsConfig {
-    pub configs: Vec<CardAppearances>,
+    pub appearances: Vec<CardAppearanceConfig>,
+
+    pub specialized: Vec<CardSpecializedConfig>,
 }
 
 impl CardPresetsConfig {
@@ -37,32 +38,53 @@ mod tests {
     #[test]
     fn test_parse_json() {
         let config = CardPresetsConfig::load_from(
-            r##"[
-  {
-    "id": 1001,
-    "title": "Wall",
-    "background_color": "#0000FF",
-    "image_layout_type": "full",
-    "image_res_path": "/assets/config/pics/wall-bricks.png"
-  }
-]"##,
+            r##"{
+  "appearances": [
+    {
+      "id": 1001,
+      "title": "Wall",
+      "background_color_appearance_override": "#000000",
+      "image_layout_type": "full",
+      "image_res_path": "/assets/config/pics/wall-bricks.png"
+    }
+  ],
+  "specialized": [
+    {
+      "id": 10000001,
+      "type": "obstacle",
+      "params": {
+        "obstacle_def": "full"
+      }
+    }
+  ]
+}"##,
         );
         let config = config.expect("failed to parse config");
-        assert_eq!(config.configs.len(), 1);
+        assert_eq!(config.appearances.len(), 1);
+        assert_eq!(config.specialized.len(), 1);
 
-        assert_eq!(config.configs[0].id, 1001);
-        assert_eq!(config.configs[0].title, "Wall");
+        assert_eq!(config.appearances[0].id, 1001);
+        assert_eq!(config.appearances[0].title, "Wall");
         assert_eq!(
-            config.configs[0].background_color,
-            "#0000FF"
+            config.appearances[0].background_color_appearance_override,
+            "#000000"
         );
         assert_eq!(
-            config.configs[0].image_layout_type,
+            config.appearances[0].image_layout_type,
             CardImageLayoutType::Full
         );
         assert_eq!(
-            config.configs[0].image_res_path,
+            config.appearances[0].image_res_path,
             "/assets/config/pics/wall-bricks.png"
+        );
+
+        assert_eq!(config.specialized[0].id, 10000001);
+        assert_eq!(config.specialized[0].type_id, "obstacle");
+        assert_eq!(
+            config.specialized[0].params,
+            serde_json::json!({
+                "obstacle_def": "full"
+            })
         );
     }
 }
