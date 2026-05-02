@@ -90,7 +90,10 @@ mod tests {
       "id": 10000003,
       "type": "interactive",
       "params": {
-        "interaction": "log_hello_world"
+        "interaction": {
+          "type": "log_hello_world",
+          "params": {}
+        }
       }
     },
     {
@@ -158,7 +161,10 @@ mod tests {
         assert_eq!(
             config.specialized[2].params,
             serde_json::json!({
-                "interaction": "log_hello_world"
+                "interaction": {
+                    "type": "log_hello_world",
+                    "params": {}
+                }
             })
         );
 

@@ -1,36 +1,41 @@
+mod hello_world;
+
 use crate::card::card_params::CardSpecialized;
 use crate::card::{Card, CardKind};
 use crate::coin::player::PlayerCoin;
 use crate::config::GameConfig;
 use crate::register_card_specialized_param;
+use anyhow::Result;
 use bevy::app::{App, Plugin, Update};
 use bevy::ecs::system::EntityCommands;
-use bevy::log::info;
 use bevy::prelude::{
     Component, DetectChanges, Entity, GlobalTransform, Query, Res, ResMut, Resource, Transform,
     With,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::marker::PhantomData;
 
 /// Marker component for cards that participate in interaction handling.
 #[derive(Component, Default)]
 pub struct Interactive;
 
-/// Interaction effect variants supported by interactive cards.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CardInteractionType {
-    LogHelloWorld,
+pub struct CardInteractionConfig {
+    /// Registered interaction action type name.
+    #[serde(rename = "type")]
+    pub type_id: String,
+
+    /// Raw JSON payload for the interaction action.
+    #[serde(default)]
+    pub params: Value,
 }
 
-/// Specialized parameters for interaction cards.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InteractionCardParams {
-    pub interaction: CardInteractionType,
+    pub interaction: CardInteractionConfig,
 }
 
-/// Runtime behavior contract for interaction effect components.
 pub trait CardInteraction: Component {
     fn on_enter(&self, entity: Entity, card: &Card) {
         let _ = (entity, card);
@@ -38,16 +43,6 @@ pub trait CardInteraction: Component {
 
     fn on_exit(&self, entity: Entity, card: &Card) {
         let _ = (entity, card);
-    }
-}
-
-/// Example interaction effect used by current demo cards.
-#[derive(Component, Default)]
-pub struct HelloWorldInteraction;
-
-impl CardInteraction for HelloWorldInteraction {
-    fn on_enter(&self, _entity: Entity, _card: &Card) {
-        info!("hello world");
     }
 }
 
@@ -59,10 +54,22 @@ impl CardSpecialized for InteractionCardParams {
     fn insert_components(&self, entity: &mut EntityCommands<'_>) {
         entity.insert(Interactive);
 
-        match self.interaction {
-            CardInteractionType::LogHelloWorld => {
-                entity.insert(HelloWorldInteraction);
-            }
+        let Some(registration) = inventory::iter::<CardInteractionRegistration>
+            .into_iter()
+            .find(|registration| registration.type_id == self.interaction.type_id)
+        else {
+            bevy::log::warn!(
+                "unknown card interaction type: {}",
+                self.interaction.type_id
+            );
+            return;
+        };
+
+        if let Err(error) = registration.insert(&self.interaction.params, entity) {
+            bevy::log::warn!(
+                "failed to deserialize card interaction {}: {error}",
+                self.interaction.type_id
+            );
         }
     }
 }
@@ -88,7 +95,10 @@ impl Plugin for InteractionCardPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ActiveInteraction>();
         app.add_systems(Update, update_active_interaction);
-        app.add_plugins(InteractionPlugin::<HelloWorldInteraction>::default());
+
+        for registration in inventory::iter::<CardInteractionRegistration> {
+            registration.register_plugin(app);
+        }
     }
 }
 
@@ -96,6 +106,66 @@ impl<T: CardInteraction> Plugin for InteractionPlugin<T> {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, dispatch_interaction_events::<T>);
     }
+}
+
+pub fn register_interaction_plugin<T: CardInteraction>(app: &mut App) {
+    app.add_plugins(InteractionPlugin::<T>::default());
+}
+
+/// Function signature used to insert one interaction component from raw JSON.
+pub type CardInteractionComponentInserter = fn(&Value, &mut EntityCommands<'_>) -> Result<()>;
+
+/// Function signature used to register systems for one interaction component type.
+pub type CardInteractionPluginInjector = fn(&mut App);
+
+/// Static registration entry collected through `inventory`.
+pub struct CardInteractionRegistration {
+    pub type_id: &'static str,
+    pub json_src_inserter: CardInteractionComponentInserter,
+    pub plugin_registrar: CardInteractionPluginInjector,
+}
+
+impl CardInteractionRegistration {
+    pub const fn new(
+        type_id: &'static str,
+        json_src_inserter: CardInteractionComponentInserter,
+        plugin_registrar: CardInteractionPluginInjector,
+    ) -> Self {
+        Self {
+            type_id,
+            json_src_inserter,
+            plugin_registrar,
+        }
+    }
+
+    fn insert(&self, json: &Value, entity: &mut EntityCommands<'_>) -> Result<()> {
+        (self.json_src_inserter)(json, entity)
+    }
+
+    fn register_plugin(&self, app: &mut App) {
+        (self.plugin_registrar)(app)
+    }
+}
+
+inventory::collect!(CardInteractionRegistration);
+
+#[macro_export]
+macro_rules! register_card_interaction {
+    ($name:expr, $param_type:ty, $component_type:ty) => {
+        inventory::submit! {
+            $crate::card::specialized::interactive::CardInteractionRegistration::new(
+                $name,
+                |value: &serde_json::Value, entity: &mut bevy::ecs::system::EntityCommands<'_>| -> anyhow::Result<()> {
+                    let params = serde_json::from_value::<$param_type>(value.clone())?;
+                    entity.insert(<$component_type as From<$param_type>>::from(params));
+                    Ok(())
+                },
+                |app: &mut bevy::app::App| {
+                    $crate::card::specialized::interactive::register_interaction_plugin::<$component_type>(app);
+                }
+            )
+        }
+    };
 }
 
 fn update_active_interaction(
@@ -156,3 +226,31 @@ fn dispatch_interaction_events<T: CardInteraction>(
 }
 
 register_card_specialized_param!("interactive", InteractionCardParams);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn registry_can_find_hello_world_interaction_action() {
+        let registration = inventory::iter::<CardInteractionRegistration>
+            .into_iter()
+            .find(|registration| registration.type_id == "log_hello_world");
+
+        assert!(registration.is_some());
+    }
+
+    #[test]
+    fn interaction_card_params_parse_registered_action_shape() {
+        let params = serde_json::from_value::<InteractionCardParams>(serde_json::json!({
+            "interaction": {
+                "type": "log_hello_world",
+                "params": {}
+            }
+        }))
+        .expect("interaction card params should parse");
+
+        assert_eq!(params.interaction.type_id, "log_hello_world");
+        assert_eq!(params.interaction.params, serde_json::json!({}));
+    }
+}

@@ -258,7 +258,10 @@ mod tests {
       "id": 10000003,
       "type": "interactive",
       "params": {
-        "interaction": "log_hello_world"
+        "interaction": {
+          "type": "log_hello_world",
+          "params": {}
+        }
       }
     },
     {
