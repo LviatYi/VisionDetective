@@ -1,8 +1,7 @@
 use crate::GameView;
-use crate::card::obstacle::spawn_obstacle_card;
-use crate::card::{
-    CardKind, HelloWorldInteraction, Interactive, spawn_interaction_card, spawn_scenery_card,
-};
+use crate::card::specialized::interactive::{HelloWorldInteraction, Interactive};
+use crate::card::specialized::obstacle::spawn_obstacle_card;
+use crate::card::{CardKind, spawn_interaction_card, spawn_scenery_card};
 use crate::config::{DemoCardConfig, GameConfig, InteractionEffectConfig, vec2_from_pair};
 use bevy::prelude::*;
 

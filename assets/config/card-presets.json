@@ -16,5 +16,12 @@
         "obstacle_def": "full"
       }
     }
+  ],
+  "prefabs": [
+    {
+      "id": 2001,
+      "appearance_id": 1001,
+      "specialized_id": 10000001
+    }
   ]
 }

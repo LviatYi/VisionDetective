@@ -3,7 +3,7 @@ use crate::config::card_config::CardPresetsConfig;
 use anyhow::Result;
 use bevy::ecs::system::EntityCommands;
 use bevy::math::Vec2;
-use bevy::prelude::{Res, Resource};
+use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -13,17 +13,37 @@ use std::collections::HashMap;
 pub struct CardParam {
     pub scene_param: CardSceneParam,
 
+    pub prefab_id: u32,
+}
+
+/// A card prefab that binds one appearance preset to one specialized preset.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardPrefab {
+    pub id: u32,
+
     pub appearance_id: u32,
 
     pub specialized_id: u32,
 }
 
 impl CardParam {
+    pub fn load_prefab(&self, config: &CardPresetsConfig) -> Option<CardPrefab> {
+        config
+            .prefabs
+            .iter()
+            .find(|prefab| prefab.id == self.prefab_id)
+            .cloned()
+    }
+
     pub fn load_appearance(&self, config: &CardPresetsConfig) -> CardAppearanceConfig {
+        let Some(prefab) = self.load_prefab(config) else {
+            return CardAppearanceConfig::placeholder();
+        };
+
         config
             .appearances
             .iter()
-            .find(|c| c.id == self.appearance_id)
+            .find(|appearance| appearance.id == prefab.appearance_id)
             .cloned()
             .unwrap_or_else(CardAppearanceConfig::placeholder)
     }
@@ -31,12 +51,14 @@ impl CardParam {
     pub fn load_specialized_config(
         &self,
         config: &CardPresetsConfig,
-        registry: Res<CardSpecializedRegistry>,
+        registry: &CardSpecializedRegistry,
     ) -> Option<Box<dyn CardSpecialized>> {
+        let prefab = self.load_prefab(config)?;
+
         config
             .specialized
             .iter()
-            .find(|c| c.id == self.specialized_id)
+            .find(|specialized| specialized.id == prefab.specialized_id)
             .cloned()
             .and_then(|c| {
                 registry
@@ -192,6 +214,7 @@ impl Default for CardSpecializedRegistry {
 mod tests {
     use super::*;
     use crate::card::CardKind;
+    use crate::config::card_config::CardPresetsConfig;
 
     #[test]
     fn registry_can_find_and_deserialize_obstacle_specialized_param() {
@@ -206,6 +229,59 @@ mod tests {
                 "obstacle_def": "full"
             }))
             .expect("registered obstacle deserializer should parse json");
+
+        assert_eq!(specialized.kind(), CardKind::Obstacle);
+    }
+
+    #[test]
+    fn card_param_resolves_prefab_appearance_and_specialized() {
+        let config = serde_json::from_str::<CardPresetsConfig>(
+            r##"{
+  "appearances": [
+    {
+      "id": 1001,
+      "title": "Wall",
+      "background_color_appearance_override": "#000000",
+      "image_layout_type": "full",
+      "image_res_path": "/assets/config/pics/wall-bricks.png"
+    }
+  ],
+  "specialized": [
+    {
+      "id": 10000001,
+      "type": "obstacle",
+      "params": {
+        "obstacle_def": "full"
+      }
+    }
+  ],
+  "prefabs": [
+    {
+      "id": 2001,
+      "appearance_id": 1001,
+      "specialized_id": 10000001
+    }
+  ]
+}"##,
+        )
+        .expect("card presets json should parse");
+
+        let card_param = CardParam {
+            scene_param: CardSceneParam {
+                position: Vec2::new(10.0, 20.0),
+                rotation: 0.25,
+            },
+            prefab_id: 2001,
+        };
+
+        let appearance = card_param.load_appearance(&config);
+        assert_eq!(appearance.id, 1001);
+        assert_eq!(appearance.title, "Wall");
+
+        let registry = CardSpecializedRegistry::default();
+        let specialized = card_param
+            .load_specialized_config(&config, &registry)
+            .expect("prefab specialized config should deserialize");
 
         assert_eq!(specialized.kind(), CardKind::Obstacle);
     }

@@ -1,4 +1,4 @@
-use crate::card::card_params::{CardAppearanceConfig, CardSpecializedConfig};
+use crate::card::card_params::{CardAppearanceConfig, CardPrefab, CardSpecializedConfig};
 use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -9,6 +9,8 @@ pub struct CardPresetsConfig {
     pub appearances: Vec<CardAppearanceConfig>,
 
     pub specialized: Vec<CardSpecializedConfig>,
+
+    pub prefabs: Vec<CardPrefab>,
 }
 
 impl CardPresetsConfig {
@@ -56,12 +58,20 @@ mod tests {
         "obstacle_def": "full"
       }
     }
+  ],
+  "prefabs": [
+    {
+      "id": 2001,
+      "appearance_id": 1001,
+      "specialized_id": 10000001
+    }
   ]
 }"##,
         );
         let config = config.expect("failed to parse config");
         assert_eq!(config.appearances.len(), 1);
         assert_eq!(config.specialized.len(), 1);
+        assert_eq!(config.prefabs.len(), 1);
 
         assert_eq!(config.appearances[0].id, 1001);
         assert_eq!(config.appearances[0].title, "Wall");
@@ -86,5 +96,9 @@ mod tests {
                 "obstacle_def": "full"
             })
         );
+
+        assert_eq!(config.prefabs[0].id, 2001);
+        assert_eq!(config.prefabs[0].appearance_id, 1001);
+        assert_eq!(config.prefabs[0].specialized_id, 10000001);
     }
 }

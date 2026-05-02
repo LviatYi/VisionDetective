@@ -28,15 +28,25 @@ impl CardSpecialized for ObstacleCardParams {
         entity.insert(Obstacle::new(match &self.obstacle_def {
             CardObstacleType::Full => {
                 vec![
-                    Vec2::new(-crate::card::CARD_SIZE.x * 0.5, -crate::card::CARD_SIZE.y * 0.5),
-                    Vec2::new(crate::card::CARD_SIZE.x * 0.5, -crate::card::CARD_SIZE.y * 0.5),
-                    Vec2::new(crate::card::CARD_SIZE.x * 0.5, crate::card::CARD_SIZE.y * 0.5),
-                    Vec2::new(-crate::card::CARD_SIZE.x * 0.5, crate::card::CARD_SIZE.y * 0.5),
+                    Vec2::new(
+                        -crate::card::CARD_SIZE.x * 0.5,
+                        -crate::card::CARD_SIZE.y * 0.5,
+                    ),
+                    Vec2::new(
+                        crate::card::CARD_SIZE.x * 0.5,
+                        -crate::card::CARD_SIZE.y * 0.5,
+                    ),
+                    Vec2::new(
+                        crate::card::CARD_SIZE.x * 0.5,
+                        crate::card::CARD_SIZE.y * 0.5,
+                    ),
+                    Vec2::new(
+                        -crate::card::CARD_SIZE.x * 0.5,
+                        crate::card::CARD_SIZE.y * 0.5,
+                    ),
                 ]
-            },
-            CardObstacleType::Path(path) => {
-                path.clone()
             }
+            CardObstacleType::Path(path) => path.clone(),
         }));
     }
 }

@@ -1,16 +1,11 @@
 pub mod card_params;
-pub mod obstacle;
+pub mod specialized;
 
-use crate::card::card_params::{
-    CardAppearanceConfig, CardParam, CardSceneParam, CardSpecialized,
-    CardSpecializedRegistry,
-};
-use crate::coin::player::PlayerCoin;
+use crate::card::card_params::{CardParam, CardSpecializedRegistry};
 use crate::config::card_config::CardPresetsConfig;
 use crate::config::GameConfig;
 use bevy::prelude::*;
 use serde::Deserialize;
-use std::marker::PhantomData;
 
 pub struct CardPlugin;
 
@@ -59,57 +54,6 @@ impl Card {
     }
 }
 
-#[derive(Component, Default)]
-pub struct Interactive;
-
-#[derive(Component, Default)]
-pub struct HelloWorldInteraction;
-
-#[derive(Resource, Default)]
-struct ActiveInteraction {
-    current: Option<Entity>,
-    previous: Option<Entity>,
-}
-
-pub trait CardInteraction: Component {
-    fn on_enter(&self, entity: Entity, card: &Card) {
-        let _ = (entity, card);
-    }
-
-    fn on_exit(&self, entity: Entity, card: &Card) {
-        let _ = (entity, card);
-    }
-}
-
-struct InteractionPlugin<T: CardInteraction>(PhantomData<T>);
-
-impl<T: CardInteraction> Default for InteractionPlugin<T> {
-    fn default() -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl CardInteraction for HelloWorldInteraction {
-    fn on_enter(&self, _entity: Entity, _card: &Card) {
-        info!("hello world");
-    }
-}
-
-impl Plugin for CardPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<ActiveInteraction>();
-        app.init_resource::<CardSpecializedRegistry>();
-        app.add_systems(Update, (spawn_card_visuals, update_active_interaction));
-        app.add_plugins(InteractionPlugin::<HelloWorldInteraction>::default());
-    }
-}
-
-impl<T: CardInteraction> Plugin for InteractionPlugin<T> {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Update, dispatch_interaction_events::<T>);
-    }
-}
-
 fn spawn_card(
     commands: &mut Commands,
     transform: Transform,
@@ -117,20 +61,6 @@ fn spawn_card(
     appearance: CardKind,
 ) -> Entity {
     commands.spawn((transform, card, appearance)).id()
-}
-
-pub(crate) fn generate_card_bundle(
-    transform: Transform,
-    title: impl Into<String>,
-    card_kind: CardKind,
-) -> impl Bundle {
-    (
-        transform,
-        Card {
-            title: title.into(),
-        },
-        card_kind,
-    )
 }
 
 pub fn spawn_scenery_card(commands: &mut Commands, transform: Transform, title: String) -> Entity {
@@ -160,92 +90,26 @@ fn spawn_card_visuals(
     }
 }
 
-fn update_active_interaction(
-    config: Res<GameConfig>,
-    player_query: Query<&Transform, With<PlayerCoin>>,
-    interaction_query: Query<(Entity, &Card, &GlobalTransform), With<Interactive>>,
-    mut active_interaction: ResMut<ActiveInteraction>,
-) {
-    let Ok(player_transform) = player_query.single() else {
-        active_interaction.previous = active_interaction.current.take();
-        return;
-    };
-
-    let player_position = player_transform.translation.truncate();
-    let player_radius = config.visuals.player_radius;
-
-    let next = interaction_query
-        .iter()
-        .filter(|(_, card, transform)| {
-            card.intersect_circle(transform, player_position, player_radius)
-        })
-        .min_by(|(entity_a, _, transform_a), (entity_b, _, transform_b)| {
-            let distance_a = player_position.distance_squared(transform_a.translation().truncate());
-            let distance_b = player_position.distance_squared(transform_b.translation().truncate());
-
-            distance_a
-                .partial_cmp(&distance_b)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| entity_a.index().cmp(&entity_b.index()))
-        })
-        .map(|(entity, _, _)| entity);
-
-    active_interaction.previous = active_interaction.current;
-    active_interaction.current = next;
-}
-
-fn dispatch_interaction_events<T: CardInteraction>(
-    active_interaction: Res<ActiveInteraction>,
-    interaction_query: Query<(Entity, &Card, &T)>,
-) {
-    if !active_interaction.is_changed() {
-        return;
-    }
-
-    if let Some(entity) = active_interaction.previous
-        && active_interaction.current != Some(entity)
-        && let Ok((entity, card, interaction)) = interaction_query.get(entity)
-    {
-        interaction.on_exit(entity, card);
-    }
-
-    if let Some(entity) = active_interaction.current
-        && active_interaction.previous != Some(entity)
-        && let Ok((entity, card, interaction)) = interaction_query.get(entity)
-    {
-        interaction.on_enter(entity, card);
-    }
-}
-
 pub fn spawn_card_by_card_param(
     commands: &mut Commands,
-    scene_param: &CardSceneParam,
-    appearance_param: &CardAppearanceConfig,
-    specialized_param: Option<Box<dyn CardSpecialized>>,
-) {
-    let mut entity = commands.spawn((
-        Transform::from_translation(scene_param.position.extend(0.0))
-            .with_rotation(Quat::from_rotation_z(scene_param.rotation)),
-        Card {
-            title: appearance_param.title.clone(),
-        },
-    ));
-
-    specialized_param.inspect(|p| {
-        entity.insert(p.kind());
-        p.insert_components(&mut entity);
-    });
-}
-
-pub fn spawn_card_from_param(
-    commands: &mut Commands,
-    card_presets_config: &CardPresetsConfig,
-    card_specialized_registration: Res<CardSpecializedRegistry>,
     card_param: &CardParam,
+    card_presets_config: &CardPresetsConfig,
+    card_specialized_registry: Res<CardSpecializedRegistry>,
 ) {
     let appearance = card_param.load_appearance(card_presets_config);
     let specialized =
-        card_param.load_specialized_config(card_presets_config, card_specialized_registration);
+        card_param.load_specialized_config(card_presets_config, card_specialized_registry.as_ref());
 
-    spawn_card_by_card_param(commands, &card_param.scene_param, &appearance, specialized);
+    let mut entity = commands.spawn((
+        Transform::from_translation(card_param.scene_param.position.extend(0.0))
+            .with_rotation(Quat::from_rotation_z(card_param.scene_param.rotation)),
+        Card {
+            title: appearance.title.clone(),
+        },
+    ));
+
+    specialized.inspect(|p| {
+        entity.insert(p.kind());
+        p.insert_components(&mut entity);
+    });
 }

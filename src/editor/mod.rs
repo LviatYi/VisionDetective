@@ -1,6 +1,6 @@
 use crate::AppScreen;
 use crate::asset::font;
-use crate::card::obstacle::spawn_obstacle_card;
+use crate::card::specialized::obstacle::spawn_obstacle_card;
 use crate::card::{CARD_SIZE, Card, CardKind};
 use crate::coin::player::controller::CursorWorldPosition;
 use crate::config::GameConfig;
