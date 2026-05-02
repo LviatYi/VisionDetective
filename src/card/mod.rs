@@ -177,23 +177,6 @@ fn spawn_card_title(
 ) {
     let title_position = CARD_SIZE.y * config.cards.title_offset_y_ratio;
     let title_size = title_glass_size(config, title_position);
-    let blur_layers = config.cards.title_glass_blur_layers.max(1);
-
-    for layer in (1..=blur_layers).rev() {
-        let normalized = layer as f32 / blur_layers as f32;
-        let alpha_scale = normalized * normalized;
-        let blur_expand = config.cards.title_glass_blur_step * layer as f32;
-        let blur_size = title_glass_layer_size(title_size, title_position, blur_expand);
-        parent.spawn((
-            Mesh2d(meshes.add(rounded_rectangle_mesh(
-                blur_size,
-                config.cards.title_glass_corner_radius + blur_expand,
-                config.cards.rounded_corner_segments,
-            ))),
-            MeshMaterial2d(materials.add(config.cards.title_glass_blur_color(alpha_scale))),
-            Transform::from_xyz(0.0, title_position, 0.18 + layer as f32 * 0.001),
-        ));
-    }
 
     parent.spawn((
         Mesh2d(meshes.add(rounded_rectangle_mesh(
@@ -288,16 +271,9 @@ fn title_glass_size(config: &GameConfig, title_position: f32) -> Vec2 {
     let padding = config.cards.title_glass_padding();
     let height = config.cards.title_font_size * 1.25 + padding.y * 2.0;
 
-    title_glass_layer_size(Vec2::new(CARD_SIZE.x, height), title_position, 0.0)
-}
-
-fn title_glass_layer_size(base_size: Vec2, title_position: f32, vertical_expand: f32) -> Vec2 {
     let max_height = (CARD_SIZE.y * 0.5 - title_position.abs()).max(0.0) * 2.0;
 
-    Vec2::new(
-        CARD_SIZE.x,
-        (base_size.y + vertical_expand * 2.0).min(max_height),
-    )
+    Vec2::new(CARD_SIZE.x, height.min(max_height))
 }
 
 fn title_text_scale_x(title: &str, config: &GameConfig) -> f32 {

@@ -240,9 +240,6 @@ pub struct CardConfig {
     pub title_glass_padding: [f32; 2],
     pub title_glass_corner_radius: f32,
     pub title_glass_color: [f32; 4],
-    pub title_glass_blur_layers: usize,
-    pub title_glass_blur_step: f32,
-    pub title_glass_blur_alpha: f32,
 }
 
 impl CardConfig {
@@ -282,15 +279,6 @@ impl CardConfig {
             self.title_glass_color[1],
             self.title_glass_color[2],
             self.title_glass_color[3],
-        )
-    }
-
-    pub fn title_glass_blur_color(&self, alpha_scale: f32) -> Color {
-        Color::srgba(
-            self.title_glass_color[0],
-            self.title_glass_color[1],
-            self.title_glass_color[2],
-            self.title_glass_blur_alpha * alpha_scale,
         )
     }
 }

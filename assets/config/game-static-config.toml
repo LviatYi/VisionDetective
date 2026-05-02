@@ -71,10 +71,7 @@ title_font_size = 18.0
 title_offset_y_ratio = 0.34
 title_glass_padding = [7.0, 4.0]
 title_glass_corner_radius = 5.0
-title_glass_color = [1.0, 1.0, 1.0, 0.18]
-title_glass_blur_layers = 4
-title_glass_blur_step = 2.0
-title_glass_blur_alpha = 0.08
+title_glass_color = [1.0, 1.0, 1.0, 0.5]
 
 [physics]
 # Half extents of the rectangular arena in world units.
