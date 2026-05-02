@@ -1,6 +1,7 @@
-use crate::AppScreen;
 use crate::coin::player::PlayerCoin;
+use crate::coin::player::controller::PlayerCoinState;
 use crate::config::GameConfig;
+use crate::game_view::GameState;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::*;
 use obstacle::Obstacle;
@@ -17,15 +18,19 @@ impl Plugin for PhysicsPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            move_player_coin_transform.run_if(in_state(AppScreen::Game)),
+            move_player_coin_transform.run_if(in_state(GameState::InGame)),
         )
-        .add_systems(Update, obstacle::draw_obstacle_paths);
+        .add_systems(
+            Update,
+            obstacle::draw_obstacle_paths.run_if(in_state(GameState::InGame)),
+        );
     }
 }
 
 pub fn move_player_coin_transform(
     config: Res<GameConfig>,
     time: Res<Time>,
+    mut player_state: ResMut<PlayerCoinState>,
     mut transform_query: Query<(&mut Transform, &mut PlayerCoin, &mut Velocity)>,
     obstacle_query: Query<(&Transform, &Obstacle), Without<PlayerCoin>>,
 ) {
@@ -86,6 +91,9 @@ pub fn move_player_coin_transform(
         if planar_speed < config.physics.stop_speed {
             velocity.x = 0.0;
             velocity.y = 0.0;
+            if matches!(*player_state, PlayerCoinState::Ejecting) {
+                *player_state = PlayerCoinState::Idle;
+            }
         } else {
             let friction_delta = config.physics.sliding_friction * dt;
             let next_speed = (planar_speed - friction_delta).max(0.0);

@@ -9,20 +9,20 @@ pub mod scene;
 
 use crate::asset::font;
 use crate::card::CardPlugin;
+use crate::card::card_params::CardSpecializedRegistry;
 use crate::coin::player::PlayerPlugin;
-use crate::coin::player::controller::EjectInputState;
+use crate::coin::player::controller::PlayerCoinState;
 use crate::config::GameConfig;
+use crate::config::card_config::CardPresetsConfig;
 use crate::editor::EditorPlugin;
 use crate::game_view::main_view::{cleanup_view, handle_esc_to_main_menu};
-use crate::game_view::{AppScreen, GameViewPlugin};
+use crate::game_view::{AppScreen, GameState, GameViewPlugin};
 use crate::physics::PhysicsPlugin;
 use crate::physics::Velocity;
 use crate::physics::vision::VisionPlugin;
 use crate::scene::demo_level::spawn_demo_cards;
-use crate::card::card_params::CardSpecializedRegistry;
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
-use crate::config::card_config::CardPresetsConfig;
 
 #[derive(Component)]
 pub struct GameView;
@@ -48,6 +48,7 @@ fn main() {
             ..default()
         }))
         .init_state::<AppScreen>()
+        .add_sub_state::<GameState>()
         .add_plugins((
             GameViewPlugin,
             PlayerPlugin,
@@ -56,8 +57,15 @@ fn main() {
             CardPlugin,
             EditorPlugin,
         ))
-        .add_systems(OnEnter(AppScreen::Game), setup_game_scene)
-        .add_systems(Update, update_status_text.run_if(in_state(AppScreen::Game)))
+        .add_systems(OnEnter(GameState::Loading), setup_game_scene)
+        .add_systems(
+            Update,
+            finish_game_loading.run_if(in_state(GameState::Loading)),
+        )
+        .add_systems(
+            Update,
+            update_status_text.run_if(in_state(GameState::InGame)),
+        )
         .add_systems(
             Update,
             handle_esc_to_main_menu
@@ -65,6 +73,10 @@ fn main() {
         )
         .add_systems(OnExit(AppScreen::Game), cleanup_view::<GameView>)
         .run();
+}
+
+fn finish_game_loading(mut next_game_state: ResMut<NextState<GameState>>) {
+    next_game_state.set(GameState::InGame);
 }
 
 fn setup_game_scene(
@@ -127,7 +139,7 @@ fn setup_game_scene(
 
 fn update_status_text(
     config: Res<GameConfig>,
-    drag_state: Res<EjectInputState>,
+    player_state: Res<PlayerCoinState>,
     player_query: Query<&Velocity, With<coin::player::PlayerCoin>>,
     mut text_query: Query<&mut Text, With<StatusText>>,
 ) {
@@ -138,21 +150,26 @@ fn update_status_text(
         return;
     };
 
-    let status = if drag_state.charging {
-        let charge_ratio = drag_state.eject_vector.length() / config.player.max_eject_distance;
+    let status = if let PlayerCoinState::Charging { eject_vector } = *player_state {
+        let charge_ratio = eject_vector.length() / config.player.max_eject_distance;
         format!(
             "蓄力中 | 拉距 {:.0}px | 预计平面速度 {:.0}",
-            drag_state.eject_vector.length(),
+            eject_vector.length(),
             charge_ratio * config.player.max_planar_speed
         )
-    } else if drag_state.aiming {
+    } else if player_state.is_aiming() {
         format!(
             "待发射 | 当前速度 x:{:.0} y:{:.0} z:{:.0}",
             velocity.x, velocity.y, velocity.z
         )
+    } else if matches!(*player_state, PlayerCoinState::Idle) {
+        format!(
+            "静止 | 当前速度 x:{:.0} y:{:.0} z:{:.0}",
+            velocity.x, velocity.y, velocity.z
+        )
     } else {
         format!(
-            "移动中 | 当前速度 x:{:.0} y:{:.0} z:{:.0}",
+            "弹起中 | 当前速度 x:{:.0} y:{:.0} z:{:.0}",
             velocity.x, velocity.y, velocity.z
         )
     };

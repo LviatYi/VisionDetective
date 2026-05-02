@@ -25,6 +25,14 @@ pub enum AppScreen {
     Editor,
 }
 
+#[derive(SubStates, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[source(AppScreen = AppScreen::Game)]
+pub enum GameState {
+    #[default]
+    Loading,
+    InGame,
+}
+
 pub mod main_view {
     use crate::asset::font;
     use crate::config::GameConfig;

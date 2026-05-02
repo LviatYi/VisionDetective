@@ -3,14 +3,16 @@ mod hello_world;
 use crate::card::card_params::CardSpecialized;
 use crate::card::{Card, CardKind};
 use crate::coin::player::PlayerCoin;
+use crate::coin::player::controller::PlayerCoinState;
 use crate::config::GameConfig;
+use crate::game_view::GameState;
 use crate::register_card_specialized_param;
 use anyhow::Result;
 use bevy::app::{App, Plugin, Update};
 use bevy::ecs::system::EntityCommands;
 use bevy::prelude::{
-    Component, DetectChanges, Entity, GlobalTransform, Query, Res, ResMut, Resource, Transform,
-    With,
+    Component, DetectChanges, Entity, GlobalTransform, IntoScheduleConfigs, Query, Res, ResMut,
+    Resource, Transform, With, in_state,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -94,7 +96,10 @@ pub struct InteractionCardPlugin;
 impl Plugin for InteractionCardPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ActiveInteraction>();
-        app.add_systems(Update, update_active_interaction);
+        app.add_systems(
+            Update,
+            update_active_interaction.run_if(in_state(GameState::InGame)),
+        );
 
         for registration in inventory::iter::<CardInteractionRegistration> {
             registration.register_plugin(app);
@@ -104,7 +109,10 @@ impl Plugin for InteractionCardPlugin {
 
 impl<T: CardInteraction> Plugin for InteractionPlugin<T> {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, dispatch_interaction_events::<T>);
+        app.add_systems(
+            Update,
+            dispatch_interaction_events::<T>.run_if(in_state(GameState::InGame)),
+        );
     }
 }
 
@@ -170,10 +178,16 @@ macro_rules! register_card_interaction {
 
 fn update_active_interaction(
     config: Res<GameConfig>,
+    player_state: Res<PlayerCoinState>,
     player_query: Query<&Transform, With<PlayerCoin>>,
     interaction_query: Query<(Entity, &Card, &GlobalTransform), With<Interactive>>,
     mut active_interaction: ResMut<ActiveInteraction>,
 ) {
+    if !player_state.is_idle() {
+        active_interaction.previous = active_interaction.current.take();
+        return;
+    }
+
     let Ok(player_transform) = player_query.single() else {
         active_interaction.previous = active_interaction.current.take();
         return;
