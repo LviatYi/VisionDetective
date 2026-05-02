@@ -1,91 +1,40 @@
 use crate::GameView;
-use crate::card::specialized::interactive::{HelloWorldInteraction, Interactive};
-use crate::card::specialized::obstacle::spawn_obstacle_card;
-use crate::card::{CardKind, spawn_interaction_card, spawn_scenery_card};
-use crate::config::{DemoCardConfig, GameConfig, InteractionEffectConfig, vec2_from_pair};
+use crate::card::card_params::{CardParam, CardSceneParam, CardSpecializedRegistry};
+use crate::card::spawn_card_by_card_param;
+use crate::config::DemoCardConfig;
+use crate::config::GameConfig;
+use crate::config::card_config::CardPresetsConfig;
 use bevy::prelude::*;
 
-pub fn spawn_demo_cards(commands: &mut Commands, config: &GameConfig) {
+pub fn spawn_demo_cards(
+    commands: &mut Commands,
+    config: &GameConfig,
+    card_presets_config: &CardPresetsConfig,
+    card_specialized_registry: &CardSpecializedRegistry,
+) {
     for card in &config.scene.demo_cards {
-        spawn_demo_card(commands, config, card);
+        spawn_demo_card(commands, card_presets_config, card_specialized_registry, card);
     }
 }
 
-fn spawn_demo_card(commands: &mut Commands, config: &GameConfig, card: &DemoCardConfig) {
-    let transform = Transform::from_translation(card.translation())
-        .with_rotation(Quat::from_rotation_z(card.rotation_z));
-
-    let entity = match card.kind {
-        CardKind::Scenery => spawn_scenery_card(commands, transform, card.title.clone()),
-        CardKind::Obstacle => spawn_obstacle_card(
-            commands,
-            transform,
-            card.title.clone(),
-            resolve_local_path(card, config),
-        ),
-        CardKind::Interaction => spawn_interaction_card(commands, transform, card.title.clone()),
-    };
-
-    if matches!(
-        card.interaction_effect,
-        Some(InteractionEffectConfig::LogHelloWorld)
-    ) {
-        commands
-            .entity(entity)
-            .insert((Interactive, HelloWorldInteraction));
-    }
+fn spawn_demo_card(
+    commands: &mut Commands,
+    card_presets_config: &CardPresetsConfig,
+    card_specialized_registry: &CardSpecializedRegistry,
+    card: &DemoCardConfig,
+) {
+    let entity = spawn_card_by_card_param(
+        commands,
+        &CardParam {
+            scene_param: CardSceneParam {
+                position: card.translation().truncate(),
+                rotation: card.rotation_z,
+            },
+            prefab_id: card.prefab_id,
+        },
+        card_presets_config,
+        card_specialized_registry,
+    );
 
     commands.entity(entity).insert(GameView);
-}
-
-fn resolve_local_path(card: &DemoCardConfig, config: &GameConfig) -> Vec<Vec2> {
-    if let Some(path) = &card.path {
-        path.iter().copied().map(vec2_from_pair).collect()
-    } else if let Some(bezier) = &card.bezier {
-        sample_cubic_closed_path(
-            &bezier.anchors,
-            &bezier.controls_a,
-            &bezier.controls_b,
-            config.scene.bezier_steps_per_curve,
-        )
-    } else {
-        let half_size = card.size() * 0.5;
-        vec![
-            Vec2::new(-half_size.x, -half_size.y),
-            Vec2::new(half_size.x, -half_size.y),
-            Vec2::new(half_size.x, half_size.y),
-            Vec2::new(-half_size.x, half_size.y),
-        ]
-    }
-}
-
-fn sample_cubic_closed_path(
-    anchors: &[[f32; 2]],
-    controls_a: &[[f32; 2]],
-    controls_b: &[[f32; 2]],
-    steps_per_curve: usize,
-) -> Vec<Vec2> {
-    let mut points = Vec::new();
-
-    for curve_index in 0..anchors.len() {
-        let start = vec2_from_pair(anchors[curve_index]);
-        let control_a = vec2_from_pair(controls_a[curve_index]);
-        let control_b = vec2_from_pair(controls_b[curve_index]);
-        let end = vec2_from_pair(anchors[(curve_index + 1) % anchors.len()]);
-
-        for step in 0..steps_per_curve {
-            let t = step as f32 / steps_per_curve as f32;
-            points.push(sample_cubic_bezier(start, control_a, control_b, end, t));
-        }
-    }
-
-    points
-}
-
-fn sample_cubic_bezier(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: f32) -> Vec2 {
-    let one_minus_t = 1.0 - t;
-    p0 * one_minus_t.powi(3)
-        + p1 * 3.0 * one_minus_t.powi(2) * t
-        + p2 * 3.0 * one_minus_t * t * t
-        + p3 * t.powi(3)
 }

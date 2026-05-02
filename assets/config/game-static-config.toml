@@ -105,63 +105,24 @@ vertex_radius = 3.0
 bezier_steps_per_curve = 8
 
 [[scene.demo_cards]]
-title = "景观卡"
-kind = "scenery"
+prefab_id = 1001
 translation = [-310.0, -110.0, 0.8]
 rotation_z = -0.06
-size = [220.0, 140.0]
 
 [[scene.demo_cards]]
-title = "障碍卡"
-kind = "obstacle"
+prefab_id = 1002
 translation = [-10.0, 20.0, 0.8]
 rotation_z = 0.18
-size = [210.0, 150.0]
-path = [
-    [-90.0, -56.0],
-    [74.0, -68.0],
-    [102.0, 12.0],
-    [18.0, 72.0],
-    [-88.0, 42.0],
-]
 
 [[scene.demo_cards]]
-title = "交互卡"
-kind = "interaction"
+prefab_id = 1003
 translation = [265.0, -120.0, 0.8]
 rotation_z = 0.1
-size = [180.0, 120.0]
-interaction_effect = "log_hello_world"
 
 [[scene.demo_cards]]
-title = "曲线障碍卡"
-kind = "obstacle"
+prefab_id = 1004
 translation = [280.0, 150.0, 0.8]
 rotation_z = 0.0
-size = [180.0, 160.0]
-
-[scene.demo_cards.bezier]
-# Closed bezier anchor points in local space [x, y].
-anchors = [
-    [-72.0, -16.0],
-    [-48.0, 72.0],
-    [60.0, 76.0],
-    [86.0, 6.0],
-]
-# First control handle for each anchor.
-controls_a = [
-    [-64.0, 40.0],
-    [4.0, 98.0],
-    [90.0, 54.0],
-    [42.0, -54.0],
-]
-# Second control handle for each anchor.
-controls_b = [
-    [-8.0, 96.0],
-    [82.0, 98.0],
-    [108.0, -26.0],
-    [-14.0, -76.0],
-]
 
 [assets]
 default_font = "fonts/LXGWWenKai/LXGWWenKai-Regular.ttf"

@@ -1,9 +1,30 @@
 {
   "appearances": [
     {
-      "id": 1001,
-      "title": "Wall",
-      "background_color_appearance_override": "#000000",
+      "id": 100001,
+      "title": "草",
+      "background_color_appearance_override": "#4C8A68FF",
+      "image_layout_type": "normal",
+      "image_res_path": ""
+    },
+    {
+      "id": 100002,
+      "title": "障碍卡",
+      "background_color_appearance_override": "#7D6148FF",
+      "image_layout_type": "full",
+      "image_res_path": "/assets/config/pics/wall-bricks.png"
+    },
+    {
+      "id": 100003,
+      "title": "交互卡",
+      "background_color_appearance_override": "#C6783DFF",
+      "image_layout_type": "normal",
+      "image_res_path": ""
+    },
+    {
+      "id": 100004,
+      "title": "曲线障碍卡模拟",
+      "background_color_appearance_override": "#7D6148FF",
       "image_layout_type": "full",
       "image_res_path": "/assets/config/pics/wall-bricks.png"
     }
@@ -11,17 +32,132 @@
   "specialized": [
     {
       "id": 10000001,
+      "type": "scenery",
+      "params": {}
+    },
+    {
+      "id": 10000002,
       "type": "obstacle",
       "params": {
-        "obstacle_def": "full"
+        "obstacle_def": {
+          "path": [
+            [
+              -90.0,
+              -56.0
+            ],
+            [
+              74.0,
+              -68.0
+            ],
+            [
+              102.0,
+              12.0
+            ],
+            [
+              18.0,
+              72.0
+            ],
+            [
+              -88.0,
+              42.0
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": 10000003,
+      "type": "interactive",
+      "params": {
+        "interaction": "log_hello_world"
+      }
+    },
+    {
+      "id": 10000004,
+      "type": "obstacle",
+      "params": {
+        "obstacle_def": {
+          "bezier": {
+            "anchors": [
+              [
+                -72.0,
+                -16.0
+              ],
+              [
+                -48.0,
+                72.0
+              ],
+              [
+                60.0,
+                76.0
+              ],
+              [
+                86.0,
+                6.0
+              ]
+            ],
+            "controls_a": [
+              [
+                -64.0,
+                40.0
+              ],
+              [
+                4.0,
+                98.0
+              ],
+              [
+                90.0,
+                54.0
+              ],
+              [
+                42.0,
+                -54.0
+              ]
+            ],
+            "controls_b": [
+              [
+                -8.0,
+                96.0
+              ],
+              [
+                82.0,
+                98.0
+              ],
+              [
+                108.0,
+                -26.0
+              ],
+              [
+                -14.0,
+                -76.0
+              ]
+            ],
+            "steps_per_curve": 8
+          }
+        }
       }
     }
   ],
   "prefabs": [
     {
-      "id": 2001,
+      "id": 1001,
       "appearance_id": 1001,
       "specialized_id": 10000001
+    },
+    {
+      "id": 1002,
+      "appearance_id": 1002,
+      "specialized_id": 10000002
+    },
+    {
+      "id": 1003,
+      "appearance_id": 1003,
+      "specialized_id": 10000003
+    },
+    {
+      "id": 1004,
+      "appearance_id": 1004,
+      "specialized_id": 10000004
     }
   ]
 }

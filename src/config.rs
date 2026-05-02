@@ -245,21 +245,10 @@ impl CardConfig {
 }
 
 #[derive(Clone, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum InteractionEffectConfig {
-    LogHelloWorld,
-}
-
-#[derive(Clone, Deserialize)]
 pub struct DemoCardConfig {
-    pub title: String,
-    pub kind: crate::card::CardKind,
+    pub prefab_id: u32,
     pub translation: [f32; 3],
     pub rotation_z: f32,
-    pub size: [f32; 2],
-    pub path: Option<Vec<[f32; 2]>>,
-    pub bezier: Option<BezierObstacleConfig>,
-    pub interaction_effect: Option<InteractionEffectConfig>,
 }
 
 impl DemoCardConfig {
@@ -269,10 +258,6 @@ impl DemoCardConfig {
             self.translation[1],
             self.translation[2],
         )
-    }
-
-    pub fn size(&self) -> Vec2 {
-        Vec2::new(self.size[0], self.size[1])
     }
 }
 

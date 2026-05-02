@@ -1,18 +1,36 @@
-use crate::card::card_params::CardSpecializedRegistry;
-use crate::card::{Card, CardPlugin, spawn_card_visuals};
+use crate::card::card_params::CardSpecialized;
+use crate::card::{Card, CardKind};
 use crate::coin::player::PlayerCoin;
 use crate::config::GameConfig;
+use crate::register_card_specialized_param;
 use bevy::app::{App, Plugin, Update};
+use bevy::ecs::system::EntityCommands;
 use bevy::log::info;
 use bevy::prelude::{
     Component, DetectChanges, Entity, GlobalTransform, Query, Res, ResMut, Resource, Transform,
     With,
 };
+use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
+/// Marker component for cards that participate in interaction handling.
 #[derive(Component, Default)]
 pub struct Interactive;
 
+/// Interaction effect variants supported by interactive cards.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CardInteractionType {
+    LogHelloWorld,
+}
+
+/// Specialized parameters for interaction cards.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InteractionCardParams {
+    pub interaction: CardInteractionType,
+}
+
+/// Runtime behavior contract for interaction effect components.
 pub trait CardInteraction: Component {
     fn on_enter(&self, entity: Entity, card: &Card) {
         let _ = (entity, card);
@@ -23,12 +41,29 @@ pub trait CardInteraction: Component {
     }
 }
 
+/// Example interaction effect used by current demo cards.
 #[derive(Component, Default)]
 pub struct HelloWorldInteraction;
 
 impl CardInteraction for HelloWorldInteraction {
     fn on_enter(&self, _entity: Entity, _card: &Card) {
         info!("hello world");
+    }
+}
+
+impl CardSpecialized for InteractionCardParams {
+    fn kind(&self) -> CardKind {
+        CardKind::Interaction
+    }
+
+    fn insert_components(&self, entity: &mut EntityCommands<'_>) {
+        entity.insert(Interactive);
+
+        match self.interaction {
+            CardInteractionType::LogHelloWorld => {
+                entity.insert(HelloWorldInteraction);
+            }
+        }
     }
 }
 
@@ -46,11 +81,13 @@ impl<T: CardInteraction> Default for InteractionPlugin<T> {
     }
 }
 
-impl Plugin for CardPlugin {
+/// Plugin that wires the interaction-card runtime systems.
+pub struct InteractionCardPlugin;
+
+impl Plugin for InteractionCardPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ActiveInteraction>();
-        app.init_resource::<CardSpecializedRegistry>();
-        app.add_systems(Update, (spawn_card_visuals, update_active_interaction));
+        app.add_systems(Update, update_active_interaction);
         app.add_plugins(InteractionPlugin::<HelloWorldInteraction>::default());
     }
 }
@@ -117,3 +154,5 @@ fn dispatch_interaction_events<T: CardInteraction>(
         interaction.on_enter(entity, card);
     }
 }
+
+register_card_specialized_param!("interactive", InteractionCardParams);

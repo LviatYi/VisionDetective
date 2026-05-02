@@ -239,27 +239,48 @@ mod tests {
             r##"{
   "appearances": [
     {
-      "id": 1001,
-      "title": "Wall",
-      "background_color_appearance_override": "#000000",
+      "id": 1003,
+      "title": "交互卡",
+      "background_color_appearance_override": "#C6783DFF",
+      "image_layout_type": "normal",
+      "image_res_path": ""
+    },
+    {
+      "id": 1002,
+      "title": "障碍卡",
+      "background_color_appearance_override": "#7D6148FF",
       "image_layout_type": "full",
       "image_res_path": "/assets/config/pics/wall-bricks.png"
     }
   ],
   "specialized": [
     {
-      "id": 10000001,
+      "id": 10000003,
+      "type": "interactive",
+      "params": {
+        "interaction": "log_hello_world"
+      }
+    },
+    {
+      "id": 10000002,
       "type": "obstacle",
       "params": {
-        "obstacle_def": "full"
+        "obstacle_def": {
+          "path": [[-90.0, -56.0], [74.0, -68.0], [102.0, 12.0], [18.0, 72.0], [-88.0, 42.0]]
+        }
       }
     }
   ],
   "prefabs": [
     {
-      "id": 2001,
-      "appearance_id": 1001,
-      "specialized_id": 10000001
+      "id": 2003,
+      "appearance_id": 1003,
+      "specialized_id": 10000003
+    },
+    {
+      "id": 2002,
+      "appearance_id": 1002,
+      "specialized_id": 10000002
     }
   ]
 }"##,
@@ -271,18 +292,18 @@ mod tests {
                 position: Vec2::new(10.0, 20.0),
                 rotation: 0.25,
             },
-            prefab_id: 2001,
+            prefab_id: 2003,
         };
 
         let appearance = card_param.load_appearance(&config);
-        assert_eq!(appearance.id, 1001);
-        assert_eq!(appearance.title, "Wall");
+        assert_eq!(appearance.id, 1003);
+        assert_eq!(appearance.title, "交互卡");
 
         let registry = CardSpecializedRegistry::default();
         let specialized = card_param
             .load_specialized_config(&config, &registry)
             .expect("prefab specialized config should deserialize");
 
-        assert_eq!(specialized.kind(), CardKind::Obstacle);
+        assert_eq!(specialized.kind(), CardKind::Interaction);
     }
 }

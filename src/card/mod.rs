@@ -54,27 +54,6 @@ impl Card {
     }
 }
 
-fn spawn_card(
-    commands: &mut Commands,
-    transform: Transform,
-    card: Card,
-    appearance: CardKind,
-) -> Entity {
-    commands.spawn((transform, card, appearance)).id()
-}
-
-pub fn spawn_scenery_card(commands: &mut Commands, transform: Transform, title: String) -> Entity {
-    spawn_card(commands, transform, Card { title }, CardKind::Scenery)
-}
-
-pub fn spawn_interaction_card(
-    commands: &mut Commands,
-    transform: Transform,
-    title: String,
-) -> Entity {
-    spawn_card(commands, transform, Card { title }, CardKind::Interaction)
-}
-
 fn spawn_card_visuals(
     mut commands: Commands,
     config: Res<GameConfig>,
@@ -90,15 +69,23 @@ fn spawn_card_visuals(
     }
 }
 
+impl Plugin for CardPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<CardSpecializedRegistry>();
+        app.add_systems(Update, spawn_card_visuals);
+        app.add_plugins(specialized::interactive::InteractionCardPlugin);
+    }
+}
+
 pub fn spawn_card_by_card_param(
     commands: &mut Commands,
     card_param: &CardParam,
     card_presets_config: &CardPresetsConfig,
-    card_specialized_registry: Res<CardSpecializedRegistry>,
-) {
+    card_specialized_registry: &CardSpecializedRegistry,
+) -> Entity {
     let appearance = card_param.load_appearance(card_presets_config);
     let specialized =
-        card_param.load_specialized_config(card_presets_config, card_specialized_registry.as_ref());
+        card_param.load_specialized_config(card_presets_config, card_specialized_registry);
 
     let mut entity = commands.spawn((
         Transform::from_translation(card_param.scene_param.position.extend(0.0))
@@ -108,8 +95,12 @@ pub fn spawn_card_by_card_param(
         },
     ));
 
-    specialized.inspect(|p| {
-        entity.insert(p.kind());
-        p.insert_components(&mut entity);
-    });
+    if let Some(specialized) = specialized {
+        entity.insert(specialized.kind());
+        specialized.insert_components(&mut entity);
+    } else {
+        entity.insert(CardKind::Scenery);
+    }
+
+    entity.id()
 }

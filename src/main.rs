@@ -19,6 +19,7 @@ use crate::physics::PhysicsPlugin;
 use crate::physics::Velocity;
 use crate::physics::vision::VisionPlugin;
 use crate::scene::demo_level::spawn_demo_cards;
+use crate::card::card_params::CardSpecializedRegistry;
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 use crate::config::card_config::CardPresetsConfig;
@@ -70,9 +71,16 @@ fn setup_game_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     config: Res<GameConfig>,
+    card_presets_config: Res<CardPresetsConfig>,
+    card_specialized_registry: Res<CardSpecializedRegistry>,
 ) {
     commands.spawn((Camera2d, GameView));
-    spawn_demo_cards(&mut commands, &config);
+    spawn_demo_cards(
+        &mut commands,
+        &config,
+        &card_presets_config,
+        card_specialized_registry.as_ref(),
+    );
 
     let ui_font = font::load_assets(asset_server, &config, font::FontType::Default);
 
