@@ -230,6 +230,11 @@ pub struct CardConfig {
     pub scenery_fill_color: [f32; 4],
     pub obstacle_fill_color: [f32; 4],
     pub interaction_fill_color: [f32; 4],
+    pub default_fill_color: [f32; 4],
+    pub normal_image_size_ratio: [f32; 2],
+    pub normal_image_offset_y: f32,
+    pub title_font_size: f32,
+    pub title_offset_y_ratio: f32,
 }
 
 impl CardConfig {
@@ -241,6 +246,22 @@ impl CardConfig {
         };
 
         Color::srgba(rgba[0], rgba[1], rgba[2], rgba[3])
+    }
+
+    pub fn default_fill_color(&self) -> Color {
+        Color::srgba(
+            self.default_fill_color[0],
+            self.default_fill_color[1],
+            self.default_fill_color[2],
+            self.default_fill_color[3],
+        )
+    }
+
+    pub fn normal_image_size_ratio(&self) -> Vec2 {
+        Vec2::new(
+            self.normal_image_size_ratio[0],
+            self.normal_image_size_ratio[1],
+        )
     }
 }
 

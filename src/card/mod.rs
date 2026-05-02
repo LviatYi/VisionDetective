@@ -1,9 +1,10 @@
 pub mod card_params;
 pub mod specialized;
 
+use crate::card::card_params::CardImageLayoutType;
 use crate::card::card_params::{CardParam, CardSpecializedRegistry};
-use crate::config::card_config::CardPresetsConfig;
 use crate::config::GameConfig;
+use crate::config::card_config::CardPresetsConfig;
 use bevy::prelude::*;
 use serde::Deserialize;
 
@@ -27,7 +28,6 @@ pub const CARD_SIZE: Vec2 = Vec2::new(
 #[derive(Component, Clone, Debug)]
 pub struct Card {
     pub title: String,
-    // pub image: Image,
 }
 
 impl Card {
@@ -54,31 +54,19 @@ impl Card {
     }
 }
 
-fn spawn_card_visuals(
-    mut commands: Commands,
-    config: Res<GameConfig>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    card_query: Query<(Entity, &CardKind), Added<Card>>,
-) {
-    for (entity, kind) in &card_query {
-        commands.entity(entity).insert((
-            Mesh2d(meshes.add(Rectangle::new(CARD_SIZE.x, CARD_SIZE.y))),
-            MeshMaterial2d(materials.add(config.cards.fill_color(*kind))),
-        ));
-    }
-}
-
 impl Plugin for CardPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CardSpecializedRegistry>();
-        app.add_systems(Update, spawn_card_visuals);
         app.add_plugins(specialized::interactive::InteractionCardPlugin);
     }
 }
 
 pub fn spawn_card_by_card_param(
     commands: &mut Commands,
+    asset_server: &AssetServer,
+    config: &GameConfig,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<ColorMaterial>,
     card_param: &CardParam,
     card_presets_config: &CardPresetsConfig,
     card_specialized_registry: &CardSpecializedRegistry,
@@ -86,6 +74,18 @@ pub fn spawn_card_by_card_param(
     let appearance = card_param.load_appearance(card_presets_config);
     let specialized =
         card_param.load_specialized_config(card_presets_config, card_specialized_registry);
+    let card_kind = specialized
+        .as_ref()
+        .map(|specialized| specialized.kind())
+        .unwrap_or(CardKind::Scenery);
+    let fill_color = parse_hex_color(&appearance.background_color_appearance_override)
+        .unwrap_or_else(|| {
+            if specialized.is_some() {
+                config.cards.fill_color(card_kind)
+            } else {
+                config.cards.default_fill_color()
+            }
+        });
 
     let mut entity = commands.spawn((
         Transform::from_translation(card_param.scene_param.position.extend(0.0))
@@ -93,14 +93,95 @@ pub fn spawn_card_by_card_param(
         Card {
             title: appearance.title.clone(),
         },
+        card_kind,
+        Mesh2d(meshes.add(Rectangle::new(CARD_SIZE.x, CARD_SIZE.y))),
+        MeshMaterial2d(materials.add(fill_color)),
     ));
 
     if let Some(specialized) = specialized {
-        entity.insert(specialized.kind());
         specialized.insert_components(&mut entity);
-    } else {
-        entity.insert(CardKind::Scenery);
     }
 
+    entity.with_children(|parent| {
+        spawn_card_image(
+            parent,
+            asset_server,
+            config,
+            &appearance.image_layout_type,
+            &appearance.image_res_path,
+        );
+        spawn_card_title(parent, asset_server, config, &appearance.title);
+    });
+
     entity.id()
+}
+
+fn spawn_card_image(
+    parent: &mut ChildSpawnerCommands<'_>,
+    asset_server: &AssetServer,
+    config: &GameConfig,
+    image_layout_type: &CardImageLayoutType,
+    image_res_path: &str,
+) {
+    let Some(image_path) = normalize_asset_path(image_res_path) else {
+        return;
+    };
+
+    let mut sprite = Sprite::from_image(asset_server.load(image_path));
+    sprite.custom_size = Some(match image_layout_type {
+        CardImageLayoutType::Full => CARD_SIZE,
+        CardImageLayoutType::Normal => CARD_SIZE * config.cards.normal_image_size_ratio(),
+    });
+
+    parent.spawn((
+        sprite,
+        Transform::from_xyz(
+            0.0,
+            match image_layout_type {
+                CardImageLayoutType::Full => 0.0,
+                CardImageLayoutType::Normal => config.cards.normal_image_offset_y,
+            },
+            0.1,
+        ),
+    ));
+}
+
+fn spawn_card_title(
+    parent: &mut ChildSpawnerCommands<'_>,
+    asset_server: &AssetServer,
+    config: &GameConfig,
+    title: &str,
+) {
+    parent.spawn((
+        Text2d::new(title.to_string()),
+        TextFont {
+            font: asset_server.load(config.assets.default_font.clone()),
+            font_size: config.cards.title_font_size,
+            ..default()
+        },
+        TextColor(Color::WHITE),
+        Transform::from_xyz(0.0, CARD_SIZE.y * config.cards.title_offset_y_ratio, 0.2),
+    ));
+}
+
+fn normalize_asset_path(path: &str) -> Option<String> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    Some(
+        trimmed
+            .trim_start_matches('/')
+            .trim_start_matches("assets/")
+            .replace('\\', "/"),
+    )
+}
+
+fn parse_hex_color(input: &str) -> Option<Color> {
+    let input = input.trim().trim_start_matches('#');
+    match input.is_empty() {
+        true => None,
+        false => Srgba::hex(input).ok().map(|c| Color::Srgba(c)),
+    }
 }

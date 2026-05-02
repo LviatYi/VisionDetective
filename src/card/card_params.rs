@@ -96,7 +96,7 @@ impl CardAppearanceConfig {
         Self {
             id: 0,
             title: "Placeholder".to_string(),
-            background_color_appearance_override: "#FFFFFFFF".to_string(),
+            background_color_appearance_override: "".to_string(),
             image_layout_type: CardImageLayoutType::Normal,
             image_res_path: String::new(),
         }

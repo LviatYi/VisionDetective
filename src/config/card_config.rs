@@ -43,28 +43,28 @@ mod tests {
             r##"{
   "appearances": [
     {
-      "id": 1001,
+      "id": 100001,
       "title": "景观卡",
       "background_color_appearance_override": "#4C8A68FF",
       "image_layout_type": "normal",
       "image_res_path": ""
     },
     {
-      "id": 1002,
+      "id": 100002,
       "title": "障碍卡",
       "background_color_appearance_override": "#7D6148FF",
       "image_layout_type": "full",
       "image_res_path": "/assets/config/pics/wall-bricks.png"
     },
     {
-      "id": 1003,
+      "id": 100003,
       "title": "交互卡",
       "background_color_appearance_override": "#C6783DFF",
       "image_layout_type": "normal",
       "image_res_path": ""
     },
     {
-      "id": 1004,
+      "id": 100004,
       "title": "曲线障碍卡",
       "background_color_appearance_override": "#7D6148FF",
       "image_layout_type": "full",
@@ -110,23 +110,23 @@ mod tests {
   ],
   "prefabs": [
     {
-      "id": 2001,
-      "appearance_id": 1001,
+      "id": 1001,
+      "appearance_id": 100001,
       "specialized_id": 10000001
     },
     {
-      "id": 2002,
-      "appearance_id": 1002,
+      "id": 1002,
+      "appearance_id": 100002,
       "specialized_id": 10000002
     },
     {
-      "id": 2003,
-      "appearance_id": 1003,
+      "id": 1003,
+      "appearance_id": 100003,
       "specialized_id": 10000003
     },
     {
-      "id": 2004,
-      "appearance_id": 1004,
+      "id": 1004,
+      "appearance_id": 100004,
       "specialized_id": 10000004
     }
   ]
@@ -137,7 +137,7 @@ mod tests {
         assert_eq!(config.specialized.len(), 4);
         assert_eq!(config.prefabs.len(), 4);
 
-        assert_eq!(config.appearances[0].id, 1001);
+        assert_eq!(config.appearances[0].id, 100001);
         assert_eq!(config.appearances[0].title, "景观卡");
         assert_eq!(
             config.appearances[0].background_color_appearance_override,
@@ -162,11 +162,11 @@ mod tests {
             })
         );
 
-        assert_eq!(config.prefabs[0].id, 2001);
-        assert_eq!(config.prefabs[0].appearance_id, 1001);
+        assert_eq!(config.prefabs[0].id, 1001);
+        assert_eq!(config.prefabs[0].appearance_id, 100001);
         assert_eq!(config.prefabs[0].specialized_id, 10000001);
-        assert_eq!(config.prefabs[3].id, 2004);
-        assert_eq!(config.prefabs[3].appearance_id, 1004);
+        assert_eq!(config.prefabs[3].id, 1004);
+        assert_eq!(config.prefabs[3].appearance_id, 100004);
         assert_eq!(config.prefabs[3].specialized_id, 10000004);
     }
 }

@@ -73,11 +73,16 @@ fn setup_game_scene(
     config: Res<GameConfig>,
     card_presets_config: Res<CardPresetsConfig>,
     card_specialized_registry: Res<CardSpecializedRegistry>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn((Camera2d, GameView));
     spawn_demo_cards(
         &mut commands,
+        asset_server.as_ref(),
         &config,
+        &mut meshes,
+        &mut materials,
         &card_presets_config,
         card_specialized_registry.as_ref(),
     );
