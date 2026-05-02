@@ -63,10 +63,18 @@ scenery_fill_color = [0.33, 0.53, 0.41, 0.85]
 obstacle_fill_color = [0.49, 0.38, 0.28, 0.92]
 interaction_fill_color = [0.78, 0.47, 0.24, 0.9]
 default_fill_color = [0.46, 0.48, 0.54, 0.88]
+corner_radius = 10.0
+rounded_corner_segments = 8
 normal_image_size_ratio = [0.74, 0.48]
 normal_image_offset_y = -6.0
 title_font_size = 18.0
 title_offset_y_ratio = 0.34
+title_glass_padding = [7.0, 4.0]
+title_glass_corner_radius = 5.0
+title_glass_color = [1.0, 1.0, 1.0, 0.18]
+title_glass_blur_layers = 4
+title_glass_blur_step = 2.0
+title_glass_blur_alpha = 0.08
 
 [physics]
 # Half extents of the rectangular arena in world units.

@@ -1,5 +1,5 @@
-use crate::card::card_params::CardSpecialized;
 use crate::card::CardKind;
+use crate::card::card_params::CardSpecialized;
 use crate::register_card_specialized_param;
 use bevy::ecs::system::EntityCommands;
 use serde::{Deserialize, Serialize};

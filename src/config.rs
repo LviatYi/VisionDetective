@@ -231,10 +231,18 @@ pub struct CardConfig {
     pub obstacle_fill_color: [f32; 4],
     pub interaction_fill_color: [f32; 4],
     pub default_fill_color: [f32; 4],
+    pub corner_radius: f32,
+    pub rounded_corner_segments: usize,
     pub normal_image_size_ratio: [f32; 2],
     pub normal_image_offset_y: f32,
     pub title_font_size: f32,
     pub title_offset_y_ratio: f32,
+    pub title_glass_padding: [f32; 2],
+    pub title_glass_corner_radius: f32,
+    pub title_glass_color: [f32; 4],
+    pub title_glass_blur_layers: usize,
+    pub title_glass_blur_step: f32,
+    pub title_glass_blur_alpha: f32,
 }
 
 impl CardConfig {
@@ -261,6 +269,28 @@ impl CardConfig {
         Vec2::new(
             self.normal_image_size_ratio[0],
             self.normal_image_size_ratio[1],
+        )
+    }
+
+    pub fn title_glass_padding(&self) -> Vec2 {
+        Vec2::new(self.title_glass_padding[0], self.title_glass_padding[1])
+    }
+
+    pub fn title_glass_color(&self) -> Color {
+        Color::srgba(
+            self.title_glass_color[0],
+            self.title_glass_color[1],
+            self.title_glass_color[2],
+            self.title_glass_color[3],
+        )
+    }
+
+    pub fn title_glass_blur_color(&self, alpha_scale: f32) -> Color {
+        Color::srgba(
+            self.title_glass_color[0],
+            self.title_glass_color[1],
+            self.title_glass_color[2],
+            self.title_glass_blur_alpha * alpha_scale,
         )
     }
 }

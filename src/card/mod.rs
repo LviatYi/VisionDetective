@@ -5,6 +5,8 @@ use crate::card::card_params::CardImageLayoutType;
 use crate::card::card_params::{CardParam, CardSpecializedRegistry};
 use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
+use bevy::asset::RenderAssetUsages;
+use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use serde::Deserialize;
 
@@ -94,7 +96,11 @@ pub fn spawn_card_by_card_param(
             title: appearance.title.clone(),
         },
         card_kind,
-        Mesh2d(meshes.add(Rectangle::new(CARD_SIZE.x, CARD_SIZE.y))),
+        Mesh2d(meshes.add(rounded_rectangle_mesh(
+            CARD_SIZE,
+            config.cards.corner_radius,
+            config.cards.rounded_corner_segments,
+        ))),
         MeshMaterial2d(materials.add(fill_color)),
     ));
 
@@ -107,10 +113,19 @@ pub fn spawn_card_by_card_param(
             parent,
             asset_server,
             config,
+            meshes,
+            materials,
             &appearance.image_layout_type,
             &appearance.image_res_path,
         );
-        spawn_card_title(parent, asset_server, config, &appearance.title);
+        spawn_card_title(
+            parent,
+            asset_server,
+            config,
+            meshes,
+            materials,
+            &appearance.title,
+        );
     });
 
     entity.id()
@@ -120,6 +135,8 @@ fn spawn_card_image(
     parent: &mut ChildSpawnerCommands<'_>,
     asset_server: &AssetServer,
     config: &GameConfig,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<ColorMaterial>,
     image_layout_type: &CardImageLayoutType,
     image_res_path: &str,
 ) {
@@ -127,14 +144,18 @@ fn spawn_card_image(
         return;
     };
 
-    let mut sprite = Sprite::from_image(asset_server.load(image_path));
-    sprite.custom_size = Some(match image_layout_type {
+    let image_size = match image_layout_type {
         CardImageLayoutType::Full => CARD_SIZE,
         CardImageLayoutType::Normal => CARD_SIZE * config.cards.normal_image_size_ratio(),
-    });
+    };
 
     parent.spawn((
-        sprite,
+        Mesh2d(meshes.add(rounded_rectangle_mesh(
+            image_size,
+            config.cards.corner_radius,
+            config.cards.rounded_corner_segments,
+        ))),
+        MeshMaterial2d(materials.add(ColorMaterial::from(asset_server.load(image_path)))),
         Transform::from_xyz(
             0.0,
             match image_layout_type {
@@ -150,8 +171,39 @@ fn spawn_card_title(
     parent: &mut ChildSpawnerCommands<'_>,
     asset_server: &AssetServer,
     config: &GameConfig,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<ColorMaterial>,
     title: &str,
 ) {
+    let title_size = title_glass_size(title, config);
+    let title_position = CARD_SIZE.y * config.cards.title_offset_y_ratio;
+    let blur_layers = config.cards.title_glass_blur_layers.max(1);
+
+    for layer in (1..=blur_layers).rev() {
+        let normalized = layer as f32 / blur_layers as f32;
+        let alpha_scale = normalized * normalized;
+        let blur_expand = config.cards.title_glass_blur_step * layer as f32;
+        parent.spawn((
+            Mesh2d(meshes.add(rounded_rectangle_mesh(
+                title_size + Vec2::splat(blur_expand * 2.0),
+                config.cards.title_glass_corner_radius + blur_expand,
+                config.cards.rounded_corner_segments,
+            ))),
+            MeshMaterial2d(materials.add(config.cards.title_glass_blur_color(alpha_scale))),
+            Transform::from_xyz(0.0, title_position, 0.18 + layer as f32 * 0.001),
+        ));
+    }
+
+    parent.spawn((
+        Mesh2d(meshes.add(rounded_rectangle_mesh(
+            title_size,
+            config.cards.title_glass_corner_radius,
+            config.cards.rounded_corner_segments,
+        ))),
+        MeshMaterial2d(materials.add(config.cards.title_glass_color())),
+        Transform::from_xyz(0.0, title_position, 0.2),
+    ));
+
     parent.spawn((
         Text2d::new(title.to_string()),
         TextFont {
@@ -160,8 +212,90 @@ fn spawn_card_title(
             ..default()
         },
         TextColor(Color::WHITE),
-        Transform::from_xyz(0.0, CARD_SIZE.y * config.cards.title_offset_y_ratio, 0.2),
+        Transform::from_xyz(0.0, title_position, 0.22),
     ));
+}
+
+fn rounded_rectangle_mesh(size: Vec2, radius: f32, corner_segments: usize) -> Mesh {
+    let half_size = size * 0.5;
+    let radius = radius
+        .max(0.0)
+        .min(half_size.x.abs())
+        .min(half_size.y.abs());
+    let corner_segments = corner_segments.max(1);
+    let mut positions = vec![[0.0, 0.0, 0.0]];
+    let mut uvs = vec![[0.5, 0.5]];
+    let corners = [
+        (
+            Vec2::new(half_size.x - radius, half_size.y - radius),
+            0.0,
+            std::f32::consts::FRAC_PI_2,
+        ),
+        (
+            Vec2::new(-half_size.x + radius, half_size.y - radius),
+            std::f32::consts::FRAC_PI_2,
+            std::f32::consts::PI,
+        ),
+        (
+            Vec2::new(-half_size.x + radius, -half_size.y + radius),
+            std::f32::consts::PI,
+            std::f32::consts::PI * 1.5,
+        ),
+        (
+            Vec2::new(half_size.x - radius, -half_size.y + radius),
+            std::f32::consts::PI * 1.5,
+            std::f32::consts::TAU,
+        ),
+    ];
+
+    for (center, start_angle, end_angle) in corners {
+        for step in 0..=corner_segments {
+            let t = step as f32 / corner_segments as f32;
+            let angle = start_angle + (end_angle - start_angle) * t;
+            let point = center + Vec2::new(angle.cos(), angle.sin()) * radius;
+            positions.push([point.x, point.y, 0.0]);
+            uvs.push([(point.x / size.x) + 0.5, 1.0 - ((point.y / size.y) + 0.5)]);
+        }
+    }
+
+    let point_count = positions.len() as u32;
+    let mut indices = Vec::with_capacity((point_count as usize - 1) * 3);
+    for index in 1..point_count {
+        let next = if index + 1 == point_count {
+            1
+        } else {
+            index + 1
+        };
+        indices.extend_from_slice(&[0, index, next]);
+    }
+
+    let mut mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    );
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh.insert_indices(Indices::U32(indices));
+    mesh
+}
+
+fn title_glass_size(title: &str, config: &GameConfig) -> Vec2 {
+    let text_width = title
+        .chars()
+        .map(|character| {
+            if character.is_ascii() {
+                config.cards.title_font_size * 0.55
+            } else {
+                config.cards.title_font_size
+            }
+        })
+        .sum::<f32>();
+    let padding = config.cards.title_glass_padding();
+
+    Vec2::new(
+        text_width + padding.x * 2.0,
+        config.cards.title_font_size * 1.25 + padding.y * 2.0,
+    )
 }
 
 fn normalize_asset_path(path: &str) -> Option<String> {
