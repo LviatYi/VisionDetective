@@ -144,7 +144,7 @@ pub type CardSpecializedDeserializer = fn(&Value) -> Result<Box<dyn CardSpeciali
 
 /// Static registration entry collected through `inventory`.
 #[derive(Debug, Clone)]
-pub struct CardSpecializedRegistration {
+pub(super) struct CardSpecializedRegistration {
     pub type_id: &'static str,
 
     pub json_src_deserializer: CardSpecializedDeserializer,
@@ -192,7 +192,7 @@ pub struct CardSpecializedRegistry {
 }
 
 impl CardSpecializedRegistry {
-    pub fn get(&self, type_id: &str) -> Option<&'static CardSpecializedRegistration> {
+    fn get(&self, type_id: &str) -> Option<&'static CardSpecializedRegistration> {
         self.registrations.get(type_id).copied()
     }
 }

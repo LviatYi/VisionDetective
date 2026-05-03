@@ -127,7 +127,7 @@ pub type CardInteractionComponentInserter = fn(&Value, &mut EntityCommands<'_>) 
 pub type CardInteractionPluginInjector = fn(&mut App);
 
 /// Static registration entry collected through `inventory`.
-pub struct CardInteractionRegistration {
+pub(super) struct CardInteractionRegistration {
     pub type_id: &'static str,
     pub json_src_inserter: CardInteractionComponentInserter,
     pub plugin_registrar: CardInteractionPluginInjector,
