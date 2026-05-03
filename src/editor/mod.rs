@@ -99,36 +99,7 @@ struct EditorCardSpawnDeps<'w> {
 #[derive(Serialize, Deserialize, Default)]
 struct EditorSceneFile {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    cards: Vec<CardParam>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    obstacle_cards: Vec<EditorObstacleCard>,
-}
-
-#[derive(Serialize, Deserialize, Default)]
-struct EditorObstacleCard {
-    title: String,
-    translation: [f32; 3],
-    rotation_z: f32,
-    size: [f32; 2],
-}
-
-impl EditorSceneFile {
-    fn normalized_cards(self) -> Vec<CardParam> {
-        if !self.cards.is_empty() {
-            return self.cards;
-        }
-
-        self.obstacle_cards
-            .into_iter()
-            .map(|card| CardParam {
-                scene_param: CardSceneParam {
-                    position: Vec2::new(card.translation[0], card.translation[1]),
-                    rotation: card.rotation_z,
-                },
-                prefab_id: LEGACY_OBSTACLE_PREFAB_ID,
-            })
-            .collect()
-    }
+    pub cards: Vec<CardParam>,
 }
 
 impl Plugin for EditorPlugin {
@@ -887,7 +858,6 @@ fn save_scene_to_path(card_query: &Query<(Entity, &Card, &Transform)>, path: &Pa
             .iter()
             .map(|(_, card, transform)| card.to_card_param(transform))
             .collect(),
-        obstacle_cards: Vec::new(),
     };
 
     if let Some(parent) = path.parent()
@@ -955,7 +925,7 @@ fn load_scene_from_path(
         commands.entity(entity).despawn();
     }
 
-    let cards = scene.normalized_cards();
+    let cards = scene.cards;
     for card in &cards {
         spawn_editor_card(commands, spawn_deps, card);
     }
@@ -1050,13 +1020,8 @@ fn read_scene_binary(path: &Path) -> Result<EditorSceneFile, String> {
             });
         }
 
-        return Ok(EditorSceneFile {
-            cards,
-            obstacle_cards: Vec::new(),
-        });
+        return Ok(EditorSceneFile { cards });
     }
-
-    let mut obstacle_cards = Vec::with_capacity(count);
 
     for _ in 0..count {
         let title_len = read_u16(&bytes, &mut cursor)? as usize;
@@ -1064,32 +1029,19 @@ fn read_scene_binary(path: &Path) -> Result<EditorSceneFile, String> {
         if title_range_end > bytes.len() {
             return Err("场景文件截断：标题越界".into());
         }
-        let title = String::from_utf8(bytes[cursor..title_range_end].to_vec())
-            .map_err(|error| error.to_string())?;
         cursor = title_range_end;
 
         let mut translation = [0.0; 3];
         for value in &mut translation {
             *value = read_f32(&bytes, &mut cursor)?;
         }
-        let rotation_z = read_f32(&bytes, &mut cursor)?;
         let mut size = [0.0; 2];
         for value in &mut size {
             *value = read_f32(&bytes, &mut cursor)?;
         }
-
-        obstacle_cards.push(EditorObstacleCard {
-            title,
-            translation,
-            rotation_z,
-            size,
-        });
     }
 
-    Ok(EditorSceneFile {
-        cards: Vec::new(),
-        obstacle_cards,
-    })
+    Ok(EditorSceneFile { cards: Vec::new() })
 }
 
 fn read_u16(bytes: &[u8], cursor: &mut usize) -> Result<u16, String> {
