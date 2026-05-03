@@ -170,8 +170,24 @@ pub mod main_view {
 
     pub fn handle_esc_to_main_menu(
         keyboard_input: Res<ButtonInput<KeyCode>>,
+        mut editor_state: Option<ResMut<crate::editor::EditorInteractionState>>,
         mut next_screen: ResMut<NextState<AppScreen>>,
     ) {
+        if editor_state
+            .as_ref()
+            .map(|state| state.captures_pointer())
+            .unwrap_or(false)
+        {
+            return;
+        }
+        if editor_state
+            .as_mut()
+            .map(|state| state.take_escape_consumed())
+            .unwrap_or(false)
+        {
+            return;
+        }
+
         if keyboard_input.just_pressed(KeyCode::Escape) {
             next_screen.set(AppScreen::MainMenu);
         }

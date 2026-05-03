@@ -1,5 +1,4 @@
 use crate::AppScreen;
-use crate::asset::font;
 use crate::card::card_params::{CardParam, CardSceneParam, CardSpecializedRegistry};
 use crate::card::{CARD_SIZE, Card, spawn_card_by_card_param};
 use crate::config::GameConfig;
@@ -17,12 +16,11 @@ use std::f32::consts::FRAC_PI_4;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const LEGACY_OBSTACLE_PREFAB_ID: u32 = 1002;
 const SIDEBAR_WIDTH: f32 = 264.0;
 const TOOLBAR_HEIGHT: f32 = 48.0;
 const COMPACT_BUTTON_HEIGHT: f32 = 30.0;
 const PREFAB_LIST_HEIGHT: f32 = 252.0;
-const PREFAB_CARD_HEIGHT: f32 = 148.0;
+const PREFAB_CARD_HEIGHT: f32 = 76.0;
 const PREFAB_CARD_GAP: f32 = 12.0;
 const PREFAB_SCROLL_STEP: f32 = 28.0;
 const ROTATION_HANDLE_RADIUS: f32 = 14.0;
@@ -36,18 +34,12 @@ pub struct EditorPlugin;
 pub struct EditorInteractionState {
     selected_entity: Option<Entity>,
     dragging_prefab: Option<u32>,
+    drag_preview_entity: Option<Entity>,
     moving_entity: Option<MovingEntityState>,
     rotating_entity: Option<RotatingEntityState>,
     prefab_scroll_offset: f32,
+    escape_consumed: bool,
     status_message: String,
-}
-
-#[derive(Bundle)]
-struct EditorButtonBundle {
-    button: Button,
-    node: Node,
-    background_color: BackgroundColor,
-    action: EditorButtonAction,
 }
 
 impl EditorInteractionState {
@@ -56,6 +48,20 @@ impl EditorInteractionState {
             || self.moving_entity.is_some()
             || self.rotating_entity.is_some()
     }
+
+    pub fn take_escape_consumed(&mut self) -> bool {
+        let consumed = self.escape_consumed;
+        self.escape_consumed = false;
+        consumed
+    }
+}
+
+#[derive(Bundle)]
+struct EditorButtonBundle {
+    button: Button,
+    node: Node,
+    background_color: BackgroundColor,
+    action: EditorButtonAction,
 }
 
 #[derive(Clone, Copy)]
@@ -86,6 +92,15 @@ struct PrefabPreviewButton {
 #[derive(Component)]
 struct PrefabListContent;
 
+#[derive(Component)]
+struct EditorDragPreview;
+
+struct PrefabPreviewItem {
+    id: u32,
+    title: String,
+    background_color: Color,
+}
+
 #[derive(SystemParam)]
 struct EditorCardSpawnDeps<'w> {
     asset_server: Res<'w, AssetServer>,
@@ -115,6 +130,8 @@ impl Plugin for EditorPlugin {
                     handle_toolbar_buttons,
                     handle_prefab_drag_start,
                     handle_prefab_list_scroll,
+                    update_drag_preview_card,
+                    cancel_prefab_drag_with_escape,
                     handle_prefab_drop,
                     handle_scene_editing,
                     handle_editor_shortcuts,
@@ -141,9 +158,9 @@ fn setup_editor_ui(
     asset_server: Res<AssetServer>,
     config: Res<GameConfig>,
     card_presets_config: Res<CardPresetsConfig>,
-    card_specialized_registry: Res<CardSpecializedRegistry>,
 ) {
-    let ui_font = font::load_assets(asset_server, &config, font::FontType::Default);
+    let ui_font = asset_server.load(config.assets.default_font.clone());
+    let preview_items = prefab_preview_items(&card_presets_config, &config);
 
     commands
         .spawn((
@@ -188,7 +205,7 @@ fn setup_editor_ui(
                         padding: UiRect::all(px(16.0)),
                         ..default()
                     },
-                    BackgroundColor(Color::srgba(0.10, 0.11, 0.15, 0.97)),
+                    BackgroundColor(Color::srgba(0.10, 0.11, 0.15, 0.35)),
                 ))
                 .with_children(|sidebar| {
                     sidebar.spawn((
@@ -229,34 +246,13 @@ fn setup_editor_ui(
                                     PrefabListContent,
                                 ))
                                 .with_children(|list| {
-                                    for prefab in &card_presets_config.prefabs {
-                                        let card_param = CardParam {
-                                            scene_param: CardSceneParam {
-                                                position: Vec2::ZERO,
-                                                rotation: 0.0,
-                                            },
-                                            prefab_id: prefab.id,
-                                        };
-                                        let appearance =
-                                            card_param.load_appearance(&card_presets_config);
-                                        let subtitle = card_param
-                                            .load_specialized_config(
-                                                &card_presets_config,
-                                                &card_specialized_registry,
-                                            )
-                                            .map(|specialized| {
-                                                format!("{:?} / prefab {}", specialized.kind(), prefab.id)
-                                            })
-                                            .unwrap_or_else(|| {
-                                                format!("无专用配置 / prefab {}", prefab.id)
-                                            });
-
-                                        spawn_prefab_preview_card(
+                                    for item in &preview_items {
+                                        spawn_prefab_preview_items(
                                             list,
                                             &ui_font,
-                                            &appearance.title,
-                                            &subtitle,
-                                            prefab.id,
+                                            &item.title,
+                                            item.id,
+                                            item.background_color,
                                         );
                                     }
                                 });
@@ -286,6 +282,34 @@ fn setup_editor_ui(
                     ));
                 });
         });
+}
+
+fn prefab_preview_items(
+    card_presets_config: &CardPresetsConfig,
+    config: &GameConfig,
+) -> Vec<PrefabPreviewItem> {
+    card_presets_config
+        .prefabs
+        .iter()
+        .map(|prefab| {
+            let card_param = CardParam {
+                scene_param: CardSceneParam {
+                    position: Vec2::ZERO,
+                    rotation: 0.0,
+                },
+                prefab_id: prefab.id,
+            };
+            let appearance = card_param.load_appearance(card_presets_config);
+            let background_color = parse_ui_color(&appearance.background_color_appearance_override)
+                .unwrap_or_else(|| config.cards.default_fill_color());
+
+            PrefabPreviewItem {
+                id: prefab.id,
+                title: appearance.title,
+                background_color,
+            }
+        })
+        .collect()
 }
 
 fn spawn_button(
@@ -320,12 +344,12 @@ fn spawn_button(
         });
 }
 
-fn spawn_prefab_preview_card(
+fn spawn_prefab_preview_items(
     parent: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     title: &str,
-    subtitle: &str,
     prefab_id: u32,
+    background_color: Color,
 ) {
     parent
         .spawn((
@@ -333,73 +357,48 @@ fn spawn_prefab_preview_card(
             Node {
                 width: percent(100.0),
                 min_height: px(PREFAB_CARD_HEIGHT),
-                padding: UiRect::all(px(12.0)),
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::SpaceBetween,
-                row_gap: px(10.0),
+                padding: UiRect::all(px(10.0)),
+                column_gap: px(10.0),
+                align_items: AlignItems::Center,
                 ..default()
             },
-            BackgroundColor(Color::srgb(0.16, 0.22, 0.29)),
+            BackgroundColor(background_color),
             PrefabPreviewButton { prefab_id },
         ))
-        .with_children(|card| {
-            card.spawn((Node {
-                width: percent(100.0),
-                justify_content: JustifyContent::Center,
-                ..default()
-            },))
-                .with_children(|preview_wrap| {
-                    preview_wrap
-                        .spawn((
-                            Node {
-                                width: px(96.0),
-                                height: px(150.0),
-                                padding: UiRect::all(px(10.0)),
-                                justify_content: JustifyContent::SpaceBetween,
-                                align_items: AlignItems::Start,
-                                flex_direction: FlexDirection::Column,
-                                ..default()
-                            },
-                            BackgroundColor(Color::srgb(0.49, 0.38, 0.28)),
-                        ))
-                        .with_children(|mini_card| {
-                            mini_card.spawn((
-                                Text::new(title),
-                                TextFont {
-                                    font: font.clone(),
-                                    font_size: 14.0,
-                                    ..default()
-                                },
-                                TextColor(Color::WHITE),
-                            ));
-                            mini_card.spawn((
-                                Text::new(format!("Prefab #{prefab_id}")),
-                                TextFont {
-                                    font: font.clone(),
-                                    font_size: 11.0,
-                                    ..default()
-                                },
-                                TextColor(Color::srgba(1.0, 1.0, 1.0, 0.78)),
-                            ));
-                        });
-                });
-
-            card.spawn((
-                Text::new(format!("{title}\n{subtitle}")),
-                TextFont {
-                    font: font.clone(),
-                    font_size: 14.0,
+        .with_children(|button| {
+            button
+                .spawn((Node {
+                    flex_direction: FlexDirection::Column,
+                    row_gap: px(4.0),
                     ..default()
-                },
-                TextColor(Color::WHITE),
-            ));
+                },))
+                .with_children(|text_wrap| {
+                    text_wrap.spawn((
+                        Text::new(title.to_string()),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 15.0,
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                    ));
+                    text_wrap.spawn((
+                        Text::new(format!("prefab_id: {prefab_id}")),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 12.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgb(0.72, 0.78, 0.86)),
+                    ));
+                });
         });
 }
 
 fn handle_toolbar_buttons(
     mut commands: Commands,
     interaction_query: Query<(&Interaction, &EditorButtonAction), Changed<Interaction>>,
-    card_query: Query<(Entity, &Card, &Transform)>,
+    card_query: Query<(Entity, &Card, &Transform), Without<EditorDragPreview>>,
     mut spawn_deps: EditorCardSpawnDeps,
     mut state: ResMut<EditorInteractionState>,
 ) {
@@ -429,7 +428,9 @@ fn handle_toolbar_buttons(
 }
 
 fn handle_prefab_drag_start(
+    mut commands: Commands,
     interaction_query: Query<(&Interaction, &PrefabPreviewButton), Changed<Interaction>>,
+    mut spawn_deps: EditorCardSpawnDeps,
     mut state: ResMut<EditorInteractionState>,
 ) {
     for (interaction, preview_button) in &interaction_query {
@@ -437,7 +438,27 @@ fn handle_prefab_drag_start(
             continue;
         }
 
+        if let Some(entity) = state.drag_preview_entity.take() {
+            commands.entity(entity).despawn();
+        }
+
+        let entity = spawn_editor_card(
+            &mut commands,
+            &mut spawn_deps,
+            &CardParam {
+                scene_param: CardSceneParam {
+                    position: Vec2::ZERO,
+                    rotation: 0.0,
+                },
+                prefab_id: preview_button.prefab_id,
+            },
+        );
+        commands
+            .entity(entity)
+            .insert((EditorDragPreview, Visibility::Hidden));
+
         state.dragging_prefab = Some(preview_button.prefab_id);
+        state.drag_preview_entity = Some(entity);
         state.moving_entity = None;
         state.rotating_entity = None;
         state.status_message = format!("正在拖拽预制体 #{}", preview_button.prefab_id);
@@ -480,12 +501,60 @@ fn handle_prefab_list_scroll(
     content_node.top = px(-state.prefab_scroll_offset);
 }
 
+fn update_drag_preview_card(
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    state: Res<EditorInteractionState>,
+    mut preview_query: Query<(&mut Transform, &mut Visibility), With<EditorDragPreview>>,
+) {
+    let Some(preview_entity) = state.drag_preview_entity else {
+        return;
+    };
+
+    let Ok(window) = window_query.single() else {
+        return;
+    };
+    let Some(cursor_position) = window.cursor_position() else {
+        return;
+    };
+    let Some(world_position) = cursor_world_position(&camera_query, cursor_position) else {
+        return;
+    };
+
+    let Ok((mut transform, mut visibility)) = preview_query.get_mut(preview_entity) else {
+        return;
+    };
+
+    transform.translation.x = world_position.x;
+    transform.translation.y = world_position.y;
+    transform.translation.z = 20.0;
+    transform.rotation = Quat::IDENTITY;
+    *visibility = Visibility::Visible;
+}
+
+pub(crate) fn cancel_prefab_drag_with_escape(
+    mut commands: Commands,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut state: ResMut<EditorInteractionState>,
+) {
+    if state.dragging_prefab.is_none() || !keyboard_input.just_pressed(KeyCode::Escape) {
+        return;
+    }
+
+    if let Some(entity) = state.drag_preview_entity.take() {
+        commands.entity(entity).despawn();
+    }
+    state.dragging_prefab = None;
+    state.escape_consumed = true;
+    state.status_message = "已取消拖拽预制体".into();
+}
+
 fn handle_prefab_drop(
     mut commands: Commands,
     mouse_input: Res<ButtonInput<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
-    mut spawn_deps: EditorCardSpawnDeps,
+    mut preview_query: Query<&mut Transform, With<EditorDragPreview>>,
     mut state: ResMut<EditorInteractionState>,
 ) {
     let Some(prefab_id) = state.dragging_prefab else {
@@ -496,35 +565,56 @@ fn handle_prefab_drop(
     }
 
     state.dragging_prefab = None;
+    let preview_entity = state.drag_preview_entity.take();
 
     let Ok(window) = window_query.single() else {
+        if let Some(entity) = preview_entity {
+            commands.entity(entity).despawn();
+        }
         state.status_message = "放置卡牌失败：窗口不可用".into();
         return;
     };
 
     let Some(cursor_position) = window.cursor_position() else {
+        if let Some(entity) = preview_entity {
+            commands.entity(entity).despawn();
+        }
         state.status_message = "放置卡牌失败：光标位置不可用".into();
         return;
     };
 
     if !cursor_is_over_scene(window, cursor_position) {
+        if let Some(entity) = preview_entity {
+            commands.entity(entity).despawn();
+        }
         state.status_message = "已取消放置：请在主场景区域松开鼠标".into();
         return;
     }
 
     let Some(world_position) = cursor_world_position(&camera_query, cursor_position) else {
+        if let Some(entity) = preview_entity {
+            commands.entity(entity).despawn();
+        }
         state.status_message = "放置卡牌失败：无法映射到场景坐标".into();
         return;
     };
 
-    let card_param = CardParam {
-        scene_param: CardSceneParam {
-            position: world_position,
-            rotation: 0.0,
-        },
-        prefab_id,
+    let Some(entity) = preview_entity else {
+        state.status_message = "放置卡牌失败：拖拽预览不存在".into();
+        return;
     };
-    let entity = spawn_editor_card(&mut commands, &mut spawn_deps, &card_param);
+
+    if let Ok(mut transform) = preview_query.get_mut(entity) {
+        transform.translation.x = world_position.x;
+        transform.translation.y = world_position.y;
+        transform.translation.z = 0.0;
+        transform.rotation = Quat::IDENTITY;
+    }
+
+    commands
+        .entity(entity)
+        .remove::<EditorDragPreview>()
+        .insert(Visibility::Visible);
     state.selected_entity = Some(entity);
     state.status_message = format!(
         "已放置卡牌 #{} ({:.0}, {:.0})",
@@ -539,7 +629,7 @@ fn handle_scene_editing(
     window_query: Query<&Window, With<PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
     mut card_queries: ParamSet<(
-        Query<(Entity, &Card, &GlobalTransform, &Transform)>,
+        Query<(Entity, &Card, &GlobalTransform, &Transform), Without<EditorDragPreview>>,
         Query<&mut Transform>,
     )>,
     mut state: ResMut<EditorInteractionState>,
@@ -641,7 +731,7 @@ fn handle_scene_editing(
 fn handle_editor_shortcuts(
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    card_query: Query<(Entity, &Card, &Transform)>,
+    card_query: Query<(Entity, &Card, &Transform), Without<EditorDragPreview>>,
     spawn_deps: EditorCardSpawnDeps,
     mut state: ResMut<EditorInteractionState>,
 ) {
@@ -695,24 +785,9 @@ fn update_editor_status_text(
 
 fn draw_editor_gizmos(
     mut gizmos: Gizmos,
-    window_query: Query<&Window, With<PrimaryWindow>>,
-    camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
     state: Res<EditorInteractionState>,
-    card_query: Query<(Entity, &Transform), With<Card>>,
+    card_query: Query<(Entity, &Transform), (With<Card>, Without<EditorDragPreview>)>,
 ) {
-    let cursor = window_query
-        .single()
-        .ok()
-        .and_then(|window| window.cursor_position())
-        .and_then(|cursor_position| cursor_world_position(&camera_query, cursor_position));
-
-    if state.dragging_prefab.is_some()
-        && let Some(cursor) = cursor
-    {
-        let preview = Transform::from_translation(cursor.extend(0.0));
-        draw_card_outline(&mut gizmos, &preview, Color::srgb(0.98, 0.81, 0.18));
-    }
-
     if let Some(selected_entity) = state.selected_entity
         && let Ok((_, transform)) = card_query.get(selected_entity)
     {
@@ -767,10 +842,10 @@ fn rotation_handle_position(transform: &Transform) -> Vec2 {
     transform.to_matrix().transform_point3(local).truncate()
 }
 
-fn rotation_handle_contains_point(
+fn rotation_handle_contains_point<F: bevy::ecs::query::QueryFilter>(
     entity: Entity,
     cursor_world: Vec2,
-    card_query: &Query<(Entity, &Card, &GlobalTransform, &Transform)>,
+    card_query: &Query<(Entity, &Card, &GlobalTransform, &Transform), F>,
 ) -> bool {
     let Ok((_, _, _, transform)) = card_query.get(entity) else {
         return false;
@@ -779,9 +854,9 @@ fn rotation_handle_contains_point(
     cursor_world.distance(rotation_handle_position(transform)) <= ROTATION_HANDLE_RADIUS
 }
 
-fn pick_card(
+fn pick_card<F: bevy::ecs::query::QueryFilter>(
     cursor_world: Vec2,
-    card_query: &Query<(Entity, &Card, &GlobalTransform, &Transform)>,
+    card_query: &Query<(Entity, &Card, &GlobalTransform, &Transform), F>,
 ) -> Option<(Entity, Transform)> {
     card_query
         .iter()
@@ -823,6 +898,15 @@ fn cursor_world_position(
         .ok()
 }
 
+fn parse_ui_color(input: &str) -> Option<Color> {
+    let input = input.trim().trim_start_matches('#');
+    if input.is_empty() {
+        return None;
+    }
+
+    Srgba::hex(input).ok().map(Color::Srgba)
+}
+
 fn spawn_editor_card(
     commands: &mut Commands,
     spawn_deps: &mut EditorCardSpawnDeps,
@@ -839,8 +923,11 @@ fn spawn_editor_card(
         &spawn_deps.card_specialized_registry,
     );
     commands.entity(entity).insert(EditorView);
+    append_editor_card_overlays(commands, entity);
     entity
 }
+
+fn append_editor_card_overlays(_commands: &mut Commands, _entity: Entity) {}
 
 #[derive(Clone, Copy)]
 enum SceneFileFormat {
@@ -848,11 +935,17 @@ enum SceneFileFormat {
     Binary,
 }
 
-fn save_scene(card_query: &Query<(Entity, &Card, &Transform)>, format: SceneFileFormat) -> String {
+fn save_scene(
+    card_query: &Query<(Entity, &Card, &Transform), Without<EditorDragPreview>>,
+    format: SceneFileFormat,
+) -> String {
     save_scene_to_path(card_query, &scene_path(format))
 }
 
-fn save_scene_to_path(card_query: &Query<(Entity, &Card, &Transform)>, path: &Path) -> String {
+fn save_scene_to_path(
+    card_query: &Query<(Entity, &Card, &Transform), Without<EditorDragPreview>>,
+    path: &Path,
+) -> String {
     let scene = EditorSceneFile {
         cards: card_query
             .iter()
@@ -888,7 +981,7 @@ fn save_scene_to_path(card_query: &Query<(Entity, &Card, &Transform)>, path: &Pa
 
 fn load_scene(
     commands: &mut Commands,
-    card_query: &Query<(Entity, &Card, &Transform)>,
+    card_query: &Query<(Entity, &Card, &Transform), Without<EditorDragPreview>>,
     mut spawn_deps: EditorCardSpawnDeps,
     format: SceneFileFormat,
 ) -> String {
@@ -897,7 +990,7 @@ fn load_scene(
 
 fn load_scene_from_path(
     commands: &mut Commands,
-    card_query: &Query<(Entity, &Card, &Transform)>,
+    card_query: &Query<(Entity, &Card, &Transform), Without<EditorDragPreview>>,
     spawn_deps: &mut EditorCardSpawnDeps,
     path: &Path,
 ) -> String {

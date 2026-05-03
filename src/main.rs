@@ -69,6 +69,7 @@ fn main() {
         .add_systems(
             Update,
             handle_esc_to_main_menu
+                .after(editor::cancel_prefab_drag_with_escape)
                 .run_if(in_state(AppScreen::Game).or(in_state(AppScreen::Editor))),
         )
         .add_systems(OnExit(AppScreen::Game), cleanup_view::<GameView>)
