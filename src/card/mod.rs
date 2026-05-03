@@ -1,7 +1,7 @@
 pub mod card_params;
 pub mod specialized;
 
-use crate::card::card_params::CardImageLayoutType;
+use crate::card::card_params::{CardImageLayoutType, CardSceneParam};
 use crate::card::card_params::{CardParam, CardSpecializedRegistry};
 use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
@@ -30,6 +30,20 @@ pub const CARD_SIZE: Vec2 = Vec2::new(
 #[derive(Component, Clone, Debug)]
 pub struct Card {
     pub title: String,
+    pub instance_type: CardInstanceType,
+}
+
+#[derive(Clone, Debug)]
+pub enum CardInstanceType {
+    Prefab(u32),
+}
+
+impl CardInstanceType {
+    pub fn get_prefab_id(&self) -> u32 {
+        match self {
+            CardInstanceType::Prefab(id) => *id,
+        }
+    }
 }
 
 impl Card {
@@ -53,6 +67,16 @@ impl Card {
 
     pub fn contains_point(&self, transform: &GlobalTransform, point: Vec2) -> bool {
         self.intersect_circle(transform, point, 0.0)
+    }
+
+    pub fn to_card_param(&self, transform: &Transform) -> CardParam {
+        CardParam {
+            scene_param: CardSceneParam {
+                position: transform.translation.truncate(),
+                rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
+            },
+            prefab_id: self.instance_type.get_prefab_id(),
+        }
     }
 }
 
@@ -94,6 +118,7 @@ pub fn spawn_card_by_card_param(
             .with_rotation(Quat::from_rotation_z(card_param.scene_param.rotation)),
         Card {
             title: appearance.title.clone(),
+            instance_type: CardInstanceType::Prefab(card_param.prefab_id),
         },
         card_kind,
         Mesh2d(meshes.add(rounded_rectangle_mesh(

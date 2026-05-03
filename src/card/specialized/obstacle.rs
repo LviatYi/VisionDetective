@@ -1,5 +1,5 @@
+use crate::card::CardKind;
 use crate::card::card_params::CardSpecialized;
-use crate::card::{Card, CardKind};
 use crate::physics::obstacle::Obstacle;
 use crate::register_card_specialized_param;
 use bevy::ecs::system::EntityCommands;
@@ -92,22 +92,6 @@ fn sample_cubic_bezier(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: f32) -> Vec2 {
         + p1 * 3.0 * one_minus_t.powi(2) * t
         + p2 * 3.0 * one_minus_t * t * t
         + p3 * t.powi(3)
-}
-
-pub fn spawn_obstacle_card(
-    commands: &mut Commands,
-    transform: Transform,
-    title: String,
-    obstacle_paths: Vec<Vec2>,
-) -> Entity {
-    commands
-        .spawn((
-            transform,
-            Card { title },
-            CardKind::Obstacle,
-            Obstacle::new(obstacle_paths),
-        ))
-        .id()
 }
 
 register_card_specialized_param!("obstacle", ObstacleCardParams);
