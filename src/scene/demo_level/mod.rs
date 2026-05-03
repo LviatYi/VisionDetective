@@ -49,6 +49,7 @@ fn spawn_demo_card(
             scene_param: CardSceneParam {
                 position: card.translation().truncate(),
                 rotation: card.rotation_z,
+                order: card.translation().z,
             },
             prefab_id: card.prefab_id,
         },

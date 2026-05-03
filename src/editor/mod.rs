@@ -27,6 +27,8 @@ const ROTATION_HANDLE_RADIUS: f32 = 14.0;
 const EDITOR_SCENE_DIR: &str = "assets/editor";
 const EDITOR_SCENE_TOML: &str = "editor_scene.toml";
 const EDITOR_SCENE_BIN: &str = "editor_scene.bin";
+const CARD_ORDER_STEP: f32 = 1.0;
+const DRAG_PREVIEW_ORDER: f32 = 20.0;
 
 pub struct EditorPlugin;
 
@@ -134,6 +136,7 @@ impl Plugin for EditorPlugin {
                     cancel_prefab_drag_with_escape,
                     handle_prefab_drop,
                     handle_scene_editing,
+                    handle_card_order_shortcuts,
                     handle_editor_shortcuts,
                     update_editor_status_text,
                 )
@@ -260,7 +263,7 @@ fn setup_editor_ui(
 
                     sidebar.spawn((
                         Text::new(
-                            "操作说明\n1. 直接按住卡牌预览并拖到主场景，松开后会克隆一张。\n2. 左键拖动卡牌位置。\n3. 拖动右上角旋转控制点可直接旋转。\n4. Delete 删除选中卡牌。\n5. Ctrl+E / Ctrl+B 导出，Ctrl+I / Ctrl+Shift+I 导入。",
+                            "操作说明\n1. 直接按住卡牌预览并拖到主场景，松开后会克隆一张。\n2. 左键拖动卡牌位置。\n3. 拖动右上角旋转控制点可直接旋转。\n4. PageUp / PageDown 调整层级，Home / End 置底或置顶。\n5. Delete 删除选中卡牌。\n6. Ctrl+E / Ctrl+B 导出，Ctrl+I / Ctrl+Shift+I 导入。",
                         ),
                         TextFont {
                             font: ui_font.clone(),
@@ -296,6 +299,7 @@ fn prefab_preview_items(
                 scene_param: CardSceneParam {
                     position: Vec2::ZERO,
                     rotation: 0.0,
+                    order: 0.0,
                 },
                 prefab_id: prefab.id,
             };
@@ -449,6 +453,7 @@ fn handle_prefab_drag_start(
                 scene_param: CardSceneParam {
                     position: Vec2::ZERO,
                     rotation: 0.0,
+                    order: 0.0,
                 },
                 prefab_id: preview_button.prefab_id,
             },
@@ -527,7 +532,7 @@ fn update_drag_preview_card(
 
     transform.translation.x = world_position.x;
     transform.translation.y = world_position.y;
-    transform.translation.z = 20.0;
+    transform.translation.z = DRAG_PREVIEW_ORDER;
     transform.rotation = Quat::IDENTITY;
     *visibility = Visibility::Visible;
 }
@@ -555,6 +560,7 @@ fn handle_prefab_drop(
     window_query: Query<&Window, With<PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
     mut preview_query: Query<&mut Transform, With<EditorDragPreview>>,
+    card_query: Query<&Transform, (With<Card>, Without<EditorDragPreview>)>,
     mut state: ResMut<EditorInteractionState>,
 ) {
     let Some(prefab_id) = state.dragging_prefab else {
@@ -604,10 +610,11 @@ fn handle_prefab_drop(
         return;
     };
 
+    let placed_order = next_card_order(&card_query);
     if let Ok(mut transform) = preview_query.get_mut(entity) {
         transform.translation.x = world_position.x;
         transform.translation.y = world_position.y;
-        transform.translation.z = 0.0;
+        transform.translation.z = placed_order;
         transform.rotation = Quat::IDENTITY;
     }
 
@@ -617,8 +624,8 @@ fn handle_prefab_drop(
         .insert(Visibility::Visible);
     state.selected_entity = Some(entity);
     state.status_message = format!(
-        "已放置卡牌 #{} ({:.0}, {:.0})",
-        prefab_id, world_position.x, world_position.y
+        "已放置卡牌 #{} ({:.0}, {:.0})，层级 {:.0}",
+        prefab_id, world_position.x, world_position.y, placed_order
     );
 }
 
@@ -761,6 +768,49 @@ fn handle_editor_shortcuts(
         state.status_message = load_scene(&mut commands, &card_query, spawn_deps, format);
         state.selected_entity = None;
     }
+}
+
+fn handle_card_order_shortcuts(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut card_query: Query<(Entity, &mut Transform), (With<Card>, Without<EditorDragPreview>)>,
+    mut state: ResMut<EditorInteractionState>,
+) {
+    if state.captures_pointer() {
+        return;
+    }
+
+    let Some(selected_entity) = state.selected_entity else {
+        return;
+    };
+
+    let order_delta = if keyboard_input.just_pressed(KeyCode::PageUp) {
+        Some(CardOrderChange::Step(CARD_ORDER_STEP))
+    } else if keyboard_input.just_pressed(KeyCode::PageDown) {
+        Some(CardOrderChange::Step(-CARD_ORDER_STEP))
+    } else if keyboard_input.just_pressed(KeyCode::End) {
+        max_card_order_mut(&card_query).map(|order| CardOrderChange::Set(order + CARD_ORDER_STEP))
+    } else if keyboard_input.just_pressed(KeyCode::Home) {
+        min_card_order_mut(&card_query).map(|order| CardOrderChange::Set(order - CARD_ORDER_STEP))
+    } else {
+        None
+    };
+
+    let Some(order_delta) = order_delta else {
+        return;
+    };
+
+    let Ok((_, mut transform)) = card_query.get_mut(selected_entity) else {
+        state.selected_entity = None;
+        state.status_message = "调整层级失败：选中卡牌不存在".into();
+        return;
+    };
+
+    match order_delta {
+        CardOrderChange::Step(delta) => transform.translation.z += delta,
+        CardOrderChange::Set(order) => transform.translation.z = order,
+    }
+
+    state.status_message = format!("卡牌层级已更新为 {:.0}", transform.translation.z);
 }
 
 fn update_editor_status_text(
@@ -907,6 +957,38 @@ fn parse_ui_color(input: &str) -> Option<Color> {
     Srgba::hex(input).ok().map(Color::Srgba)
 }
 
+enum CardOrderChange {
+    Step(f32),
+    Set(f32),
+}
+
+fn next_card_order<F: bevy::ecs::query::QueryFilter>(query: &Query<&Transform, F>) -> f32 {
+    query
+        .iter()
+        .map(|transform| transform.translation.z)
+        .reduce(f32::max)
+        .unwrap_or(0.0)
+        + CARD_ORDER_STEP
+}
+
+fn min_card_order_mut<F: bevy::ecs::query::QueryFilter>(
+    query: &Query<(Entity, &mut Transform), F>,
+) -> Option<f32> {
+    query
+        .iter()
+        .map(|(_, transform)| transform.translation.z)
+        .reduce(f32::min)
+}
+
+fn max_card_order_mut<F: bevy::ecs::query::QueryFilter>(
+    query: &Query<(Entity, &mut Transform), F>,
+) -> Option<f32> {
+    query
+        .iter()
+        .map(|(_, transform)| transform.translation.z)
+        .reduce(f32::max)
+}
+
 fn spawn_editor_card(
     commands: &mut Commands,
     spawn_deps: &mut EditorCardSpawnDeps,
@@ -946,11 +1028,21 @@ fn save_scene_to_path(
     card_query: &Query<(Entity, &Card, &Transform), Without<EditorDragPreview>>,
     path: &Path,
 ) -> String {
+    let mut cards = card_query
+        .iter()
+        .map(|(entity, card, transform)| (entity, card.to_card_param(transform)))
+        .collect::<Vec<_>>();
+    cards.sort_by(|(entity_a, card_a), (entity_b, card_b)| {
+        card_a
+            .scene_param
+            .order
+            .partial_cmp(&card_b.scene_param.order)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| entity_a.index().cmp(&entity_b.index()))
+    });
+
     let scene = EditorSceneFile {
-        cards: card_query
-            .iter()
-            .map(|(_, card, transform)| card.to_card_param(transform))
-            .collect(),
+        cards: cards.into_iter().map(|(_, card)| card).collect(),
     };
 
     if let Some(parent) = path.parent()
@@ -1084,6 +1176,7 @@ fn write_scene_binary(scene: &EditorSceneFile, path: &Path) -> std::io::Result<(
         bytes.extend_from_slice(&card.scene_param.position.x.to_le_bytes());
         bytes.extend_from_slice(&card.scene_param.position.y.to_le_bytes());
         bytes.extend_from_slice(&card.scene_param.rotation.to_le_bytes());
+        bytes.extend_from_slice(&card.scene_param.order.to_le_bytes());
     }
 
     fs::write(path, bytes)
@@ -1098,6 +1191,29 @@ fn read_scene_binary(path: &Path) -> Result<EditorSceneFile, String> {
     let mut cursor = 4usize;
     let count = read_u32(&bytes, &mut cursor)? as usize;
 
+    if bytes.len() == 8 + count * 20 {
+        let mut cards = Vec::with_capacity(count);
+        for _ in 0..count {
+            let prefab_id = read_u32(&bytes, &mut cursor)?;
+            let position = Vec2::new(
+                read_f32(&bytes, &mut cursor)?,
+                read_f32(&bytes, &mut cursor)?,
+            );
+            let rotation = read_f32(&bytes, &mut cursor)?;
+            let order = read_f32(&bytes, &mut cursor)?;
+            cards.push(CardParam {
+                scene_param: CardSceneParam {
+                    position,
+                    rotation,
+                    order,
+                },
+                prefab_id,
+            });
+        }
+
+        return Ok(EditorSceneFile { cards });
+    }
+
     if bytes.len() == 8 + count * 16 {
         let mut cards = Vec::with_capacity(count);
         for _ in 0..count {
@@ -1108,7 +1224,11 @@ fn read_scene_binary(path: &Path) -> Result<EditorSceneFile, String> {
             );
             let rotation = read_f32(&bytes, &mut cursor)?;
             cards.push(CardParam {
-                scene_param: CardSceneParam { position, rotation },
+                scene_param: CardSceneParam {
+                    position,
+                    rotation,
+                    order: 0.0,
+                },
                 prefab_id,
             });
         }

@@ -76,6 +76,9 @@ pub struct CardSceneParam {
     pub position: Vec2,
 
     pub rotation: f32,
+
+    #[serde(default)]
+    pub order: f32,
 }
 
 /// Appearance preset for a card.
@@ -294,6 +297,7 @@ mod tests {
             scene_param: CardSceneParam {
                 position: Vec2::new(10.0, 20.0),
                 rotation: 0.25,
+                order: 3.0,
             },
             prefab_id: 2003,
         };

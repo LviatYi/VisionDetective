@@ -74,6 +74,7 @@ impl Card {
             scene_param: CardSceneParam {
                 position: transform.translation.truncate(),
                 rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
+                order: transform.translation.z,
             },
             prefab_id: self.instance_type.get_prefab_id(),
         }
@@ -114,8 +115,13 @@ pub fn spawn_card_by_card_param(
         });
 
     let mut entity = commands.spawn((
-        Transform::from_translation(card_param.scene_param.position.extend(0.0))
-            .with_rotation(Quat::from_rotation_z(card_param.scene_param.rotation)),
+        Transform::from_translation(
+            card_param
+                .scene_param
+                .position
+                .extend(card_param.scene_param.order),
+        )
+        .with_rotation(Quat::from_rotation_z(card_param.scene_param.rotation)),
         Card {
             title: appearance.title.clone(),
             instance_type: CardInstanceType::Prefab(card_param.prefab_id),
