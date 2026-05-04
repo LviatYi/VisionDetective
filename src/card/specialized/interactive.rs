@@ -92,16 +92,13 @@ impl Plugin for InteractionCardPlugin {
         app.init_resource::<ActiveInteraction>();
         app.add_message::<CardInteractionEntered>();
         app.add_message::<CardInteractionExited>();
+        dialogue::register_dialogue_systems(app);
         app.add_systems(
             Update,
             (
                 update_active_interaction,
                 dispatch_interaction_events.after(update_active_interaction),
-                (
-                    hello_world::log_hello_world_interactions,
-                    dialogue::log_dialogue_interactions,
-                )
-                    .after(dispatch_interaction_events),
+                hello_world::log_hello_world_interactions.after(dispatch_interaction_events),
             )
                 .run_if(in_state(GameState::InGame)),
         );
@@ -158,7 +155,7 @@ fn update_active_interaction(
     interaction_query: Query<(Entity, &Card, &GlobalTransform), With<Interactive>>,
     mut active_interaction: ResMut<ActiveInteraction>,
 ) {
-    if !player_state.is_idle() {
+    if !player_state.is_stop() {
         active_interaction.previous = active_interaction.current.take();
         return;
     }

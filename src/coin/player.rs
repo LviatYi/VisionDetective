@@ -42,11 +42,15 @@ pub mod controller {
     }
 
     impl PlayerCoinState {
-        pub fn is_idle(self) -> bool {
+        pub fn is_idle(&self) -> bool {
             matches!(self, Self::Idle)
         }
 
-        pub fn is_aiming(self) -> bool {
+        pub fn is_stop(&self) -> bool {
+            !matches!(self, Self::Ejecting)
+        }
+
+        pub fn is_aiming(&self) -> bool {
             matches!(self, Self::Aiming)
         }
 
