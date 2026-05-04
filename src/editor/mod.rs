@@ -1308,8 +1308,8 @@ fn append_editor_card_overlays(
                 ..default()
             },
             TextColor(Color::srgb(0.88, 0.94, 1.0)),
-            Anchor::TOP_LEFT,
-            Transform::from_xyz(-CARD_SIZE.x * 0.5 + 6.0, CARD_SIZE.y * 0.5 - 6.0, 0.36),
+            Anchor::BOTTOM_RIGHT,
+            Transform::from_xyz(CARD_SIZE.x * 0.5 - 6.0, -CARD_SIZE.y * 0.5 + 6.0, 0.36),
             EditorCardOrderText,
             EditorView,
         ));

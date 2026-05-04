@@ -12,8 +12,8 @@ use anyhow::Result;
 use bevy::app::{App, Plugin, Update};
 use bevy::ecs::system::EntityCommands;
 use bevy::prelude::{
-    Component, DetectChanges, Entity, GlobalTransform, IntoScheduleConfigs, Message, MessageWriter,
-    Query, Res, ResMut, Resource, Transform, With, in_state,
+    Changed, Component, DetectChanges, Entity, GlobalTransform, IntoScheduleConfigs, Message,
+    MessageWriter, Query, Res, ResMut, Resource, Transform, With, in_state,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -155,8 +155,7 @@ fn update_active_interaction(
     interaction_query: Query<(Entity, &Card, &GlobalTransform), With<Interactive>>,
     mut active_interaction: ResMut<ActiveInteraction>,
 ) {
-    if !player_state.is_stop() {
-        active_interaction.previous = active_interaction.current.take();
+    if !player_state.is_changed() && !player_state.is_stop() {
         return;
     }
 
