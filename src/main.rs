@@ -17,7 +17,7 @@ use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
 use crate::editor::EditorPlugin;
 use crate::game_view::main_view::{cleanup_view, handle_esc_to_main_menu};
-use crate::game_view::{AppScreen, GameState, GameViewPlugin};
+use crate::game_view::{AppView, GameState, GameViewPlugin};
 use crate::physics::PhysicsPlugin;
 use crate::physics::Velocity;
 use crate::physics::vision::VisionPlugin;
@@ -49,7 +49,7 @@ fn main() {
             }),
             ..default()
         }))
-        .init_state::<AppScreen>()
+        .init_state::<AppView>()
         .add_sub_state::<GameState>()
         .add_plugins((
             GameViewPlugin,
@@ -73,9 +73,9 @@ fn main() {
             Update,
             handle_esc_to_main_menu
                 .after(editor::cancel_prefab_drag_with_escape)
-                .run_if(in_state(AppScreen::Game).or(in_state(AppScreen::Editor))),
+                .run_if(in_state(AppView::Game).or(in_state(AppView::Editor))),
         )
-        .add_systems(OnExit(AppScreen::Game), cleanup_view::<GameView>)
+        .add_systems(OnExit(AppView::Game), cleanup_view::<GameView>)
         .run();
 }
 

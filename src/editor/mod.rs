@@ -1,4 +1,4 @@
-use crate::AppScreen;
+use crate::AppView;
 use crate::card::card_params::{CardParam, CardSceneParam, CardSpecializedRegistry};
 use crate::card::{CARD_SIZE, Card, spawn_card_by_card_param};
 use crate::config::GameConfig;
@@ -133,13 +133,13 @@ impl Plugin for EditorPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<EditorInteractionState>()
             .init_resource::<EditorPointerWorldPosition>()
-            .add_systems(OnEnter(AppScreen::Editor), reset_editor_state)
-            .add_systems(OnEnter(AppScreen::Editor), setup_editor_view)
-            .add_systems(OnEnter(AppScreen::Editor), setup_editor_ui)
-            .add_systems(OnExit(AppScreen::Editor), cleanup_view::<EditorView>)
+            .add_systems(OnEnter(AppView::Editor), reset_editor_state)
+            .add_systems(OnEnter(AppView::Editor), setup_editor_view)
+            .add_systems(OnEnter(AppView::Editor), setup_editor_ui)
+            .add_systems(OnExit(AppView::Editor), cleanup_view::<EditorView>)
             .add_systems(
                 Update,
-                track_editor_pointer_world_position.run_if(in_state(AppScreen::Editor)),
+                track_editor_pointer_world_position.run_if(in_state(AppView::Editor)),
             )
             .add_systems(
                 Update,
@@ -158,12 +158,9 @@ impl Plugin for EditorPlugin {
                     update_editor_status_text,
                 )
                     .after(track_editor_pointer_world_position)
-                    .run_if(in_state(AppScreen::Editor)),
+                    .run_if(in_state(AppView::Editor)),
             )
-            .add_systems(
-                Update,
-                draw_editor_gizmos.run_if(in_state(AppScreen::Editor)),
-            );
+            .add_systems(Update, draw_editor_gizmos.run_if(in_state(AppView::Editor)));
     }
 }
 

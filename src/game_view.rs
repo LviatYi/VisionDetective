@@ -8,17 +8,17 @@ pub struct GameViewPlugin;
 
 impl Plugin for GameViewPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppScreen::MainMenu), setup_main_menu)
-            .add_systems(OnExit(AppScreen::MainMenu), cleanup_view::<MainMenuView>)
+        app.add_systems(OnEnter(AppView::MainMenu), setup_main_menu)
+            .add_systems(OnExit(AppView::MainMenu), cleanup_view::<MainMenuView>)
             .add_systems(
                 Update,
-                handle_main_menu_buttons.run_if(in_state(AppScreen::MainMenu)),
+                handle_main_menu_buttons.run_if(in_state(AppView::MainMenu)),
             );
     }
 }
 
 #[derive(States, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum AppScreen {
+pub enum AppView {
     #[default]
     MainMenu,
     Game,
@@ -26,7 +26,7 @@ pub enum AppScreen {
 }
 
 #[derive(SubStates, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[source(AppScreen = AppScreen::Game)]
+#[source(AppView = AppView::Game)]
 pub enum GameState {
     #[default]
     Loading,
@@ -36,7 +36,7 @@ pub enum GameState {
 pub mod main_view {
     use crate::asset::font;
     use crate::config::GameConfig;
-    use crate::game_view::AppScreen;
+    use crate::game_view::AppView;
     use bevy::asset::{AssetServer, Handle};
     use bevy::camera::Camera2d;
     use bevy::color::Color;
@@ -54,7 +54,7 @@ pub mod main_view {
 
     #[derive(Component)]
     pub(super) struct MainMenuButton {
-        target: AppScreen,
+        target: AppView,
     }
 
     pub(super) fn setup_main_menu(
@@ -112,8 +112,8 @@ pub mod main_view {
                             TextColor(Color::srgb(0.78, 0.82, 0.88)),
                         ));
 
-                        spawn_main_menu_button(panel, &ui_font, "进入游戏", AppScreen::Game);
-                        spawn_main_menu_button(panel, &ui_font, "进入编辑器", AppScreen::Editor);
+                        spawn_main_menu_button(panel, &ui_font, "进入游戏", AppView::Game);
+                        spawn_main_menu_button(panel, &ui_font, "进入编辑器", AppView::Editor);
                         panel.spawn((
                             Text::new("按 Esc 可从游戏或编辑器返回主页面"),
                             TextFont {
@@ -131,7 +131,7 @@ pub mod main_view {
         parent: &mut ChildSpawnerCommands,
         font: &Handle<Font>,
         label: &str,
-        target: AppScreen,
+        target: AppView,
     ) {
         parent
             .spawn((
@@ -164,7 +164,7 @@ pub mod main_view {
     pub(super) fn handle_main_menu_buttons(
         mut press_events: MessageReader<Pointer<Press>>,
         button_query: Query<&MainMenuButton>,
-        mut next_screen: ResMut<NextState<AppScreen>>,
+        mut next_screen: ResMut<NextState<AppView>>,
     ) {
         for event in press_events.read() {
             if event.button != PointerButton::Primary {
@@ -180,7 +180,7 @@ pub mod main_view {
     pub fn handle_esc_to_main_menu(
         keyboard_input: Res<ButtonInput<KeyCode>>,
         mut editor_state: Option<ResMut<crate::editor::EditorInteractionState>>,
-        mut next_screen: ResMut<NextState<AppScreen>>,
+        mut next_screen: ResMut<NextState<AppView>>,
     ) {
         if editor_state
             .as_ref()
@@ -198,7 +198,7 @@ pub mod main_view {
         }
 
         if keyboard_input.just_pressed(KeyCode::Escape) {
-            next_screen.set(AppScreen::MainMenu);
+            next_screen.set(AppView::MainMenu);
         }
     }
 
