@@ -1,6 +1,7 @@
 use crate::coin::player::controller::{
-    CursorWorldPosition, PlayerCoinState, draw_arena_and_aim, handle_player_eject_input,
-    track_cursor_world_position, update_aiming_marker, update_player_visuals,
+    CursorWorldPosition, PlayerCoinState, draw_arena_and_aim, finish_player_charge_from_pointer,
+    handle_player_pointer_drag, start_player_charge_from_pointer, track_pointer_world_position,
+    update_aiming_marker, update_player_hover_state, update_player_visuals,
 };
 use crate::game_view::GameState;
 use bevy::prelude::*;
@@ -16,16 +17,15 @@ pub struct PlayerPlugin;
 pub mod controller {
     use crate::coin::player::PlayerCoin;
     use crate::config::GameConfig;
-    use crate::editor::{EditorInteractionState, cursor_is_over_scene};
     use crate::physics::Velocity;
-    use bevy::input::ButtonInput;
     use bevy::math::{Vec2, Vec3};
+    use bevy::picking::pointer::PointerButton;
+    use bevy::picking::prelude::{Drag, DragEnd, Move, Out, Over, Pointer, Press, Release};
     use bevy::prelude::{
         Assets, Camera, Camera2d, Circle, ColorMaterial, Commands, Component, Gizmos,
-        GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, MouseButton, Query, Res, ResMut, Resource,
-        Transform, Visibility, With,
+        GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, MessageReader, Pickable, Query, Res, ResMut,
+        Resource, Transform, Visibility, With,
     };
-    use bevy::window::{PrimaryWindow, Window};
 
     #[derive(Component)]
     pub struct PointerMarker;
@@ -81,6 +81,7 @@ pub mod controller {
             Transform::from_translation(Vec3::new(0.0, 0.0, config.visuals.player_z)),
             PlayerCoin::default(),
             Velocity::default(),
+            Pickable::default(),
             crate::GameView,
         ));
 
@@ -94,113 +95,174 @@ pub mod controller {
         ));
     }
 
-    pub fn track_cursor_world_position(
-        window_query: Query<&Window, With<PrimaryWindow>>,
+    pub fn track_pointer_world_position(
+        mut move_events: MessageReader<Pointer<Move>>,
+        mut over_events: MessageReader<Pointer<Over>>,
+        mut press_events: MessageReader<Pointer<Press>>,
+        mut drag_events: MessageReader<Pointer<Drag>>,
         camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+        player_query: Query<(), With<PlayerCoin>>,
         mut cursor_world: ResMut<CursorWorldPosition>,
     ) {
-        let (Ok(window), Ok((camera, camera_transform))) =
-            (window_query.single(), camera_query.single())
-        else {
-            return;
-        };
-
-        cursor_world.0 = window
-            .cursor_position()
-            .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok());
+        for event in move_events.read() {
+            if player_query.get(event.entity).is_ok() {
+                cursor_world.0 = event.hit.position.map(|position| position.truncate());
+            }
+        }
+        for event in over_events.read() {
+            if player_query.get(event.entity).is_ok() {
+                cursor_world.0 = event.hit.position.map(|position| position.truncate());
+            }
+        }
+        for event in press_events.read() {
+            if player_query.get(event.entity).is_ok() {
+                cursor_world.0 = event.hit.position.map(|position| position.truncate());
+            }
+        }
+        for event in drag_events.read() {
+            if player_query.get(event.entity).is_ok() {
+                cursor_world.0 =
+                    pointer_world_position(&camera_query, event.pointer_location.position);
+            }
+        }
     }
 
-    pub fn handle_player_eject_input(
-        config: Res<GameConfig>,
-        mouse_input: Res<ButtonInput<MouseButton>>,
-        cursor_world: Res<CursorWorldPosition>,
-        window_query: Query<&Window, With<PrimaryWindow>>,
-        editor_state: Option<Res<EditorInteractionState>>,
+    pub fn update_player_hover_state(
+        mut over_events: MessageReader<Pointer<Over>>,
+        mut out_events: MessageReader<Pointer<Out>>,
         mut player_state: ResMut<PlayerCoinState>,
-        mut player_query: Query<(&Transform, &mut PlayerCoin, &mut Velocity), With<PlayerCoin>>,
+        player_query: Query<&Velocity, With<PlayerCoin>>,
     ) {
-        let Ok((player_transform, mut player, mut velocity)) = player_query.single_mut() else {
+        let Ok(velocity) = player_query.single() else {
             return;
         };
+        if !player_state.is_idle() && !player_state.is_aiming() {
+            return;
+        }
 
-        let player_position = player_transform.translation.truncate();
-        let cursor_position = cursor_world.0;
-        let pointer_captured = editor_state
-            .as_ref()
-            .and_then(|state| {
-                window_query
-                    .single()
-                    .ok()
-                    .and_then(|window| window.cursor_position().map(|cursor| (window, cursor)))
-                    .map(|(window, cursor)| {
-                        !cursor_is_over_scene(window, cursor) || state.captures_pointer()
-                    })
-            })
-            .unwrap_or(false);
-
-        if pointer_captured {
-            if !player_state.is_charging() || !mouse_input.pressed(MouseButton::Left) {
+        for event in over_events.read() {
+            if event.hit.position.is_some() && velocity.length_squared() <= 0.0 {
+                *player_state = PlayerCoinState::Aiming;
+            }
+        }
+        for _ in out_events.read() {
+            if player_state.is_aiming() {
                 *player_state = PlayerCoinState::Idle;
             }
+        }
+    }
+
+    pub fn start_player_charge_from_pointer(
+        mut press_events: MessageReader<Pointer<Press>>,
+        mut player_state: ResMut<PlayerCoinState>,
+        player_query: Query<&Velocity, With<PlayerCoin>>,
+    ) {
+        let Ok(velocity) = player_query.single() else {
+            return;
+        };
+        if velocity.length_squared() > 0.0 || matches!(*player_state, PlayerCoinState::Ejecting) {
             return;
         }
 
-        if matches!(*player_state, PlayerCoinState::Ejecting) {
-            return;
-        }
-
-        let aiming = cursor_position
-            .map(|cursor| cursor.distance(player_position) <= config.visuals.player_radius)
-            .map(|in_range| in_range && velocity.length_squared() <= 0.0)
-            .unwrap_or(false);
-
-        if mouse_input.just_pressed(MouseButton::Left) && aiming {
-            *player_state = PlayerCoinState::Charging {
-                eject_vector: Vec2::ZERO,
-            };
-        }
-
-        if player_state.is_charging() {
-            if mouse_input.pressed(MouseButton::Left) {
-                if let Some(cursor) = cursor_position {
-                    *player_state = PlayerCoinState::Charging {
-                        eject_vector: (player_position - cursor)
-                            .clamp_length_max(config.player.max_eject_distance),
-                    };
-                }
-            } else {
-                let eject_vector = player_state.eject_vector();
-                // eject the player coin
-                if eject_vector.length() > config.player.min_launch_distance {
-                    let charge_ratio = eject_vector.length() / config.player.max_eject_distance;
-                    let planar_velocity = charge_ratio
-                        * config.player.max_planar_speed
-                        * eject_vector.normalize_or_zero();
-                    let vertical_velocity = config.player.min_vertical_speed
-                        + charge_ratio
-                            * (config.player.max_vertical_speed - config.player.min_vertical_speed);
-
-                    velocity.x = planar_velocity.x;
-                    velocity.y = planar_velocity.y;
-                    velocity.z = vertical_velocity;
-                    player.sim_z = 0.0;
-                    player.ground_contact_count = 0;
-                    *player_state = PlayerCoinState::Ejecting;
-                } else {
-                    *player_state = if aiming {
-                        PlayerCoinState::Aiming
-                    } else {
-                        PlayerCoinState::Idle
-                    };
-                }
+        for event in press_events.read() {
+            if event.button == PointerButton::Primary && player_query.get(event.entity).is_ok() {
+                *player_state = PlayerCoinState::Charging {
+                    eject_vector: Vec2::ZERO,
+                };
             }
-        } else {
-            *player_state = if aiming {
-                PlayerCoinState::Aiming
-            } else {
-                PlayerCoinState::Idle
+        }
+    }
+
+    pub fn handle_player_pointer_drag(
+        config: Res<GameConfig>,
+        mut drag_events: MessageReader<Pointer<Drag>>,
+        camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+        mut player_state: ResMut<PlayerCoinState>,
+        player_query: Query<&Transform, With<PlayerCoin>>,
+    ) {
+        if !player_state.is_charging() {
+            return;
+        }
+
+        let Ok(player_transform) = player_query.single() else {
+            return;
+        };
+        let player_position = player_transform.translation.truncate();
+
+        for event in drag_events.read() {
+            if event.button != PointerButton::Primary || player_query.get(event.entity).is_err() {
+                continue;
+            }
+            let Some(cursor) =
+                pointer_world_position(&camera_query, event.pointer_location.position)
+            else {
+                continue;
+            };
+            *player_state = PlayerCoinState::Charging {
+                eject_vector: (player_position - cursor)
+                    .clamp_length_max(config.player.max_eject_distance),
             };
         }
+    }
+
+    pub fn finish_player_charge_from_pointer(
+        config: Res<GameConfig>,
+        mut release_events: MessageReader<Pointer<Release>>,
+        mut drag_end_events: MessageReader<Pointer<DragEnd>>,
+        mut player_state: ResMut<PlayerCoinState>,
+        mut player_query: Query<(&mut PlayerCoin, &mut Velocity), With<PlayerCoin>>,
+    ) {
+        if !player_state.is_charging() {
+            return;
+        }
+
+        let mut released = false;
+        for event in release_events.read() {
+            released |=
+                event.button == PointerButton::Primary && player_query.get(event.entity).is_ok();
+        }
+        for event in drag_end_events.read() {
+            released |=
+                event.button == PointerButton::Primary && player_query.get(event.entity).is_ok();
+        }
+        if !released {
+            return;
+        }
+
+        let Ok((mut player, mut velocity)) = player_query.single_mut() else {
+            return;
+        };
+        let eject_vector = player_state.eject_vector();
+        if eject_vector.length() > config.player.min_launch_distance {
+            let charge_ratio = eject_vector.length() / config.player.max_eject_distance;
+            let planar_velocity =
+                charge_ratio * config.player.max_planar_speed * eject_vector.normalize_or_zero();
+            let vertical_velocity = config.player.min_vertical_speed
+                + charge_ratio
+                    * (config.player.max_vertical_speed - config.player.min_vertical_speed);
+
+            velocity.x = planar_velocity.x;
+            velocity.y = planar_velocity.y;
+            velocity.z = vertical_velocity;
+            player.sim_z = 0.0;
+            player.ground_contact_count = 0;
+            *player_state = PlayerCoinState::Ejecting;
+        } else {
+            *player_state = PlayerCoinState::Aiming;
+        }
+    }
+
+    fn pointer_world_position(
+        camera_query: &Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+        position: Vec2,
+    ) -> Option<Vec2> {
+        camera_query
+            .iter()
+            .filter(|(camera, _)| camera.is_active)
+            .max_by_key(|(camera, _)| camera.order)
+            .and_then(|(camera, camera_transform)| {
+                camera.viewport_to_world_2d(camera_transform, position).ok()
+            })
     }
 
     pub fn update_aiming_marker(
@@ -294,16 +356,20 @@ impl Plugin for PlayerPlugin {
             .add_systems(OnEnter(GameState::Loading), controller::setup_player)
             .add_systems(
                 Update,
-                track_cursor_world_position.run_if(in_state(GameState::InGame)),
+                track_pointer_world_position.run_if(in_state(GameState::InGame)),
             )
             .add_systems(
                 Update,
                 (
-                    handle_player_eject_input,
+                    update_player_hover_state,
+                    start_player_charge_from_pointer,
+                    handle_player_pointer_drag,
+                    finish_player_charge_from_pointer,
                     update_player_visuals,
                     update_aiming_marker,
                     draw_arena_and_aim,
                 )
+                    .after(track_pointer_world_position)
                     .run_if(in_state(GameState::InGame)),
             );
     }

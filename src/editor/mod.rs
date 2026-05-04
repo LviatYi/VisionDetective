@@ -7,7 +7,8 @@ use crate::editor::editor_view::{EditorView, setup_editor_view};
 use crate::game_view::main_view::cleanup_view;
 use bevy::ecs::system::SystemParam;
 use bevy::input::ButtonInput;
-use bevy::input::mouse::MouseWheel;
+use bevy::picking::pointer::PointerButton;
+use bevy::picking::prelude::{Drag, Move, Out, Over, Pointer, Press, Release, Scroll};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use bevy::window::{PrimaryWindow, Window};
@@ -34,6 +35,9 @@ const DRAG_PREVIEW_ORDER: f32 = 20.0;
 const ORDER_LABEL_FONT_SIZE: f32 = 13.0;
 
 pub struct EditorPlugin;
+
+#[derive(Resource, Default)]
+struct EditorPointerWorldPosition(Option<Vec2>);
 
 #[derive(Resource, Default)]
 pub struct EditorInteractionState {
@@ -128,10 +132,15 @@ struct EditorSceneFile {
 impl Plugin for EditorPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<EditorInteractionState>()
+            .init_resource::<EditorPointerWorldPosition>()
             .add_systems(OnEnter(AppScreen::Editor), reset_editor_state)
             .add_systems(OnEnter(AppScreen::Editor), setup_editor_view)
             .add_systems(OnEnter(AppScreen::Editor), setup_editor_ui)
             .add_systems(OnExit(AppScreen::Editor), cleanup_view::<EditorView>)
+            .add_systems(
+                Update,
+                track_editor_pointer_world_position.run_if(in_state(AppScreen::Editor)),
+            )
             .add_systems(
                 Update,
                 (
@@ -148,6 +157,7 @@ impl Plugin for EditorPlugin {
                     handle_editor_shortcuts,
                     update_editor_status_text,
                 )
+                    .after(track_editor_pointer_world_position)
                     .run_if(in_state(AppScreen::Editor)),
             )
             .add_systems(
@@ -181,6 +191,7 @@ fn setup_editor_ui(
                 position_type: PositionType::Absolute,
                 ..default()
             },
+            Pickable::IGNORE,
             BackgroundColor(Color::NONE),
             EditorView,
         ))
@@ -343,6 +354,7 @@ fn spawn_button(
             background_color: BackgroundColor(Color::srgb(0.19, 0.29, 0.40)),
             action,
         })
+        .insert(Pickable::default())
         .with_children(|button| {
             button.spawn((
                 Text::new(label),
@@ -352,6 +364,7 @@ fn spawn_button(
                     ..default()
                 },
                 TextColor(Color::WHITE),
+                Pickable::IGNORE,
             ));
         });
 }
@@ -375,15 +388,19 @@ fn spawn_prefab_preview_items(
                 ..default()
             },
             BackgroundColor(background_color),
+            Pickable::default(),
             PrefabPreviewButton { prefab_id },
         ))
         .with_children(|button| {
             button
-                .spawn((Node {
-                    flex_direction: FlexDirection::Column,
-                    row_gap: px(4.0),
-                    ..default()
-                },))
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(4.0),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
                 .with_children(|text_wrap| {
                     text_wrap.spawn((
                         Text::new(title.to_string()),
@@ -393,6 +410,7 @@ fn spawn_prefab_preview_items(
                             ..default()
                         },
                         TextColor(Color::WHITE),
+                        Pickable::IGNORE,
                     ));
                     text_wrap.spawn((
                         Text::new(format!("prefab_id: {prefab_id}")),
@@ -402,6 +420,7 @@ fn spawn_prefab_preview_items(
                             ..default()
                         },
                         TextColor(Color::srgb(0.72, 0.78, 0.86)),
+                        Pickable::IGNORE,
                     ));
                 });
         });
@@ -409,15 +428,19 @@ fn spawn_prefab_preview_items(
 
 fn handle_toolbar_buttons(
     mut commands: Commands,
-    interaction_query: Query<(&Interaction, &EditorButtonAction), Changed<Interaction>>,
+    mut press_events: MessageReader<Pointer<Press>>,
+    action_query: Query<&EditorButtonAction>,
     card_query: Query<(Entity, &Card, &Transform), Without<EditorDragPreview>>,
     mut spawn_deps: EditorCardSpawnDeps,
     mut state: ResMut<EditorInteractionState>,
 ) {
-    for (interaction, action) in &interaction_query {
-        if *interaction != Interaction::Pressed {
+    for event in press_events.read() {
+        if event.button != PointerButton::Primary {
             continue;
         }
+        let Ok(action) = action_query.get(event.entity) else {
+            continue;
+        };
 
         match action {
             EditorButtonAction::ExportScene => {
@@ -441,14 +464,18 @@ fn handle_toolbar_buttons(
 
 fn handle_prefab_drag_start(
     mut commands: Commands,
-    interaction_query: Query<(&Interaction, &PrefabPreviewButton), Changed<Interaction>>,
+    mut press_events: MessageReader<Pointer<Press>>,
+    preview_query: Query<&PrefabPreviewButton>,
     mut spawn_deps: EditorCardSpawnDeps,
     mut state: ResMut<EditorInteractionState>,
 ) {
-    for (interaction, preview_button) in &interaction_query {
-        if *interaction != Interaction::Pressed {
+    for event in press_events.read() {
+        if event.button != PointerButton::Primary {
             continue;
         }
+        let Ok(preview_button) = preview_query.get(event.entity) else {
+            continue;
+        };
 
         if let Some(entity) = state.drag_preview_entity.take() {
             commands.entity(entity).despawn();
@@ -478,25 +505,61 @@ fn handle_prefab_drag_start(
     }
 }
 
+fn track_editor_pointer_world_position(
+    mut move_events: MessageReader<Pointer<Move>>,
+    mut over_events: MessageReader<Pointer<Over>>,
+    mut out_events: MessageReader<Pointer<Out>>,
+    mut press_events: MessageReader<Pointer<Press>>,
+    mut drag_events: MessageReader<Pointer<Drag>>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    mut pointer_world: ResMut<EditorPointerWorldPosition>,
+) {
+    for event in move_events.read() {
+        pointer_world.0 = cursor_world_position(&camera_query, event.pointer_location.position);
+    }
+    for event in over_events.read() {
+        pointer_world.0 = event
+            .hit
+            .position
+            .map(|position| position.truncate())
+            .or_else(|| cursor_world_position(&camera_query, event.pointer_location.position));
+    }
+    for event in out_events.read() {
+        pointer_world.0 = event
+            .hit
+            .position
+            .map(|position| position.truncate())
+            .or_else(|| cursor_world_position(&camera_query, event.pointer_location.position));
+    }
+    for event in press_events.read() {
+        pointer_world.0 = event
+            .hit
+            .position
+            .map(|position| position.truncate())
+            .or_else(|| cursor_world_position(&camera_query, event.pointer_location.position));
+    }
+    for event in drag_events.read() {
+        pointer_world.0 = cursor_world_position(&camera_query, event.pointer_location.position);
+    }
+}
+
 fn handle_prefab_list_scroll(
-    mut mouse_wheel_events: MessageReader<MouseWheel>,
+    mut scroll_events: MessageReader<Pointer<Scroll>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     prefab_query: Query<&PrefabPreviewButton>,
     mut content_query: Query<&mut Node, With<PrefabListContent>>,
     mut state: ResMut<EditorInteractionState>,
 ) {
-    let scroll_units: f32 = mouse_wheel_events.read().map(|event| event.y).sum();
-    if scroll_units.abs() <= f32::EPSILON {
-        return;
-    }
-
     let Ok(window) = window_query.single() else {
         return;
     };
-    let Some(cursor_position) = window.cursor_position() else {
-        return;
-    };
-    if !cursor_is_over_sidebar(window, cursor_position) {
+
+    let scroll_units: f32 = scroll_events
+        .read()
+        .filter(|event| cursor_is_over_sidebar(window, event.pointer_location.position))
+        .map(|event| event.y)
+        .sum();
+    if scroll_units.abs() <= f32::EPSILON {
         return;
     }
 
@@ -515,8 +578,7 @@ fn handle_prefab_list_scroll(
 }
 
 fn update_drag_preview_card(
-    window_query: Query<&Window, With<PrimaryWindow>>,
-    camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    pointer_world: Res<EditorPointerWorldPosition>,
     state: Res<EditorInteractionState>,
     mut preview_query: Query<(&mut Transform, &mut Visibility), With<EditorDragPreview>>,
 ) {
@@ -524,13 +586,7 @@ fn update_drag_preview_card(
         return;
     };
 
-    let Ok(window) = window_query.single() else {
-        return;
-    };
-    let Some(cursor_position) = window.cursor_position() else {
-        return;
-    };
-    let Some(world_position) = cursor_world_position(&camera_query, cursor_position) else {
+    let Some(world_position) = pointer_world.0 else {
         return;
     };
 
@@ -564,9 +620,9 @@ pub(crate) fn cancel_prefab_drag_with_escape(
 
 fn handle_prefab_drop(
     mut commands: Commands,
-    mouse_input: Res<ButtonInput<MouseButton>>,
+    mut release_events: MessageReader<Pointer<Release>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    pointer_world: Res<EditorPointerWorldPosition>,
     mut preview_query: Query<&mut Transform, With<EditorDragPreview>>,
     card_query: Query<&Transform, (With<Card>, Without<EditorDragPreview>)>,
     mut state: ResMut<EditorInteractionState>,
@@ -574,30 +630,23 @@ fn handle_prefab_drop(
     let Some(prefab_id) = state.dragging_prefab else {
         return;
     };
-    if !mouse_input.just_released(MouseButton::Left) {
+
+    let Ok(window) = window_query.single() else {
         return;
-    }
+    };
+    let Some(release_position) = release_events
+        .read()
+        .filter(|event| event.button == PointerButton::Primary)
+        .map(|event| event.pointer_location.position)
+        .last()
+    else {
+        return;
+    };
 
     state.dragging_prefab = None;
     let preview_entity = state.drag_preview_entity.take();
 
-    let Ok(window) = window_query.single() else {
-        if let Some(entity) = preview_entity {
-            commands.entity(entity).despawn();
-        }
-        state.status_message = "放置卡牌失败：窗口不可用".into();
-        return;
-    };
-
-    let Some(cursor_position) = window.cursor_position() else {
-        if let Some(entity) = preview_entity {
-            commands.entity(entity).despawn();
-        }
-        state.status_message = "放置卡牌失败：光标位置不可用".into();
-        return;
-    };
-
-    if !cursor_is_over_scene(window, cursor_position) {
+    if !cursor_is_over_scene(window, release_position) {
         if let Some(entity) = preview_entity {
             commands.entity(entity).despawn();
         }
@@ -605,7 +654,7 @@ fn handle_prefab_drop(
         return;
     }
 
-    let Some(world_position) = cursor_world_position(&camera_query, cursor_position) else {
+    let Some(world_position) = pointer_world.0 else {
         if let Some(entity) = preview_entity {
             commands.entity(entity).despawn();
         }
@@ -639,7 +688,9 @@ fn handle_prefab_drop(
 
 fn handle_scene_editing(
     mut commands: Commands,
-    mouse_input: Res<ButtonInput<MouseButton>>,
+    mut press_events: MessageReader<Pointer<Press>>,
+    mut drag_events: MessageReader<Pointer<Drag>>,
+    mut release_events: MessageReader<Pointer<Release>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
@@ -652,22 +703,18 @@ fn handle_scene_editing(
     let Ok(window) = window_query.single() else {
         return;
     };
-    let Some(cursor_position) = window.cursor_position() else {
-        return;
-    };
-    if !cursor_is_over_scene(window, cursor_position) {
-        if mouse_input.just_released(MouseButton::Left) {
-            state.moving_entity = None;
-            state.rotating_entity = None;
+
+    for event in press_events.read() {
+        if event.button != PointerButton::Primary
+            || !cursor_is_over_scene(window, event.pointer_location.position)
+        {
+            continue;
         }
-        return;
-    }
-
-    let Some(cursor_world_position) = cursor_world_position(&camera_query, cursor_position) else {
-        return;
-    };
-
-    if mouse_input.just_pressed(MouseButton::Left) {
+        let Some(cursor_world_position) =
+            cursor_world_position(&camera_query, event.pointer_location.position)
+        else {
+            continue;
+        };
         {
             let card_query = card_queries.p0();
 
@@ -686,7 +733,7 @@ fn handle_scene_editing(
                 return;
             }
 
-            if let Some((entity, transform)) = pick_card(cursor_world_position, &card_query) {
+            if let Ok((entity, _, _, transform)) = card_query.get(event.entity) {
                 state.selected_entity = Some(entity);
                 state.rotating_entity = None;
                 state.moving_entity = Some(MovingEntityState {
@@ -703,7 +750,15 @@ fn handle_scene_editing(
         }
     }
 
-    if mouse_input.pressed(MouseButton::Left) {
+    for event in drag_events.read() {
+        if event.button != PointerButton::Primary {
+            continue;
+        }
+        let Some(cursor_world_position) =
+            cursor_world_position(&camera_query, event.pointer_location.position)
+        else {
+            continue;
+        };
         let mut transform_query = card_queries.p1();
 
         if let Some(moving) = state.moving_entity
@@ -723,7 +778,10 @@ fn handle_scene_editing(
         }
     }
 
-    if mouse_input.just_released(MouseButton::Left) {
+    let released = release_events
+        .read()
+        .any(|event| event.button == PointerButton::Primary);
+    if released {
         if state.moving_entity.is_some() {
             state.status_message = "卡牌位置已更新".into();
         } else if state.rotating_entity.is_some() {
@@ -822,9 +880,7 @@ fn handle_card_order_shortcuts(
 }
 
 fn handle_card_order_wheel(
-    mut mouse_wheel_events: MessageReader<MouseWheel>,
-    window_query: Query<&Window, With<PrimaryWindow>>,
-    camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    mut scroll_events: MessageReader<Pointer<Scroll>>,
     mut card_queries: ParamSet<(
         Query<(Entity, &Card, &GlobalTransform, &Transform), Without<EditorDragPreview>>,
         Query<&mut Transform, (With<Card>, Without<EditorDragPreview>)>,
@@ -835,32 +891,30 @@ fn handle_card_order_wheel(
         return;
     }
 
-    let scroll_units: f32 = mouse_wheel_events.read().map(|event| event.y).sum();
-    if scroll_units.abs() <= f32::EPSILON {
+    let mut hovered_scrolls = Vec::new();
+    for event in scroll_events.read() {
+        if event.y.abs() <= f32::EPSILON {
+            continue;
+        }
+        hovered_scrolls.push((event.entity, event.y));
+    }
+    if hovered_scrolls.is_empty() {
         return;
     }
 
-    let Ok(window) = window_query.single() else {
-        return;
-    };
-    let Some(cursor_position) = window.cursor_position() else {
-        return;
-    };
-    if !cursor_is_over_scene(window, cursor_position) {
-        return;
-    }
-
-    let Some(cursor_world_position) = cursor_world_position(&camera_query, cursor_position) else {
+    let Some((hovered_entity, scroll_units)) =
+        hovered_scrolls.into_iter().rev().find(|(entity, _)| {
+            let card_query = card_queries.p0();
+            card_query.get(*entity).is_ok()
+        })
+    else {
         return;
     };
 
-    let (hovered_entity, cards) = {
+    let cards = {
         let card_query = card_queries.p0();
-        let Some((hovered_entity, _)) = pick_card(cursor_world_position, &card_query) else {
-            return;
-        };
         let cards = collect_card_order_snapshots(&card_query);
-        (hovered_entity, cards)
+        cards
     };
 
     let group = connected_intersecting_card_group(hovered_entity, &cards);
@@ -1005,29 +1059,6 @@ fn rotation_handle_contains_point<F: bevy::ecs::query::QueryFilter>(
     };
 
     cursor_world.distance(rotation_handle_position(transform)) <= ROTATION_HANDLE_RADIUS
-}
-
-fn pick_card<F: bevy::ecs::query::QueryFilter>(
-    cursor_world: Vec2,
-    card_query: &Query<(Entity, &Card, &GlobalTransform, &Transform), F>,
-) -> Option<(Entity, Transform)> {
-    card_query
-        .iter()
-        .filter(|(_, card, global_transform, _)| {
-            card.contains_point(global_transform, cursor_world)
-        })
-        .min_by(
-            |(entity_a, _, _, transform_a), (entity_b, _, _, transform_b)| {
-                transform_a
-                    .translation
-                    .z
-                    .partial_cmp(&transform_b.translation.z)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-                    .reverse()
-                    .then_with(|| entity_a.index().cmp(&entity_b.index()))
-            },
-        )
-        .map(|(entity, _, _, transform)| (entity, *transform))
 }
 
 pub fn cursor_is_over_scene(window: &Window, cursor_position: Vec2) -> bool {

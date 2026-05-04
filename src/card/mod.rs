@@ -127,6 +127,7 @@ pub fn spawn_card_by_card_param(
             instance_type: CardInstanceType::Prefab(card_param.prefab_id),
         },
         card_kind,
+        Pickable::default(),
         Mesh2d(meshes.add(rounded_rectangle_mesh(
             CARD_SIZE,
             config.cards.corner_radius,

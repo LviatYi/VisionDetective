@@ -41,10 +41,12 @@ pub mod main_view {
     use bevy::camera::Camera2d;
     use bevy::color::Color;
     use bevy::input::ButtonInput;
+    use bevy::picking::pointer::PointerButton;
+    use bevy::picking::prelude::{Pointer, Press};
     use bevy::prelude::{
-        AlignItems, BackgroundColor, Button, Changed, ChildSpawnerCommands, Commands, Component,
-        Entity, FlexDirection, Font, Interaction, JustifyContent, KeyCode, NextState, Node, Query,
-        Res, ResMut, Text, TextColor, TextFont, UiRect, With, default, percent, px,
+        AlignItems, BackgroundColor, Button, ChildSpawnerCommands, Commands, Component, Entity,
+        FlexDirection, Font, JustifyContent, KeyCode, MessageReader, NextState, Node, Pickable,
+        Query, Res, ResMut, Text, TextColor, TextFont, UiRect, With, default, percent, px,
     };
 
     #[derive(Component)]
@@ -142,6 +144,7 @@ pub mod main_view {
                     ..default()
                 },
                 BackgroundColor(Color::srgb(0.24, 0.35, 0.47)),
+                Pickable::default(),
                 MainMenuButton { target },
             ))
             .with_children(|button| {
@@ -153,18 +156,24 @@ pub mod main_view {
                         ..default()
                     },
                     TextColor(Color::WHITE),
+                    Pickable::IGNORE,
                 ));
             });
     }
 
     pub(super) fn handle_main_menu_buttons(
-        interaction_query: Query<(&Interaction, &MainMenuButton), Changed<Interaction>>,
+        mut press_events: MessageReader<Pointer<Press>>,
+        button_query: Query<&MainMenuButton>,
         mut next_screen: ResMut<NextState<AppScreen>>,
     ) {
-        for (interaction, button) in &interaction_query {
-            if *interaction == Interaction::Pressed {
-                next_screen.set(button.target);
+        for event in press_events.read() {
+            if event.button != PointerButton::Primary {
+                continue;
             }
+            let Ok(button) = button_query.get(event.entity) else {
+                continue;
+            };
+            next_screen.set(button.target);
         }
     }
 

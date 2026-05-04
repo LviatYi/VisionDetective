@@ -4,9 +4,11 @@ use crate::config::GameConfig;
 use crate::register_card_interaction;
 use bevy::app::{App, Update};
 use bevy::input::ButtonInput;
+use bevy::picking::pointer::PointerButton;
+use bevy::picking::prelude::{Click, Pointer};
 use bevy::prelude::{
     BackgroundColor, Color, Commands, Component, Entity, IntoScheduleConfigs, KeyCode,
-    MessageReader, MouseButton, Node, PositionType, Query, Res, ResMut, Resource, Text, TextColor,
+    MessageReader, Node, Pickable, PositionType, Query, Res, ResMut, Resource, Text, TextColor,
     TextFont, UiRect, With, Without, default, in_state, percent, px,
 };
 use serde::{Deserialize, Serialize};
@@ -132,10 +134,13 @@ fn start_dialogues_from_interaction(
 
 fn advance_dialogue_input(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mouse_input: Res<ButtonInput<MouseButton>>,
+    mut click_events: MessageReader<Pointer<Click>>,
     mut state: ResMut<DialogueState>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Space) || mouse_input.just_pressed(MouseButton::Left) {
+    let clicked = click_events
+        .read()
+        .any(|event| event.button == PointerButton::Primary);
+    if keyboard_input.just_pressed(KeyCode::Space) || clicked {
         state.push_dialogue();
     }
 }
@@ -186,47 +191,71 @@ fn spawn_dialogue_ui(
         .spawn((
             Node {
                 width: percent(100.0),
-                height: px(DIALOGUE_PANEL_HEIGHT),
+                height: percent(100.0),
                 position_type: PositionType::Absolute,
                 left: px(0.0),
-                bottom: px(0.0),
-                padding: UiRect::axes(px(DIALOGUE_PANEL_PADDING_X), px(DIALOGUE_PANEL_PADDING_Y)),
+                top: px(0.0),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.72)),
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.4)),
+            Pickable::default(),
             DialogueUiRoot,
             GameView,
         ))
-        .with_children(|panel| {
-            panel
-                .spawn((Node {
-                    width: percent(100.0),
-                    height: percent(100.0),
-                    flex_direction: bevy::prelude::FlexDirection::Column,
-                    row_gap: px(12.0),
-                    ..default()
-                },))
-                .with_children(|content| {
-                    content.spawn((
-                        Text::new(format!("角色 {}", node.source)),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: DIALOGUE_NAME_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.95, 0.84, 0.45)),
-                        DialogueSpeakerText,
-                    ));
-                    content.spawn((
-                        Text::new(node.text.clone()),
-                        TextFont {
-                            font,
-                            font_size: DIALOGUE_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.92, 0.94, 0.96)),
-                        DialogueBodyText,
-                    ));
+        .with_children(|modal| {
+            modal
+                .spawn((
+                    Node {
+                        width: percent(100.0),
+                        height: px(DIALOGUE_PANEL_HEIGHT),
+                        position_type: PositionType::Absolute,
+                        left: px(0.0),
+                        bottom: px(0.0),
+                        padding: UiRect::axes(
+                            px(DIALOGUE_PANEL_PADDING_X),
+                            px(DIALOGUE_PANEL_PADDING_Y),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.5)),
+                    Pickable::default(),
+                ))
+                .with_children(|panel| {
+                    panel
+                        .spawn((
+                            Node {
+                                width: percent(100.0),
+                                height: percent(100.0),
+                                flex_direction: bevy::prelude::FlexDirection::Column,
+                                row_gap: px(12.0),
+                                ..default()
+                            },
+                            Pickable::IGNORE,
+                        ))
+                        .with_children(|content| {
+                            content.spawn((
+                                Text::new(format!("角色 {}", node.source)),
+                                TextFont {
+                                    font: font.clone(),
+                                    font_size: DIALOGUE_NAME_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(Color::srgb(0.38, 0.28, 0.02)),
+                                DialogueSpeakerText,
+                                Pickable::IGNORE,
+                            ));
+                            content.spawn((
+                                Text::new(node.text.clone()),
+                                TextFont {
+                                    font,
+                                    font_size: DIALOGUE_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(Color::srgb(0.08, 0.09, 0.11)),
+                                DialogueBodyText,
+                                Pickable::IGNORE,
+                            ));
+                        });
                 });
         });
 }
@@ -242,6 +271,7 @@ mod tests {
         let params = serde_json::from_value::<DialogueInteractionParams>(serde_json::json!({
             "nodes": [
                 {
+                    "id": 0,
                     "source": 1,
                     "text": "我们先从这里开始调查。",
                 }

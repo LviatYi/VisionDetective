@@ -5,6 +5,7 @@ pub mod config;
 pub mod editor;
 mod game_view;
 pub mod physics;
+pub mod picking;
 pub mod scene;
 
 use crate::asset::font;
@@ -20,6 +21,7 @@ use crate::game_view::{AppScreen, GameState, GameViewPlugin};
 use crate::physics::PhysicsPlugin;
 use crate::physics::Velocity;
 use crate::physics::vision::VisionPlugin;
+use crate::picking::VisionPickingPlugin;
 use crate::scene::demo_level::spawn_demo_cards;
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
@@ -54,6 +56,7 @@ fn main() {
             PlayerPlugin,
             PhysicsPlugin,
             VisionPlugin,
+            VisionPickingPlugin,
             CardPlugin,
             EditorPlugin,
         ))
