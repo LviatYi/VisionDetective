@@ -174,12 +174,13 @@ fn update_active_interaction(
             card.intersect_circle(transform, player_position, player_radius)
         })
         .min_by(|(entity_a, _, transform_a), (entity_b, _, transform_b)| {
-            let distance_a = player_position.distance_squared(transform_a.translation().truncate());
-            let distance_b = player_position.distance_squared(transform_b.translation().truncate());
+            let order_a = transform_a.translation().z;
+            let order_b = transform_b.translation().z;
 
-            distance_a
-                .partial_cmp(&distance_b)
+            order_a
+                .partial_cmp(&order_b)
                 .unwrap_or(std::cmp::Ordering::Equal)
+                .reverse()
                 .then_with(|| entity_a.index().cmp(&entity_b.index()))
         })
         .map(|(entity, _, _)| entity);
