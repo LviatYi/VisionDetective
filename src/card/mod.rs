@@ -18,6 +18,7 @@ pub enum CardKind {
     Scenery,
     Obstacle,
     Interaction,
+    Clue,
 }
 
 pub const STANDARD_CARD_SIZE: Vec2 = Vec2::new(53.9, 85.6);
@@ -84,7 +85,10 @@ impl Card {
 impl Plugin for CardPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CardSpecializedRegistry>();
-        app.add_plugins(specialized::interactive::InteractionCardPlugin);
+        app.add_plugins((
+            specialized::interactive::InteractionCardPlugin,
+            specialized::clue::ClueCardPlugin,
+        ));
     }
 }
 

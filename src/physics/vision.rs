@@ -74,7 +74,7 @@ pub fn draw_vision_radius(
     );
 }
 
-fn compute_visible_points(
+pub fn compute_visible_points(
     config: &GameConfig,
     origin: Vec2,
     obstacle_query: &Query<(&Transform, &Obstacle), Without<PlayerCoin>>,
@@ -140,7 +140,12 @@ fn cast_visibility_ray(
     origin + direction * closest_distance
 }
 
-fn ray_segment_intersection(origin: Vec2, direction: Vec2, start: Vec2, end: Vec2) -> Option<f32> {
+pub fn ray_segment_intersection(
+    origin: Vec2,
+    direction: Vec2,
+    start: Vec2,
+    end: Vec2,
+) -> Option<f32> {
     let segment = end - start;
     let denominator = cross(direction, segment);
     if denominator.abs() <= f32::EPSILON {

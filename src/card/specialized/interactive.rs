@@ -4,7 +4,7 @@ mod hello_world;
 use crate::card::card_params::CardSpecialized;
 use crate::card::{Card, CardKind};
 use crate::coin::player::PlayerCoin;
-use crate::coin::player::controller::PlayerCoinState;
+use crate::coin::player::controller::{EPlayerCoinState, PlayerCoinState};
 use crate::config::GameConfig;
 use crate::game_view::GameState;
 use crate::register_card_specialized_param;

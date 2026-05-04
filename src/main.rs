@@ -12,7 +12,7 @@ use crate::asset::font;
 use crate::card::CardPlugin;
 use crate::card::card_params::CardSpecializedRegistry;
 use crate::coin::player::PlayerPlugin;
-use crate::coin::player::controller::PlayerCoinState;
+use crate::coin::player::controller::{EPlayerCoinState, PlayerCoinState};
 use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
 use crate::editor::EditorPlugin;
@@ -154,7 +154,7 @@ fn update_status_text(
         return;
     };
 
-    let status = if let PlayerCoinState::Charging { eject_vector } = *player_state {
+    let status = if let EPlayerCoinState::Charging { eject_vector } = **player_state {
         let charge_ratio = eject_vector.length() / config.player.max_eject_distance;
         format!(
             "蓄力中 | 拉距 {:.0}px | 预计平面速度 {:.0}",
@@ -166,7 +166,7 @@ fn update_status_text(
             "待发射 | 当前速度 x:{:.0} y:{:.0} z:{:.0}",
             velocity.x, velocity.y, velocity.z
         )
-    } else if matches!(*player_state, PlayerCoinState::Idle) {
+    } else if player_state.is_idle() {
         format!(
             "静止 | 当前速度 x:{:.0} y:{:.0} z:{:.0}",
             velocity.x, velocity.y, velocity.z

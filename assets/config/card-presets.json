@@ -34,6 +34,13 @@
       "background_color_appearance_override": "#C6783DFF",
       "image_layout_type": "normal",
       "image_res_path": ""
+    },
+    {
+      "id": 100006,
+      "title": "线索卡",
+      "background_color_appearance_override": "",
+      "image_layout_type": "normal",
+      "image_res_path": ""
     }
   ],
   "specialized": [
@@ -146,6 +153,14 @@
           }
         }
       }
+    },
+    {
+      "id": 10000006,
+      "type": "clue",
+      "params": {
+        "reveal_threshold": 0.55,
+        "sample_count": 5
+      }
     }
   ],
   "prefabs": [
@@ -173,6 +188,11 @@
       "id": 1005,
       "appearance_id": 100005,
       "specialized_id": 10000005
+    },
+    {
+      "id": 1006,
+      "appearance_id": 100006,
+      "specialized_id": 10000006
     }
   ]
 }

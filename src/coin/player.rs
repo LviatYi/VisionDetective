@@ -26,12 +26,13 @@ pub mod controller {
         GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, MessageReader, Pickable, Query, Res, ResMut,
         Resource, Transform, Visibility, With,
     };
+    use std::ops::Deref;
 
     #[derive(Component)]
     pub struct PointerMarker;
 
-    #[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
-    pub enum PlayerCoinState {
+    #[derive(Clone, Copy, Debug, Default, PartialEq)]
+    pub enum EPlayerCoinState {
         #[default]
         Idle,
         Aiming,
@@ -41,26 +42,59 @@ pub mod controller {
         Ejecting,
     }
 
+    #[derive(Resource, Default)]
+    pub struct PlayerCoinState {
+        state: EPlayerCoinState,
+
+        pub last: Option<EPlayerCoinState>,
+    }
+
+    impl PlayerCoinState {
+        pub fn state(&self) {
+            self.state;
+        }
+
+        pub fn set_state(&mut self, state: EPlayerCoinState) {
+            self.last = Some(self.state);
+            self.state = state;
+        }
+    }
+
+    impl Deref for PlayerCoinState {
+        type Target = EPlayerCoinState;
+
+        fn deref(&self) -> &Self::Target {
+            &self.state
+        }
+    }
+
     impl PlayerCoinState {
         pub fn is_idle(&self) -> bool {
-            matches!(self, Self::Idle)
+            matches!(self.state, EPlayerCoinState::Idle)
         }
 
         pub fn is_stop(&self) -> bool {
-            !matches!(self, Self::Ejecting)
+            !matches!(self.state, EPlayerCoinState::Ejecting)
         }
 
         pub fn is_aiming(&self) -> bool {
-            matches!(self, Self::Aiming)
+            matches!(self.state, EPlayerCoinState::Aiming)
         }
 
-        pub fn is_charging(self) -> bool {
-            matches!(self, Self::Charging { .. })
+        pub fn is_charging(&self) -> bool {
+            matches!(self.state, EPlayerCoinState::Charging { .. })
         }
 
-        pub fn eject_vector(self) -> Vec2 {
-            match self {
-                Self::Charging { eject_vector } => eject_vector,
+        pub fn just_ejected(&self) -> bool {
+            matches!(self.state, EPlayerCoinState::Idle)
+                && self
+                    .last
+                    .is_some_and(|s| matches!(s, EPlayerCoinState::Ejecting))
+        }
+
+        pub fn eject_vector(&self) -> Vec2 {
+            match self.state {
+                EPlayerCoinState::Charging { eject_vector } => eject_vector,
                 _ => Vec2::ZERO,
             }
         }
@@ -142,12 +176,12 @@ pub mod controller {
 
         for event in over_events.read() {
             if event.hit.position.is_some() && velocity.length_squared() <= 0.0 {
-                *player_state = PlayerCoinState::Aiming;
+                player_state.set_state(EPlayerCoinState::Aiming);
             }
         }
         for _ in out_events.read() {
             if player_state.is_aiming() {
-                *player_state = PlayerCoinState::Idle;
+                player_state.set_state(EPlayerCoinState::Idle);
             }
         }
     }
@@ -160,15 +194,15 @@ pub mod controller {
         let Ok(velocity) = player_query.single() else {
             return;
         };
-        if velocity.length_squared() > 0.0 || matches!(*player_state, PlayerCoinState::Ejecting) {
+        if velocity.length_squared() > 0.0 || matches!(**player_state, EPlayerCoinState::Ejecting) {
             return;
         }
 
         for event in press_events.read() {
             if event.button == PointerButton::Primary && player_query.get(event.entity).is_ok() {
-                *player_state = PlayerCoinState::Charging {
+                player_state.set_state(EPlayerCoinState::Charging {
                     eject_vector: Vec2::ZERO,
-                };
+                });
             }
         }
     }
@@ -198,10 +232,10 @@ pub mod controller {
             else {
                 continue;
             };
-            *player_state = PlayerCoinState::Charging {
+            player_state.set_state(EPlayerCoinState::Charging {
                 eject_vector: (player_position - cursor)
                     .clamp_length_max(config.player.max_eject_distance),
-            };
+            });
         }
     }
 
@@ -246,9 +280,9 @@ pub mod controller {
             velocity.z = vertical_velocity;
             player.sim_z = 0.0;
             player.ground_contact_count = 0;
-            *player_state = PlayerCoinState::Ejecting;
+            player_state.set_state(EPlayerCoinState::Ejecting);
         } else {
-            *player_state = PlayerCoinState::Aiming;
+            player_state.set_state(EPlayerCoinState::Aiming);
         }
     }
 
