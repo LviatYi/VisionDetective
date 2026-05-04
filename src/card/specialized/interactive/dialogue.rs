@@ -3,12 +3,13 @@ use crate::card::specialized::interactive::CardInteractionEntered;
 use crate::config::GameConfig;
 use crate::register_card_interaction;
 use bevy::app::{App, Update};
+use bevy::ecs::system::EntityCommands;
 use bevy::input::ButtonInput;
 use bevy::picking::pointer::PointerButton;
 use bevy::picking::prelude::{Click, Pointer};
 use bevy::prelude::{
     BackgroundColor, Color, Commands, Component, Entity, IntoScheduleConfigs, KeyCode,
-    MessageReader, Node, Pickable, PositionType, Query, Res, ResMut, Resource, Text, TextColor,
+    MessageReader, Node, On, Pickable, PositionType, Query, Res, ResMut, Resource, Text, TextColor,
     TextFont, UiRect, With, Without, default, in_state, percent, px,
 };
 use serde::{Deserialize, Serialize};
@@ -93,43 +94,40 @@ impl From<DialogueInteractionParams> for DialogueInteraction {
     }
 }
 
+fn insert_dialogue_interaction(params: DialogueInteractionParams, entity: &mut EntityCommands<'_>) {
+    entity.insert(DialogueInteraction::from(params));
+}
+
 pub(super) fn register_dialogue_systems(app: &mut App) {
     app.init_resource::<DialogueState>();
+    app.add_observer(start_dialogues_from_interaction);
     app.add_systems(
         Update,
-        (
-            start_dialogues_from_interaction,
-            advance_dialogue_input,
-            sync_dialogue_ui,
-        )
+        (advance_dialogue_input, sync_dialogue_ui)
             .chain()
             .run_if(in_state(crate::game_view::GameState::InGame)),
     );
 }
 
 fn start_dialogues_from_interaction(
-    mut entered_events: MessageReader<CardInteractionEntered>,
+    event: On<CardInteractionEntered>,
     interaction_query: Query<&DialogueInteraction>,
     mut state: ResMut<DialogueState>,
 ) {
-    for event in entered_events.read() {
-        let Ok(interaction) = interaction_query.get(event.entity) else {
-            continue;
-        };
+    let Ok(interaction) = interaction_query.get(event.entity) else {
+        return;
+    };
 
-        if interaction.param.nodes.is_empty() {
-            bevy::log::warn!("dialogue card {:?} has no dialogue nodes", event.entity);
-            state.active = None;
-            continue;
-        }
-
-        state.active = Some(ActiveDialogue {
-            nodes: interaction.param.nodes.clone(),
-            current_index: 0,
-        });
-
-        break;
+    if interaction.param.nodes.is_empty() {
+        bevy::log::warn!("dialogue card {:?} has no dialogue nodes", event.entity);
+        state.active = None;
+        return;
     }
+
+    state.active = Some(ActiveDialogue {
+        nodes: interaction.param.nodes.clone(),
+        current_index: 0,
+    });
 }
 
 fn advance_dialogue_input(
@@ -260,7 +258,12 @@ fn spawn_dialogue_ui(
         });
 }
 
-register_card_interaction!("dialogue", DialogueInteractionParams, DialogueInteraction);
+register_card_interaction!(
+    "dialogue",
+    DialogueInteractionParams,
+    inserter = insert_dialogue_interaction,
+    systems = register_dialogue_systems
+);
 
 #[cfg(test)]
 mod tests {

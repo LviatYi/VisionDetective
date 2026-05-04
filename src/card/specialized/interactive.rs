@@ -12,8 +12,8 @@ use anyhow::Result;
 use bevy::app::{App, Plugin, Update};
 use bevy::ecs::system::EntityCommands;
 use bevy::prelude::{
-    Changed, Component, DetectChanges, Entity, GlobalTransform, IntoScheduleConfigs, Message,
-    MessageWriter, Query, Res, ResMut, Resource, Transform, With, in_state,
+    Commands, Component, DetectChanges, Entity, EntityEvent, GlobalTransform, IntoScheduleConfigs,
+    Query, Res, ResMut, Resource, Transform, With, in_state,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -22,13 +22,13 @@ use serde_json::Value;
 #[derive(Component, Default)]
 pub struct Interactive;
 
-#[derive(Message, Clone, Copy, Debug)]
+#[derive(EntityEvent, Component, Clone, Copy, Debug)]
 pub struct CardInteractionEntered {
     pub entity: Entity,
     pub prefab_id: u32,
 }
 
-#[derive(Message, Clone, Copy, Debug)]
+#[derive(EntityEvent, Component, Clone, Copy, Debug)]
 pub struct CardInteractionExited {
     pub entity: Entity,
     pub prefab_id: u32,
@@ -90,15 +90,16 @@ pub struct InteractionCardPlugin;
 impl Plugin for InteractionCardPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ActiveInteraction>();
-        app.add_message::<CardInteractionEntered>();
-        app.add_message::<CardInteractionExited>();
-        dialogue::register_dialogue_systems(app);
+        for registration in inventory::iter::<CardInteractionRegistration> {
+            if let Some(install_systems) = registration.system_installer {
+                install_systems(app);
+            }
+        }
         app.add_systems(
             Update,
             (
                 update_active_interaction,
                 dispatch_interaction_events.after(update_active_interaction),
-                hello_world::log_hello_world_interactions.after(dispatch_interaction_events),
             )
                 .run_if(in_state(GameState::InGame)),
         );
@@ -107,26 +108,32 @@ impl Plugin for InteractionCardPlugin {
 
 /// Function signature used to insert one interaction component from raw JSON.
 pub type CardInteractionComponentInserter = fn(&Value, &mut EntityCommands<'_>) -> Result<()>;
+pub type CardInteractionSystemInstaller = fn(&mut App);
 
 /// Static registration entry collected through `inventory`.
 pub(super) struct CardInteractionRegistration {
     pub type_id: &'static str,
-    pub json_src_inserter: CardInteractionComponentInserter,
+    pub json_src_inserter: Option<CardInteractionComponentInserter>,
+    pub system_installer: Option<CardInteractionSystemInstaller>,
 }
 
 impl CardInteractionRegistration {
     pub const fn new(
         type_id: &'static str,
-        json_src_inserter: CardInteractionComponentInserter,
+        json_src_inserter: Option<CardInteractionComponentInserter>,
+        system_installer: Option<CardInteractionSystemInstaller>,
     ) -> Self {
         Self {
             type_id,
             json_src_inserter,
+            system_installer,
         }
     }
 
     fn insert(&self, json: &Value, entity: &mut EntityCommands<'_>) -> Result<()> {
-        (self.json_src_inserter)(json, entity)
+        self.json_src_inserter
+            .map(|func| func(json, entity))
+            .unwrap_or(Ok(()))
     }
 }
 
@@ -134,17 +141,40 @@ inventory::collect!(CardInteractionRegistration);
 
 #[macro_export]
 macro_rules! register_card_interaction {
-    ($name:expr, $param_type:ty, $component_type:ty) => {
+    (
+        $name:expr,
+        $param_type:ty
+        $(, inserter = $inserter:path)?
+        $(, systems = $system_installer:path)?
+        $(,)?
+    ) => {
         inventory::submit! {
             $crate::card::specialized::interactive::CardInteractionRegistration::new(
                 $name,
-                |value: &serde_json::Value, entity: &mut bevy::ecs::system::EntityCommands<'_>| -> anyhow::Result<()> {
-                    let params = serde_json::from_value::<$param_type>(value.clone())?;
-                    entity.insert(<$component_type as From<$param_type>>::from(params));
-                    Ok(())
-                }
+                $crate::register_card_interaction!(@__option_inserter $param_type $(, $inserter)?),
+                $crate::register_card_interaction!(@__option $($system_installer)?),
             )
         }
+    };
+
+    (@__option_inserter $param_type:ty, $inserter:path) => {
+        Some(|value: &serde_json::Value, entity: &mut bevy::ecs::system::EntityCommands<'_>| -> anyhow::Result<()> {
+            let params = serde_json::from_value::<$param_type>(value.clone())?;
+            $inserter(params, entity);
+            Ok(())
+        })
+    };
+
+    (@__option_inserter $param_type:ty) => {
+        None
+    };
+
+    (@__option $system_installer:path) => {
+        Some($system_installer)
+    };
+
+    (@__option) => {
+        None
     };
 }
 
@@ -191,8 +221,7 @@ fn update_active_interaction(
 fn dispatch_interaction_events(
     active_interaction: Res<ActiveInteraction>,
     interaction_query: Query<(Entity, &Card), With<Interactive>>,
-    mut entered_writer: MessageWriter<CardInteractionEntered>,
-    mut exited_writer: MessageWriter<CardInteractionExited>,
+    mut commands: Commands,
 ) {
     if !active_interaction.is_changed() {
         return;
@@ -202,7 +231,7 @@ fn dispatch_interaction_events(
         && active_interaction.current != Some(entity)
         && let Ok((entity, card)) = interaction_query.get(entity)
     {
-        exited_writer.write(CardInteractionExited {
+        commands.trigger(CardInteractionExited {
             entity,
             prefab_id: card.instance_type.get_prefab_id(),
         });
@@ -212,7 +241,7 @@ fn dispatch_interaction_events(
         && active_interaction.previous != Some(entity)
         && let Ok((entity, card)) = interaction_query.get(entity)
     {
-        entered_writer.write(CardInteractionEntered {
+        commands.trigger(CardInteractionEntered {
             entity,
             prefab_id: card.instance_type.get_prefab_id(),
         });

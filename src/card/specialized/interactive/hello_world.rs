@@ -1,7 +1,8 @@
 use crate::card::specialized::interactive::CardInteractionEntered;
 use crate::register_card_interaction;
+use bevy::ecs::system::EntityCommands;
 use bevy::log::info;
-use bevy::prelude::{Component, MessageReader, Query};
+use bevy::prelude::{Component, On};
 use serde::{Deserialize, Serialize};
 
 /// Parameters for the hello-world interaction action.
@@ -18,19 +19,21 @@ impl From<HelloWorldInteractionParams> for HelloWorldInteraction {
     }
 }
 
-pub(super) fn log_hello_world_interactions(
-    mut entered_events: MessageReader<CardInteractionEntered>,
-    interaction_query: Query<&HelloWorldInteraction>,
+fn insert_hello_world_interaction(
+    params: HelloWorldInteractionParams,
+    entity: &mut EntityCommands<'_>,
 ) {
-    for event in entered_events.read() {
-        if interaction_query.get(event.entity).is_ok() {
-            info!("hello world");
-        }
-    }
+    entity
+        .insert(HelloWorldInteraction::from(params))
+        .observe(log_hello_world_interaction);
+}
+
+fn log_hello_world_interaction(_event: On<CardInteractionEntered>) {
+    info!("hello world");
 }
 
 register_card_interaction!(
     "log_hello_world",
     HelloWorldInteractionParams,
-    HelloWorldInteraction
+    inserter = insert_hello_world_interaction
 );
