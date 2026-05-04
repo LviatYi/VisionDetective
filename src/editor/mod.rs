@@ -9,9 +9,11 @@ use bevy::ecs::system::SystemParam;
 use bevy::input::ButtonInput;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
+use bevy::sprite::Anchor;
 use bevy::window::{PrimaryWindow, Window};
 use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 use std::f32::consts::FRAC_PI_4;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -29,6 +31,7 @@ const EDITOR_SCENE_TOML: &str = "editor_scene.toml";
 const EDITOR_SCENE_BIN: &str = "editor_scene.bin";
 const CARD_ORDER_STEP: f32 = 1.0;
 const DRAG_PREVIEW_ORDER: f32 = 20.0;
+const ORDER_LABEL_FONT_SIZE: f32 = 13.0;
 
 pub struct EditorPlugin;
 
@@ -97,6 +100,9 @@ struct PrefabListContent;
 #[derive(Component)]
 struct EditorDragPreview;
 
+#[derive(Component)]
+struct EditorCardOrderText;
+
 struct PrefabPreviewItem {
     id: u32,
     title: String,
@@ -136,7 +142,9 @@ impl Plugin for EditorPlugin {
                     cancel_prefab_drag_with_escape,
                     handle_prefab_drop,
                     handle_scene_editing,
+                    handle_card_order_wheel,
                     handle_card_order_shortcuts,
+                    update_editor_card_order_text,
                     handle_editor_shortcuts,
                     update_editor_status_text,
                 )
@@ -263,7 +271,7 @@ fn setup_editor_ui(
 
                     sidebar.spawn((
                         Text::new(
-                            "操作说明\n1. 直接按住卡牌预览并拖到主场景，松开后会克隆一张。\n2. 左键拖动卡牌位置。\n3. 拖动右上角旋转控制点可直接旋转。\n4. PageUp / PageDown 调整层级，Home / End 置底或置顶。\n5. Delete 删除选中卡牌。\n6. Ctrl+E / Ctrl+B 导出，Ctrl+I / Ctrl+Shift+I 导入。",
+                            "操作说明\n1. 直接按住卡牌预览并拖到主场景，松开后会克隆一张。\n2. 左键拖动卡牌位置。\n3. 拖动右上角旋转控制点可直接旋转。\n4. 鼠标悬浮卡牌时滚轮调整其在相交卡牌组内的层级。\n5. PageUp / PageDown 调整层级，Home / End 置底或置顶。\n6. Delete 删除选中卡牌。\n7. Ctrl+E / Ctrl+B 导出，Ctrl+I / Ctrl+Shift+I 导入。",
                         ),
                         TextFont {
                             font: ui_font.clone(),
@@ -813,6 +821,101 @@ fn handle_card_order_shortcuts(
     state.status_message = format!("卡牌层级已更新为 {:.0}", transform.translation.z);
 }
 
+fn handle_card_order_wheel(
+    mut mouse_wheel_events: MessageReader<MouseWheel>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    mut card_queries: ParamSet<(
+        Query<(Entity, &Card, &GlobalTransform, &Transform), Without<EditorDragPreview>>,
+        Query<&mut Transform, (With<Card>, Without<EditorDragPreview>)>,
+    )>,
+    mut state: ResMut<EditorInteractionState>,
+) {
+    if state.captures_pointer() {
+        return;
+    }
+
+    let scroll_units: f32 = mouse_wheel_events.read().map(|event| event.y).sum();
+    if scroll_units.abs() <= f32::EPSILON {
+        return;
+    }
+
+    let Ok(window) = window_query.single() else {
+        return;
+    };
+    let Some(cursor_position) = window.cursor_position() else {
+        return;
+    };
+    if !cursor_is_over_scene(window, cursor_position) {
+        return;
+    }
+
+    let Some(cursor_world_position) = cursor_world_position(&camera_query, cursor_position) else {
+        return;
+    };
+
+    let (hovered_entity, cards) = {
+        let card_query = card_queries.p0();
+        let Some((hovered_entity, _)) = pick_card(cursor_world_position, &card_query) else {
+            return;
+        };
+        let cards = collect_card_order_snapshots(&card_query);
+        (hovered_entity, cards)
+    };
+
+    let group = connected_intersecting_card_group(hovered_entity, &cards);
+    if group.len() <= 1 {
+        state.status_message = "悬浮卡牌没有相交卡牌组，层级未变化".into();
+        return;
+    }
+
+    let direction = if scroll_units > 0.0 {
+        CardOrderDirection::Up
+    } else {
+        CardOrderDirection::Down
+    };
+    let step_count = scroll_units.abs().round().max(1.0) as usize;
+    let assignments =
+        shifted_card_order_assignments(&cards, &group, hovered_entity, direction, step_count);
+    if assignments.is_empty() {
+        state.status_message = "悬浮卡牌已在相交卡牌组边界，层级未变化".into();
+        return;
+    }
+
+    let next_order = assignments
+        .iter()
+        .find(|(entity, _)| *entity == hovered_entity)
+        .map(|(_, order)| *order)
+        .unwrap_or_default();
+
+    {
+        let mut transform_query = card_queries.p1();
+        for (entity, order) in assignments {
+            if let Ok(mut transform) = transform_query.get_mut(entity) {
+                transform.translation.z = order;
+            }
+        }
+    }
+
+    state.selected_entity = Some(hovered_entity);
+    state.status_message = format!(
+        "已通过滚轮调整相交卡牌组层级：卡牌 #{hovered_entity:?}，当前层级 {:.0}",
+        next_order
+    );
+}
+
+fn update_editor_card_order_text(
+    card_query: Query<&Transform, With<Card>>,
+    mut text_query: Query<(&ChildOf, &mut Text2d), With<EditorCardOrderText>>,
+) {
+    for (parent, mut text) in &mut text_query {
+        let Ok(transform) = card_query.get(parent.parent()) else {
+            continue;
+        };
+        **text = format!("order {:.0}", transform.translation.z);
+    }
+}
+
 fn update_editor_status_text(
     state: Res<EditorInteractionState>,
     mut text_query: Query<&mut Text, With<EditorStatusText>>,
@@ -962,6 +1065,19 @@ enum CardOrderChange {
     Set(f32),
 }
 
+#[derive(Clone, Copy)]
+enum CardOrderDirection {
+    Up,
+    Down,
+}
+
+#[derive(Clone)]
+struct CardOrderSnapshot {
+    entity: Entity,
+    corners: [Vec2; 4],
+    order: f32,
+}
+
 fn next_card_order<F: bevy::ecs::query::QueryFilter>(query: &Query<&Transform, F>) -> f32 {
     query
         .iter()
@@ -989,6 +1105,138 @@ fn max_card_order_mut<F: bevy::ecs::query::QueryFilter>(
         .reduce(f32::max)
 }
 
+fn collect_card_order_snapshots<F: bevy::ecs::query::QueryFilter>(
+    query: &Query<(Entity, &Card, &GlobalTransform, &Transform), F>,
+) -> Vec<CardOrderSnapshot> {
+    query
+        .iter()
+        .map(|(entity, _, _, transform)| CardOrderSnapshot {
+            entity,
+            corners: obstacle_card_corners(transform),
+            order: transform.translation.z,
+        })
+        .collect()
+}
+
+fn connected_intersecting_card_group(root: Entity, cards: &[CardOrderSnapshot]) -> Vec<Entity> {
+    let mut group = Vec::new();
+    let mut queue = VecDeque::from([root]);
+
+    while let Some(entity) = queue.pop_front() {
+        if group.contains(&entity) {
+            continue;
+        }
+        group.push(entity);
+
+        let Some(card) = cards.iter().find(|card| card.entity == entity) else {
+            continue;
+        };
+
+        for other in cards {
+            if group.contains(&other.entity) || queue.contains(&other.entity) {
+                continue;
+            }
+            if oriented_rectangles_intersect(&card.corners, &other.corners) {
+                queue.push_back(other.entity);
+            }
+        }
+    }
+
+    group
+}
+
+fn shifted_card_order_assignments(
+    cards: &[CardOrderSnapshot],
+    group: &[Entity],
+    target: Entity,
+    direction: CardOrderDirection,
+    step_count: usize,
+) -> Vec<(Entity, f32)> {
+    let mut ordered_cards = cards
+        .iter()
+        .filter(|card| group.contains(&card.entity))
+        .map(|card| (card.entity, card.order))
+        .collect::<Vec<_>>();
+
+    ordered_cards.sort_by(|(entity_a, order_a), (entity_b, order_b)| {
+        order_a
+            .partial_cmp(order_b)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| entity_a.index().cmp(&entity_b.index()))
+    });
+
+    let Some(current_index) = ordered_cards
+        .iter()
+        .position(|(entity, _)| *entity == target)
+    else {
+        return Vec::new();
+    };
+
+    let next_index = match direction {
+        CardOrderDirection::Up => (current_index + step_count).min(ordered_cards.len() - 1),
+        CardOrderDirection::Down => current_index.saturating_sub(step_count),
+    };
+    if next_index == current_index {
+        return Vec::new();
+    }
+
+    let mut order_slots = ordered_cards
+        .iter()
+        .map(|(_, order)| *order)
+        .collect::<Vec<_>>();
+    if !order_slots.windows(2).all(|orders| orders[0] < orders[1]) {
+        let base_order = order_slots.first().copied().unwrap_or_default();
+        for (index, order) in order_slots.iter_mut().enumerate() {
+            *order = base_order + index as f32 * CARD_ORDER_STEP;
+        }
+    }
+
+    let moved_card = ordered_cards.remove(current_index);
+    ordered_cards.insert(next_index, moved_card);
+
+    ordered_cards
+        .into_iter()
+        .zip(order_slots)
+        .map(|((entity, _), order)| (entity, order))
+        .collect()
+}
+
+fn oriented_rectangles_intersect(a: &[Vec2; 4], b: &[Vec2; 4]) -> bool {
+    rectangle_axes(a)
+        .into_iter()
+        .chain(rectangle_axes(b))
+        .all(|axis| projections_overlap(project_polygon(a, axis), project_polygon(b, axis)))
+}
+
+fn rectangle_axes(corners: &[Vec2; 4]) -> [Vec2; 4] {
+    [
+        perpendicular_axis(corners[1] - corners[0]),
+        perpendicular_axis(corners[2] - corners[1]),
+        perpendicular_axis(corners[3] - corners[2]),
+        perpendicular_axis(corners[0] - corners[3]),
+    ]
+}
+
+fn perpendicular_axis(edge: Vec2) -> Vec2 {
+    let axis = Vec2::new(-edge.y, edge.x);
+    axis.try_normalize().unwrap_or(Vec2::X)
+}
+
+fn project_polygon(corners: &[Vec2; 4], axis: Vec2) -> (f32, f32) {
+    let mut min = corners[0].dot(axis);
+    let mut max = min;
+    for corner in corners.iter().skip(1) {
+        let projection = corner.dot(axis);
+        min = min.min(projection);
+        max = max.max(projection);
+    }
+    (min, max)
+}
+
+fn projections_overlap(a: (f32, f32), b: (f32, f32)) -> bool {
+    a.0 <= b.1 && b.0 <= a.1
+}
+
 fn spawn_editor_card(
     commands: &mut Commands,
     spawn_deps: &mut EditorCardSpawnDeps,
@@ -1005,11 +1253,37 @@ fn spawn_editor_card(
         &spawn_deps.card_specialized_registry,
     );
     commands.entity(entity).insert(EditorView);
-    append_editor_card_overlays(commands, entity);
+    append_editor_card_overlays(
+        commands,
+        entity,
+        &spawn_deps.asset_server,
+        &spawn_deps.config,
+    );
     entity
 }
 
-fn append_editor_card_overlays(_commands: &mut Commands, _entity: Entity) {}
+fn append_editor_card_overlays(
+    commands: &mut Commands,
+    entity: Entity,
+    asset_server: &AssetServer,
+    config: &GameConfig,
+) {
+    commands.entity(entity).with_children(|parent| {
+        parent.spawn((
+            Text2d::new("order 0"),
+            TextFont {
+                font: asset_server.load(config.assets.default_font.clone()),
+                font_size: ORDER_LABEL_FONT_SIZE,
+                ..default()
+            },
+            TextColor(Color::srgb(0.88, 0.94, 1.0)),
+            Anchor::TOP_LEFT,
+            Transform::from_xyz(-CARD_SIZE.x * 0.5 + 6.0, CARD_SIZE.y * 0.5 - 6.0, 0.36),
+            EditorCardOrderText,
+            EditorView,
+        ));
+    });
+}
 
 #[derive(Clone, Copy)]
 enum SceneFileFormat {
