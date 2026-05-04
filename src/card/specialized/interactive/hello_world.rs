@@ -2,7 +2,7 @@ use crate::card::Card;
 use crate::card::specialized::interactive::CardInteraction;
 use crate::register_card_interaction;
 use bevy::log::info;
-use bevy::prelude::{Component, Entity};
+use bevy::prelude::Entity;
 use serde::{Deserialize, Serialize};
 
 /// Parameters for the hello-world interaction action.
@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 pub struct HelloWorldInteractionParams {}
 
 /// Example interaction effect used by current demo cards.
-#[derive(Component, Default)]
+#[derive(Default)]
 pub struct HelloWorldInteraction;
 
 impl From<HelloWorldInteractionParams> for HelloWorldInteraction {

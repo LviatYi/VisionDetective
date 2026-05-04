@@ -2,7 +2,7 @@ use crate::card::Card;
 use crate::card::specialized::interactive::CardInteraction;
 use crate::register_card_interaction;
 use bevy::log::info;
-use bevy::prelude::{Component, Entity};
+use bevy::prelude::Entity;
 use serde::{Deserialize, Serialize};
 
 /// One node in a card-driven dialogue flow.
@@ -20,15 +20,8 @@ pub struct DialogueInteractionParams {
 }
 
 /// Interaction component for dialogue cards.
-#[derive(Component)]
 pub struct DialogueInteraction {
     pub param: DialogueInteractionParams,
-}
-
-impl DialogueInteraction {
-    pub fn nodes(&self) -> &Vec<DialogueNode> {
-        &self.param.nodes
-    }
 }
 
 impl From<DialogueInteractionParams> for DialogueInteraction {
@@ -71,7 +64,7 @@ mod tests {
         let params = serde_json::from_value::<DialogueInteractionParams>(serde_json::json!({
             "nodes": [
                 {
-                    "source": "1",
+                    "source": 1,
                     "text": "我们先从这里开始调查。",
                 }
             ]
