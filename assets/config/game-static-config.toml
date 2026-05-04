@@ -114,30 +114,5 @@ vertex_radius = 3.0
 # Number of samples generated per cubic bezier segment.
 bezier_steps_per_curve = 8
 
-[[scene.demo_cards]]
-prefab_id = 1001
-translation = [-310.0, -110.0, 0.8]
-rotation_z = -0.06
-
-[[scene.demo_cards]]
-prefab_id = 1002
-translation = [-10.0, 20.0, 0.8]
-rotation_z = 0.18
-
-[[scene.demo_cards]]
-prefab_id = 1003
-translation = [265.0, -120.0, 0.8]
-rotation_z = 0.1
-
-[[scene.demo_cards]]
-prefab_id = 1004
-translation = [280.0, 150.0, 0.8]
-rotation_z = 0.0
-
-[[scene.demo_cards]]
-prefab_id = 1005
-translation = [-255.0, 145.0, 0.8]
-rotation_z = 0.0
-
 [assets]
 default_font = "fonts/LXGWWenKai/LXGWWenKai-Regular.ttf"

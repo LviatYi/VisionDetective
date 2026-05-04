@@ -222,7 +222,6 @@ impl ObstacleRenderConfig {
 #[derive(Clone, Deserialize)]
 pub struct SceneConfig {
     pub bezier_steps_per_curve: usize,
-    pub demo_cards: Vec<DemoCardConfig>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -248,6 +247,7 @@ impl CardConfig {
             crate::card::CardKind::Scenery => self.scenery_fill_color,
             crate::card::CardKind::Obstacle => self.obstacle_fill_color,
             crate::card::CardKind::Interaction => self.interaction_fill_color,
+            crate::card::CardKind::Clue => self.obstacle_fill_color,
         };
 
         Color::srgba(rgba[0], rgba[1], rgba[2], rgba[3])
@@ -279,23 +279,6 @@ impl CardConfig {
             self.title_glass_color[1],
             self.title_glass_color[2],
             self.title_glass_color[3],
-        )
-    }
-}
-
-#[derive(Clone, Deserialize)]
-pub struct DemoCardConfig {
-    pub prefab_id: u32,
-    pub translation: [f32; 3],
-    pub rotation_z: f32,
-}
-
-impl DemoCardConfig {
-    pub fn translation(&self) -> Vec3 {
-        Vec3::new(
-            self.translation[0],
-            self.translation[1],
-            self.translation[2],
         )
     }
 }
