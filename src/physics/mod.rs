@@ -1,7 +1,7 @@
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::PlayerCoinState;
 use crate::config::GameConfig;
-use crate::game_view::GameState;
+use crate::game_view::{AppView, GameState};
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::*;
 use obstacle::Obstacle;
@@ -22,7 +22,7 @@ impl Plugin for PhysicsPlugin {
         )
         .add_systems(
             Update,
-            obstacle::draw_obstacle_paths.run_if(in_state(GameState::InGame)),
+            obstacle::draw_obstacle_paths.run_if(in_state(AppView::Editor)),
         );
     }
 }
