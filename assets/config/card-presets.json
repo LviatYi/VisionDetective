@@ -27,6 +27,13 @@
       "background_color_appearance_override": "#7D6148FF",
       "image_layout_type": "full",
       "image_res_path": "pic/street-wallx72ppi.png"
+    },
+    {
+      "id": 100005,
+      "title": "对话交互卡",
+      "background_color_appearance_override": "#C6783DFF",
+      "image_layout_type": "normal",
+      "image_res_path": ""
     }
   ],
   "specialized": [
@@ -116,6 +123,23 @@
           }
         }
       }
+    },
+    {
+      "id": 10000005,
+      "type": "interactive",
+      "params": {
+        "interaction": {
+          "type": "dialogue",
+          "params": {
+            "nodes": [
+              {
+                "source": 1,
+                "text": "我们先从这里开始调查。"
+              }
+            ]
+          }
+        }
+      }
     }
   ],
   "prefabs": [
@@ -138,6 +162,11 @@
       "id": 1004,
       "appearance_id": 100004,
       "specialized_id": 10000004
+    },
+    {
+      "id": 1005,
+      "appearance_id": 100005,
+      "specialized_id": 10000005
     }
   ]
 }

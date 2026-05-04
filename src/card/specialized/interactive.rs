@@ -1,3 +1,4 @@
+mod dialogue;
 mod hello_world;
 
 use crate::card::card_params::CardSpecialized;
@@ -250,6 +251,15 @@ mod tests {
         let registration = inventory::iter::<CardInteractionRegistration>
             .into_iter()
             .find(|registration| registration.type_id == "log_hello_world");
+
+        assert!(registration.is_some());
+    }
+
+    #[test]
+    fn registry_can_find_dialogue_interaction_action() {
+        let registration = inventory::iter::<CardInteractionRegistration>
+            .into_iter()
+            .find(|registration| registration.type_id == "dialogue");
 
         assert!(registration.is_some());
     }
