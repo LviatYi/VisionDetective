@@ -1,8 +1,8 @@
 use crate::card::Card;
-use crate::card::specialized::interactive::CardInteraction;
+use crate::card::specialized::interactive::CardInteractionEntered;
 use crate::register_card_interaction;
 use bevy::log::info;
-use bevy::prelude::Entity;
+use bevy::prelude::{Component, MessageReader, Query};
 use serde::{Deserialize, Serialize};
 
 /// One node in a card-driven dialogue flow.
@@ -20,6 +20,7 @@ pub struct DialogueInteractionParams {
 }
 
 /// Interaction component for dialogue cards.
+#[derive(Component)]
 pub struct DialogueInteraction {
     pub param: DialogueInteractionParams,
 }
@@ -30,9 +31,16 @@ impl From<DialogueInteractionParams> for DialogueInteraction {
     }
 }
 
-impl CardInteraction for DialogueInteraction {
-    fn on_enter(&self, entity: Entity, card: &Card) {
-        let entry = self
+pub(super) fn log_dialogue_interactions(
+    mut entered_events: MessageReader<CardInteractionEntered>,
+    interaction_query: Query<(&Card, &DialogueInteraction)>,
+) {
+    for event in entered_events.read() {
+        let Ok((card, interaction)) = interaction_query.get(event.entity) else {
+            continue;
+        };
+
+        let entry = interaction
             .param
             .nodes
             .first()
@@ -40,7 +48,10 @@ impl CardInteraction for DialogueInteraction {
 
         match entry {
             Some(entry) => {
-                info!("card='{}' entity={entity:?} entry={entry}", card.title);
+                info!(
+                    "card='{}' entity={:?} entry={entry}",
+                    card.title, event.entity
+                );
             }
             None => {
                 info!(

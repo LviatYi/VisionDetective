@@ -12,16 +12,26 @@ use anyhow::Result;
 use bevy::app::{App, Plugin, Update};
 use bevy::ecs::system::EntityCommands;
 use bevy::prelude::{
-    Component, DetectChanges, Entity, GlobalTransform, IntoScheduleConfigs, Query, Res, ResMut,
-    Resource, Transform, With, in_state,
+    Component, DetectChanges, Entity, GlobalTransform, IntoScheduleConfigs, Message, MessageWriter,
+    Query, Res, ResMut, Resource, Transform, With, in_state,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// Runtime component for cards that participate in interaction handling.
-#[derive(Component)]
-pub struct Interactive {
-    action: Box<dyn CardInteraction>,
+/// Marker component for cards that participate in interaction handling.
+#[derive(Component, Default)]
+pub struct Interactive;
+
+#[derive(Message, Clone, Copy, Debug)]
+pub struct CardInteractionEntered {
+    pub entity: Entity,
+    pub prefab_id: u32,
+}
+
+#[derive(Message, Clone, Copy, Debug)]
+pub struct CardInteractionExited {
+    pub entity: Entity,
+    pub prefab_id: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,16 +48,6 @@ pub struct CardInteractionConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InteractionCardParams {
     pub interaction: CardInteractionConfig,
-}
-
-pub trait CardInteraction: Send + Sync + 'static {
-    fn on_enter(&self, entity: Entity, card: &Card) {
-        let _ = (entity, card);
-    }
-
-    fn on_exit(&self, entity: Entity, card: &Card) {
-        let _ = (entity, card);
-    }
 }
 
 impl CardSpecialized for InteractionCardParams {
@@ -67,17 +67,14 @@ impl CardSpecialized for InteractionCardParams {
             return;
         };
 
-        match registration.deserialize(&self.interaction.params) {
-            Ok(action) => {
-                entity.insert(Interactive { action });
-            }
-            Err(error) => {
-                bevy::log::warn!(
-                    "failed to deserialize card interaction {}: {error}",
-                    self.interaction.type_id
-                );
-            }
-        };
+        entity.insert(Interactive);
+
+        if let Err(error) = registration.insert(&self.interaction.params, entity) {
+            bevy::log::warn!(
+                "failed to deserialize card interaction {}: {error}",
+                self.interaction.type_id
+            );
+        }
     }
 }
 
@@ -93,39 +90,46 @@ pub struct InteractionCardPlugin;
 impl Plugin for InteractionCardPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ActiveInteraction>();
+        app.add_message::<CardInteractionEntered>();
+        app.add_message::<CardInteractionExited>();
         app.add_systems(
             Update,
             (
                 update_active_interaction,
                 dispatch_interaction_events.after(update_active_interaction),
+                (
+                    hello_world::log_hello_world_interactions,
+                    dialogue::log_dialogue_interactions,
+                )
+                    .after(dispatch_interaction_events),
             )
                 .run_if(in_state(GameState::InGame)),
         );
     }
 }
 
-/// Function signature used to deserialize one interaction action from raw JSON.
-pub type CardInteractionDeserializer = fn(&Value) -> Result<Box<dyn CardInteraction>>;
+/// Function signature used to insert one interaction component from raw JSON.
+pub type CardInteractionComponentInserter = fn(&Value, &mut EntityCommands<'_>) -> Result<()>;
 
 /// Static registration entry collected through `inventory`.
 pub(super) struct CardInteractionRegistration {
     pub type_id: &'static str,
-    pub json_src_deserializer: CardInteractionDeserializer,
+    pub json_src_inserter: CardInteractionComponentInserter,
 }
 
 impl CardInteractionRegistration {
     pub const fn new(
         type_id: &'static str,
-        json_src_deserializer: CardInteractionDeserializer,
+        json_src_inserter: CardInteractionComponentInserter,
     ) -> Self {
         Self {
             type_id,
-            json_src_deserializer,
+            json_src_inserter,
         }
     }
 
-    fn deserialize(&self, json: &Value) -> Result<Box<dyn CardInteraction>> {
-        (self.json_src_deserializer)(json)
+    fn insert(&self, json: &Value, entity: &mut EntityCommands<'_>) -> Result<()> {
+        (self.json_src_inserter)(json, entity)
     }
 }
 
@@ -137,11 +141,10 @@ macro_rules! register_card_interaction {
         inventory::submit! {
             $crate::card::specialized::interactive::CardInteractionRegistration::new(
                 $name,
-                |value: &serde_json::Value| -> anyhow::Result<
-                    Box<dyn $crate::card::specialized::interactive::CardInteraction>
-                > {
+                |value: &serde_json::Value, entity: &mut bevy::ecs::system::EntityCommands<'_>| -> anyhow::Result<()> {
                     let params = serde_json::from_value::<$param_type>(value.clone())?;
-                    Ok(Box::new(<$component_type as From<$param_type>>::from(params)))
+                    entity.insert(<$component_type as From<$param_type>>::from(params));
+                    Ok(())
                 }
             )
         }
@@ -191,7 +194,9 @@ fn update_active_interaction(
 
 fn dispatch_interaction_events(
     active_interaction: Res<ActiveInteraction>,
-    interaction_query: Query<(Entity, &Card, &Interactive)>,
+    interaction_query: Query<(Entity, &Card), With<Interactive>>,
+    mut entered_writer: MessageWriter<CardInteractionEntered>,
+    mut exited_writer: MessageWriter<CardInteractionExited>,
 ) {
     if !active_interaction.is_changed() {
         return;
@@ -199,16 +204,22 @@ fn dispatch_interaction_events(
 
     if let Some(entity) = active_interaction.previous
         && active_interaction.current != Some(entity)
-        && let Ok((entity, card, interaction)) = interaction_query.get(entity)
+        && let Ok((entity, card)) = interaction_query.get(entity)
     {
-        interaction.action.on_exit(entity, card);
+        exited_writer.write(CardInteractionExited {
+            entity,
+            prefab_id: card.instance_type.get_prefab_id(),
+        });
     }
 
     if let Some(entity) = active_interaction.current
         && active_interaction.previous != Some(entity)
-        && let Ok((entity, card, interaction)) = interaction_query.get(entity)
+        && let Ok((entity, card)) = interaction_query.get(entity)
     {
-        interaction.action.on_enter(entity, card);
+        entered_writer.write(CardInteractionEntered {
+            entity,
+            prefab_id: card.instance_type.get_prefab_id(),
+        });
     }
 }
 

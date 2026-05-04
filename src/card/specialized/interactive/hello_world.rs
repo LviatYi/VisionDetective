@@ -1,8 +1,7 @@
-use crate::card::Card;
-use crate::card::specialized::interactive::CardInteraction;
+use crate::card::specialized::interactive::CardInteractionEntered;
 use crate::register_card_interaction;
 use bevy::log::info;
-use bevy::prelude::Entity;
+use bevy::prelude::{Component, MessageReader, Query};
 use serde::{Deserialize, Serialize};
 
 /// Parameters for the hello-world interaction action.
@@ -10,7 +9,7 @@ use serde::{Deserialize, Serialize};
 pub struct HelloWorldInteractionParams {}
 
 /// Example interaction effect used by current demo cards.
-#[derive(Default)]
+#[derive(Component, Default)]
 pub struct HelloWorldInteraction;
 
 impl From<HelloWorldInteractionParams> for HelloWorldInteraction {
@@ -19,9 +18,14 @@ impl From<HelloWorldInteractionParams> for HelloWorldInteraction {
     }
 }
 
-impl CardInteraction for HelloWorldInteraction {
-    fn on_enter(&self, _entity: Entity, _card: &Card) {
-        info!("hello world");
+pub(super) fn log_hello_world_interactions(
+    mut entered_events: MessageReader<CardInteractionEntered>,
+    interaction_query: Query<&HelloWorldInteraction>,
+) {
+    for event in entered_events.read() {
+        if interaction_query.get(event.entity).is_ok() {
+            info!("hello world");
+        }
     }
 }
 
