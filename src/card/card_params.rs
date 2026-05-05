@@ -10,11 +10,14 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 /// Runtime card instance parameters for scene loading.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CardParam {
     pub scene_param: CardSceneParam,
 
     pub prefab_id: u32,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_specialized_param: Option<CardRuntimeSpecializedConfig>,
 }
 
 /// A card prefab that binds one appearance preset to one specialized preset.
@@ -61,18 +64,39 @@ impl CardParam {
             .iter()
             .find(|specialized| specialized.id == prefab.specialized_id)
             .cloned()
-            .and_then(|c| {
+            .and_then(|base| {
+                let (type_id, params) = self.merged_specialized_params(base)?;
                 registry
-                    .get(c.type_id.as_str())
+                    .get(type_id.as_str())
                     .cloned()
-                    .map(|item| (item, c.params))
+                    .map(|item| (item, params))
             })
             .and_then(|(registration, json)| registration.deserialize(&json).ok())
+    }
+
+    fn merged_specialized_params(&self, base: CardSpecializedConfig) -> Option<(String, Value)> {
+        let Some(runtime) = &self.runtime_specialized_param else {
+            return Some((base.type_id, base.params));
+        };
+
+        if runtime.type_id != base.type_id {
+            bevy::log::warn!(
+                "runtime specialized type {} does not match prefab specialized type {}",
+                runtime.type_id,
+                base.type_id
+            );
+            return None;
+        }
+
+        Some((
+            base.type_id,
+            merge_json_objects(base.params, runtime.params.clone()),
+        ))
     }
 }
 
 /// Scene param for card instance.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct CardSceneParam {
     pub position: Vec2,
 
@@ -149,6 +173,34 @@ pub struct CardSpecializedConfig {
     /// Raw JSON payload for the specialized type.
     #[serde(default)]
     pub params: Value,
+}
+
+/// Serialized specialized override attached to one scene card instance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardRuntimeSpecializedConfig {
+    /// Registered specialized type name. Must match the card prefab specialized type.
+    #[serde(rename = "type")]
+    pub type_id: String,
+
+    /// Runtime JSON payload merged over the prefab specialized params.
+    #[serde(default)]
+    pub params: Value,
+}
+
+fn merge_json_objects(mut base: Value, runtime: Value) -> Value {
+    match (&mut base, runtime) {
+        (Value::Object(base_object), Value::Object(runtime_object)) => {
+            for (key, runtime_value) in runtime_object {
+                let merged = match base_object.remove(&key) {
+                    Some(base_value) => merge_json_objects(base_value, runtime_value),
+                    None => runtime_value,
+                };
+                base_object.insert(key, merged);
+            }
+            base
+        }
+        (_, runtime_value) => runtime_value,
+    }
 }
 
 //region Card Specialized Registry
@@ -311,6 +363,7 @@ mod tests {
                 order: 3.0,
             },
             prefab_id: 2003,
+            runtime_specialized_param: None,
         };
 
         let appearance = card_param.load_appearance(&config);
@@ -323,5 +376,48 @@ mod tests {
             .expect("prefab specialized config should deserialize");
 
         assert_eq!(specialized.kind(), CardKind::Interaction);
+    }
+
+    #[test]
+    fn card_param_merges_runtime_specialized_params_over_prefab_params() {
+        let card_param = CardParam {
+            scene_param: CardSceneParam::default(),
+            prefab_id: 1006,
+            runtime_specialized_param: Some(CardRuntimeSpecializedConfig {
+                type_id: "clue".to_string(),
+                params: serde_json::json!({
+                    "interaction_prefab_id": 1005,
+                    "interaction_target_scene_param": {
+                        "position": [105.0, -20.0],
+                        "rotation": -0.12,
+                        "order": 0.85
+                    }
+                }),
+            }),
+        };
+        let base = CardSpecializedConfig {
+            id: 10000006,
+            type_id: "clue".to_string(),
+            params: serde_json::json!({
+                "reveal_threshold": "normal"
+            }),
+        };
+
+        let (_, merged) = card_param
+            .merged_specialized_params(base)
+            .expect("matching runtime specialized params should merge");
+
+        assert_eq!(
+            merged,
+            serde_json::json!({
+                "reveal_threshold": "normal",
+                "interaction_prefab_id": 1005,
+                "interaction_target_scene_param": {
+                    "position": [105.0, -20.0],
+                    "rotation": -0.12,
+                    "order": 0.85
+                }
+            })
+        );
     }
 }

@@ -8,10 +8,7 @@ use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use geo::orient::Direction;
-use geo::{
-    BooleanOps, Coord as GeoCoord, LineString as GeoLineString, Orient, Polygon as GeoPolygon,
-    TriangulateEarcut,
-};
+use geo::{Coord as GeoCoord, LineString as GeoLineString, Orient, Polygon as GeoPolygon};
 use serde::Deserialize;
 
 pub struct CardPlugin;
@@ -116,6 +113,7 @@ impl Card {
                 order: transform.translation.z,
             },
             prefab_id: self.instance_type.get_prefab_id(),
+            runtime_specialized_param: None,
         }
     }
 }

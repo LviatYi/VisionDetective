@@ -1,5 +1,6 @@
-use crate::card::card_params::{CardSceneParam, CardSpawnParams, CardSpecialized};
-use crate::card::{CARD_SIZE, Card, CardKind};
+use crate::GameView;
+use crate::card::card_params::{CardParam, CardSceneParam, CardSpawnParams, CardSpecialized};
+use crate::card::{CARD_SIZE, Card, CardKind, spawn_card_by_card_param};
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::PlayerCoinState;
 use crate::config::GameConfig;
@@ -58,11 +59,13 @@ struct ClueQuestionMark;
 #[derive(Component)]
 struct ClueIllumination;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct ClueCardParams {
     #[serde(default)]
     pub reveal_threshold: ClueRevealThreshold,
+    #[serde(default)]
     pub interaction_prefab_id: u32,
+    #[serde(default)]
     pub interaction_target_scene_param: CardSceneParam,
 }
 
@@ -112,14 +115,12 @@ impl Plugin for ClueCardPlugin {
 
 fn reveal_clues(
     mut commands: Commands,
-    config: Res<GameConfig>,
     player_coin_state: Res<PlayerCoinState>,
     player_query: Query<&Transform, With<PlayerCoin>>,
     mut clue_query: Query<(Entity, &mut ClueCard, &GlobalTransform)>,
     obstacle_query: Query<(&Transform, &Obstacle), Without<PlayerCoin>>,
     mut illumination_mesh_query: Query<&mut Mesh2d, With<ClueIllumination>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut card_spawn_params: CardSpawnParams,
 ) {
     if !player_coin_state.just_ejected() {
         return;
@@ -128,15 +129,15 @@ fn reveal_clues(
         return;
     };
 
-    for (entity, mut clue, transform) in &mut clue_query {
+    for (entity, mut clue, global_transform) in &mut clue_query {
         if clue.revealed {
             continue;
         }
 
         let Some(stamp) = build_visible_clue_stamp(
-            &config,
+            &card_spawn_params.config,
             player_transform.translation.truncate(),
-            transform,
+            global_transform,
             &obstacle_query,
         ) else {
             continue;
@@ -149,20 +150,42 @@ fn reveal_clues(
         if coverage >= clue.param.reveal_threshold.get_threshold() {
             clue.revealed = true;
             despawn_clue_visual_feedback(&mut commands, &mut clue);
+            spawn_revealed_interaction_card(&mut commands, &mut card_spawn_params, &clue);
             continue;
         }
 
         update_clue_illumination_visual(
             &mut commands,
-            &config,
+            &card_spawn_params.config,
             entity,
             &mut clue,
             merged_mesh,
             &mut illumination_mesh_query,
-            meshes.as_mut(),
-            materials.as_mut(),
+            card_spawn_params.meshes.as_mut(),
+            card_spawn_params.materials.as_mut(),
         );
     }
+}
+
+fn spawn_revealed_interaction_card(
+    commands: &mut Commands,
+    spawn_params: &mut CardSpawnParams<'_>,
+    clue: &ClueCard,
+) {
+    if clue.param.interaction_prefab_id == 0 {
+        return;
+    }
+
+    let entity = spawn_card_by_card_param(
+        commands,
+        spawn_params,
+        &CardParam {
+            scene_param: clue.param.interaction_target_scene_param.clone(),
+            prefab_id: clue.param.interaction_prefab_id,
+            runtime_specialized_param: None,
+        },
+    );
+    commands.entity(entity).insert(GameView);
 }
 
 fn despawn_clue_visual_feedback(commands: &mut Commands, clue: &mut ClueCard) {
@@ -339,7 +362,6 @@ fn polygon_from_points(points: Vec<Vec2>) -> Option<GeoPolygon<f32>> {
 
 const GEOMETRY_EPSILON: f32 = 0.001;
 const GEOMETRY_EPSILON_SQUARED: f32 = GEOMETRY_EPSILON * GEOMETRY_EPSILON;
-
 register_card_specialized_param!("clue", ClueCardParams);
 
 #[cfg(test)]
@@ -372,7 +394,7 @@ mod tests {
     }
 
     #[test]
-    fn clue_card_params_parse_interaction_spawn_data() {
+    fn clue_card_params_parse_runtime_interaction_target() {
         let params = serde_json::from_value::<ClueCardParams>(serde_json::json!({
             "reveal_threshold": "normal",
             "interaction_prefab_id": 1005,
@@ -382,7 +404,7 @@ mod tests {
                 "order": 0.85
             }
         }))
-        .expect("clue params should parse interaction spawn data");
+        .expect("clue params should parse runtime interaction target");
 
         assert_eq!(params.reveal_threshold, ClueRevealThreshold::Normal);
         assert_eq!(params.interaction_prefab_id, 1005);

@@ -307,6 +307,7 @@ fn prefab_preview_items(
                     order: 0.0,
                 },
                 prefab_id: prefab.id,
+                runtime_specialized_param: None,
             };
             let appearance = card_param.load_appearance(card_presets_config);
             let background_color = parse_ui_color(&appearance.background_color_appearance_override)
@@ -477,6 +478,7 @@ fn handle_prefab_drag_start(
                     order: 0.0,
                 },
                 prefab_id: preview_button.prefab_id,
+                runtime_specialized_param: None,
             },
         );
         commands
@@ -1449,6 +1451,17 @@ fn scene_file_format_from_path(path: &Path) -> Result<SceneFileFormat, String> {
 }
 
 fn write_scene_binary(scene: &EditorSceneFile, path: &Path) -> std::io::Result<()> {
+    if scene
+        .cards
+        .iter()
+        .any(|card| card.runtime_specialized_param.is_some())
+    {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "二进制场景格式暂不支持 runtime_specialized_param，请导出 TOML",
+        ));
+    }
+
     let mut bytes = Vec::new();
     bytes.extend_from_slice(b"VDES");
     bytes.extend_from_slice(&(scene.cards.len() as u32).to_le_bytes());
@@ -1490,6 +1503,7 @@ fn read_scene_binary(path: &Path) -> Result<EditorSceneFile, String> {
                     order,
                 },
                 prefab_id,
+                runtime_specialized_param: None,
             });
         }
 
@@ -1512,6 +1526,7 @@ fn read_scene_binary(path: &Path) -> Result<EditorSceneFile, String> {
                     order: 0.0,
                 },
                 prefab_id,
+                runtime_specialized_param: None,
             });
         }
 
