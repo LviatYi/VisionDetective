@@ -158,7 +158,16 @@
       "id": 10000006,
       "type": "clue",
       "params": {
-        "reveal_threshold": "normal"
+        "reveal_threshold": "normal",
+        "interaction_prefab_id": 1005,
+        "interaction_target_scene_param": {
+          "position": [
+            105.0,
+            -20.0
+          ],
+          "rotation": -0.12,
+          "order": 0.85
+        }
       }
     }
   ],

@@ -1,4 +1,4 @@
-use crate::card::card_params::{CardSpawnParams, CardSpecialized};
+use crate::card::card_params::{CardSceneParam, CardSpawnParams, CardSpecialized};
 use crate::card::{CARD_SIZE, Card, CardKind};
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::PlayerCoinState;
@@ -46,7 +46,7 @@ impl ClueRevealThreshold {
 #[derive(Component, Debug, Clone)]
 pub struct ClueCard {
     pub revealed: bool,
-    pub reveal_threshold: ClueRevealThreshold,
+    pub param: ClueCardParams,
     question_mark: Option<Entity>,
     illumination: Option<Entity>,
     illuminated_regions: Vec<GeoMultiPolygon<f32>>,
@@ -62,14 +62,8 @@ struct ClueIllumination;
 pub struct ClueCardParams {
     #[serde(default)]
     pub reveal_threshold: ClueRevealThreshold,
-}
-
-impl Default for ClueCardParams {
-    fn default() -> Self {
-        Self {
-            reveal_threshold: default(),
-        }
-    }
+    pub interaction_prefab_id: u32,
+    pub interaction_target_scene_param: CardSceneParam,
 }
 
 impl CardSpecialized for ClueCardParams {
@@ -102,7 +96,7 @@ impl CardSpecialized for ClueCardParams {
 
         entity.insert(ClueCard {
             revealed: false,
-            reveal_threshold: self.reveal_threshold,
+            param: self.clone(),
             question_mark,
             illumination: None,
             illuminated_regions: Vec::new(),
@@ -152,7 +146,7 @@ fn reveal_clues(
         let (merged_mesh, illuminated_area) = build_merged_illumination_mesh(&clue);
         let coverage = illuminated_area / Card::card_area();
 
-        if coverage >= clue.reveal_threshold.get_threshold() {
+        if coverage >= clue.param.reveal_threshold.get_threshold() {
             clue.revealed = true;
             despawn_clue_visual_feedback(&mut commands, &mut clue);
             continue;
@@ -375,5 +369,28 @@ mod tests {
                 .expect("custom threshold should parse");
         assert_eq!(threshold, ClueRevealThreshold::Custom(0.55));
         assert_eq!(threshold.get_threshold(), 0.55);
+    }
+
+    #[test]
+    fn clue_card_params_parse_interaction_spawn_data() {
+        let params = serde_json::from_value::<ClueCardParams>(serde_json::json!({
+            "reveal_threshold": "normal",
+            "interaction_prefab_id": 1005,
+            "interaction_target_scene_param": {
+                "position": [105.0, -20.0],
+                "rotation": -0.12,
+                "order": 0.85
+            }
+        }))
+        .expect("clue params should parse interaction spawn data");
+
+        assert_eq!(params.reveal_threshold, ClueRevealThreshold::Normal);
+        assert_eq!(params.interaction_prefab_id, 1005);
+        assert_eq!(
+            params.interaction_target_scene_param.position,
+            Vec2::new(105.0, -20.0)
+        );
+        assert_eq!(params.interaction_target_scene_param.rotation, -0.12);
+        assert_eq!(params.interaction_target_scene_param.order, 0.85);
     }
 }
