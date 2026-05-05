@@ -1,13 +1,19 @@
-use crate::GameView;
-use crate::card::card_params::{CardParam, CardSceneParam, CardSpawnParams, CardSpecialized};
+use crate::card::card_params::{
+    CardParam, CardRuntimeSpecializedConfig, CardSceneParam, CardSpawnParams, CardSpecialized,
+};
 use crate::card::{CARD_SIZE, Card, CardKind, spawn_card_by_card_param};
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::PlayerCoinState;
 use crate::config::GameConfig;
+use crate::editor::{
+    CardEditorSpecialized, EditorInteractionState, EditorLinkedEntities, EditorPlacedCard,
+    EditorRuntimeSpecializedParam, EditorSpecializedAuxiliaryCard, spawn_editor_card,
+};
 use crate::game_view::GameState;
 use crate::physics::obstacle::Obstacle;
 use crate::physics::vision::compute_visible_points;
 use crate::register_card_specialized_param;
+use crate::{AppView, GameView};
 use bevy::asset::RenderAssetUsages;
 use bevy::ecs::system::EntityCommands;
 use bevy::mesh::{Indices, PrimitiveTopology};
@@ -20,6 +26,7 @@ use geo::{
     MultiPolygon as GeoMultiPolygon, Polygon as GeoPolygon, TriangulateEarcut,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 pub struct ClueCardPlugin;
 
@@ -58,6 +65,14 @@ struct ClueQuestionMark;
 
 #[derive(Component)]
 struct ClueIllumination;
+
+#[derive(Component, Clone, Copy)]
+struct EditorClueLink {
+    target: Entity,
+}
+
+#[derive(Component, Clone, Copy)]
+struct EditorClueTargetCard;
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct ClueCardParams {
@@ -110,6 +125,141 @@ impl CardSpecialized for ClueCardParams {
 impl Plugin for ClueCardPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, reveal_clues.run_if(in_state(GameState::InGame)));
+        ClueCardParams::register_editor_systems(app);
+    }
+}
+
+impl CardEditorSpecialized for ClueCardParams {
+    fn register_editor_systems(app: &mut App) {
+        app.add_systems(
+            Update,
+            (
+                spawn_editor_clue_targets,
+                update_editor_clue_runtime_params,
+                draw_editor_clue_links,
+            )
+                .run_if(in_state(AppView::Editor)),
+        );
+    }
+}
+
+fn spawn_editor_clue_targets(
+    mut commands: Commands,
+    mut spawn_params: CardSpawnParams<'_>,
+    mut editor_state: ResMut<EditorInteractionState>,
+    clue_query: Query<(Entity, &ClueCard, &Transform), Added<EditorPlacedCard>>,
+) {
+    for (clue_entity, clue, clue_transform) in &clue_query {
+        let (target_prefab_id, target_scene_param) =
+            editor_clue_target_spawn_param(clue, clue_transform);
+        let target_entity = spawn_editor_card(
+            &mut commands,
+            &mut spawn_params,
+            &CardParam {
+                scene_param: target_scene_param,
+                prefab_id: target_prefab_id,
+                runtime_specialized_param: None,
+            },
+        );
+
+        commands.entity(clue_entity).insert((
+            EditorClueLink {
+                target: target_entity,
+            },
+            EditorLinkedEntities {
+                entities: vec![target_entity],
+            },
+        ));
+        commands.entity(target_entity).insert((
+            EditorClueTargetCard,
+            EditorSpecializedAuxiliaryCard,
+            EditorLinkedEntities {
+                entities: vec![clue_entity],
+            },
+        ));
+        editor_state.select_entity(target_entity);
+        editor_state.set_status_message(format!("已创建线索目标交互卡 #{}", target_prefab_id));
+    }
+}
+
+fn editor_clue_target_spawn_param(
+    clue: &ClueCard,
+    clue_transform: &Transform,
+) -> (u32, CardSceneParam) {
+    if clue.param.interaction_prefab_id != 0 {
+        return (
+            clue.param.interaction_prefab_id,
+            clue.param.interaction_target_scene_param.clone(),
+        );
+    }
+
+    (
+        DEFAULT_EDITOR_CLUE_INTERACTION_PREFAB_ID,
+        CardSceneParam {
+            position: clue_transform.translation.truncate() + DEFAULT_EDITOR_CLUE_TARGET_OFFSET,
+            rotation: 0.0,
+            order: clue_transform.translation.z + EDITOR_CLUE_TARGET_ORDER_OFFSET,
+        },
+    )
+}
+
+fn update_editor_clue_runtime_params(
+    mut commands: Commands,
+    clue_query: Query<(Entity, &EditorClueLink), With<ClueCard>>,
+    target_query: Query<(&Card, &Transform), With<EditorClueTargetCard>>,
+) {
+    for (clue_entity, link) in &clue_query {
+        let Ok((target_card, target_transform)) = target_query.get(link.target) else {
+            continue;
+        };
+        commands
+            .entity(clue_entity)
+            .insert(EditorRuntimeSpecializedParam(CardRuntimeSpecializedConfig {
+                type_id: "clue".to_string(),
+                params: json!({
+                    "interaction_prefab_id": target_card.instance_type.get_prefab_id(),
+                    "interaction_target_scene_param": target_card.to_card_param(target_transform).scene_param,
+                }),
+            }));
+    }
+}
+
+fn draw_editor_clue_links(
+    mut gizmos: Gizmos,
+    clue_query: Query<(&Transform, &EditorClueLink), With<ClueCard>>,
+    target_query: Query<&Transform, With<EditorClueTargetCard>>,
+) {
+    for (clue_transform, link) in &clue_query {
+        let Ok(target_transform) = target_query.get(link.target) else {
+            continue;
+        };
+        draw_dashed_line(
+            &mut gizmos,
+            clue_transform.translation.truncate(),
+            target_transform.translation.truncate(),
+            Color::srgb(0.95, 0.82, 0.35),
+        );
+    }
+}
+
+fn draw_dashed_line(gizmos: &mut Gizmos, start: Vec2, end: Vec2, color: Color) {
+    let delta = end - start;
+    let distance = delta.length();
+    if distance <= f32::EPSILON {
+        return;
+    }
+
+    let direction = delta / distance;
+    let step = CLUE_LINK_DASH_LENGTH + CLUE_LINK_GAP_LENGTH;
+    let mut cursor = 0.0;
+    while cursor < distance {
+        let dash_end = (cursor + CLUE_LINK_DASH_LENGTH).min(distance);
+        gizmos.line_2d(
+            start + direction * cursor,
+            start + direction * dash_end,
+            color,
+        );
+        cursor += step;
     }
 }
 
@@ -362,6 +512,11 @@ fn polygon_from_points(points: Vec<Vec2>) -> Option<GeoPolygon<f32>> {
 
 const GEOMETRY_EPSILON: f32 = 0.001;
 const GEOMETRY_EPSILON_SQUARED: f32 = GEOMETRY_EPSILON * GEOMETRY_EPSILON;
+const DEFAULT_EDITOR_CLUE_INTERACTION_PREFAB_ID: u32 = 1003;
+const DEFAULT_EDITOR_CLUE_TARGET_OFFSET: Vec2 = Vec2::new(0.0, -CARD_SIZE.y * 0.4);
+const EDITOR_CLUE_TARGET_ORDER_OFFSET: f32 = 1.0;
+const CLUE_LINK_DASH_LENGTH: f32 = 18.0;
+const CLUE_LINK_GAP_LENGTH: f32 = 10.0;
 register_card_specialized_param!("clue", ClueCardParams);
 
 #[cfg(test)]

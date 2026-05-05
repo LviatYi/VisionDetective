@@ -2,7 +2,6 @@ use crate::AppView;
 use crate::card::card_params::{
     CardParam, CardRuntimeSpecializedConfig, CardSceneParam, CardSpawnParams,
 };
-use crate::card::specialized::clue::ClueCardParams;
 use crate::card::{CARD_SIZE, Card, spawn_card_by_card_param};
 use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
@@ -16,7 +15,6 @@ use bevy::sprite::Anchor;
 use bevy::window::{PrimaryWindow, Window};
 use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::collections::VecDeque;
 use std::f32::consts::FRAC_PI_4;
 use std::fs;
@@ -36,13 +34,12 @@ const EDITOR_SCENE_BIN: &str = "editor_scene.bin";
 const CARD_ORDER_STEP: f32 = 1.0;
 const DRAG_PREVIEW_ORDER: f32 = 20.0;
 const ORDER_LABEL_FONT_SIZE: f32 = 13.0;
-const CLUE_PREFAB_ID: u32 = 1006;
-const DEFAULT_CLUE_INTERACTION_PREFAB_ID: u32 = 1003;
-const DEFAULT_CLUE_TARGET_OFFSET: Vec2 = Vec2::new(0.0, CARD_SIZE.y * 0.4);
-const CLUE_LINK_DASH_LENGTH: f32 = 18.0;
-const CLUE_LINK_GAP_LENGTH: f32 = 10.0;
 
 pub struct EditorPlugin;
+
+pub trait CardEditorSpecialized {
+    fn register_editor_systems(app: &mut App);
+}
 
 #[derive(Resource, Default)]
 struct EditorPointerWorldPosition(Option<Vec2>);
@@ -70,6 +67,14 @@ impl EditorInteractionState {
         let consumed = self.escape_consumed;
         self.escape_consumed = false;
         consumed
+    }
+
+    pub fn select_entity(&mut self, entity: Entity) {
+        self.selected_entity = Some(entity);
+    }
+
+    pub fn set_status_message(&mut self, message: impl Into<String>) {
+        self.status_message = message.into();
     }
 }
 
@@ -116,13 +121,17 @@ struct EditorDragPreview;
 struct EditorCardOrderText;
 
 #[derive(Component, Clone, Copy)]
-struct EditorClueLink {
-    target: Entity,
-}
+pub struct EditorPlacedCard;
 
-#[derive(Component, Clone, Copy)]
-struct EditorClueTargetCard {
-    clue: Entity,
+#[derive(Component, Clone)]
+pub struct EditorSpecializedAuxiliaryCard;
+
+#[derive(Component, Clone)]
+pub struct EditorRuntimeSpecializedParam(pub CardRuntimeSpecializedConfig);
+
+#[derive(Component, Clone)]
+pub struct EditorLinkedEntities {
+    pub entities: Vec<Entity>,
 }
 
 struct PrefabPreviewItem {
@@ -441,8 +450,8 @@ fn handle_toolbar_buttons(
             Entity,
             &Card,
             &Transform,
-            Option<&EditorClueLink>,
-            Option<&EditorClueTargetCard>,
+            Option<&EditorRuntimeSpecializedParam>,
+            Option<&EditorSpecializedAuxiliaryCard>,
         ),
         Without<EditorDragPreview>,
     >,
@@ -641,7 +650,6 @@ fn handle_prefab_drop(
     pointer_world: Res<EditorPointerWorldPosition>,
     mut preview_query: Query<&mut Transform, With<EditorDragPreview>>,
     card_query: Query<&Transform, (With<Card>, Without<EditorDragPreview>)>,
-    mut spawn_deps: CardSpawnParams<'_>,
     mut state: ResMut<EditorInteractionState>,
 ) {
     let Some(prefab_id) = state.dragging_prefab else {
@@ -695,37 +703,7 @@ fn handle_prefab_drop(
     commands
         .entity(entity)
         .remove::<EditorDragPreview>()
-        .insert(Visibility::Visible);
-
-    if prefab_id == CLUE_PREFAB_ID {
-        let target_position = world_position + DEFAULT_CLUE_TARGET_OFFSET;
-        let target_order = placed_order + CARD_ORDER_STEP;
-        let target_entity = spawn_editor_card(
-            &mut commands,
-            &mut spawn_deps,
-            &CardParam {
-                scene_param: CardSceneParam {
-                    position: target_position,
-                    rotation: 0.0,
-                    order: target_order,
-                },
-                prefab_id: DEFAULT_CLUE_INTERACTION_PREFAB_ID,
-                runtime_specialized_param: None,
-            },
-        );
-        commands.entity(entity).insert(EditorClueLink {
-            target: target_entity,
-        });
-        commands
-            .entity(target_entity)
-            .insert(EditorClueTargetCard { clue: entity });
-        state.selected_entity = Some(target_entity);
-        state.status_message = format!(
-            "已放置线索卡 #{}，并创建目标交互卡 #{}",
-            prefab_id, DEFAULT_CLUE_INTERACTION_PREFAB_ID
-        );
-        return;
-    }
+        .insert((Visibility::Visible, EditorPlacedCard));
 
     state.selected_entity = Some(entity);
     state.status_message = format!(
@@ -746,8 +724,7 @@ fn handle_scene_editing(
         Query<(Entity, &Card, &GlobalTransform, &Transform), Without<EditorDragPreview>>,
         Query<&mut Transform>,
     )>,
-    clue_link_query: Query<&EditorClueLink>,
-    clue_target_query: Query<&EditorClueTargetCard>,
+    linked_entities_query: Query<&EditorLinkedEntities>,
     mut state: ResMut<EditorInteractionState>,
 ) {
     let Ok(window) = window_query.single() else {
@@ -844,29 +821,22 @@ fn handle_scene_editing(
     if keyboard_input.just_pressed(KeyCode::Delete)
         && let Some(entity) = state.selected_entity.take()
     {
-        despawn_editor_card_with_clue_links(
-            &mut commands,
-            entity,
-            &clue_link_query,
-            &clue_target_query,
-        );
+        despawn_editor_card_with_linked_entities(&mut commands, entity, &linked_entities_query);
         state.moving_entity = None;
         state.rotating_entity = None;
         state.status_message = "已删除选中卡牌".into();
     }
 }
 
-fn despawn_editor_card_with_clue_links(
+fn despawn_editor_card_with_linked_entities(
     commands: &mut Commands,
     entity: Entity,
-    clue_link_query: &Query<&EditorClueLink>,
-    clue_target_query: &Query<&EditorClueTargetCard>,
+    linked_entities_query: &Query<&EditorLinkedEntities>,
 ) {
-    if let Ok(link) = clue_link_query.get(entity) {
-        commands.entity(link.target).despawn();
-    }
-    if let Ok(target) = clue_target_query.get(entity) {
-        commands.entity(target.clue).despawn();
+    if let Ok(linked_entities) = linked_entities_query.get(entity) {
+        for linked_entity in &linked_entities.entities {
+            commands.entity(*linked_entity).despawn();
+        }
     }
     commands.entity(entity).despawn();
 }
@@ -879,8 +849,8 @@ fn handle_editor_shortcuts(
             Entity,
             &Card,
             &Transform,
-            Option<&EditorClueLink>,
-            Option<&EditorClueTargetCard>,
+            Option<&EditorRuntimeSpecializedParam>,
+            Option<&EditorSpecializedAuxiliaryCard>,
         ),
         Without<EditorDragPreview>,
     >,
@@ -1073,23 +1043,7 @@ fn draw_editor_gizmos(
     mut gizmos: Gizmos,
     state: Res<EditorInteractionState>,
     card_query: Query<(Entity, &Transform), (With<Card>, Without<EditorDragPreview>)>,
-    clue_link_query: Query<(Entity, &EditorClueLink)>,
 ) {
-    for (clue_entity, link) in &clue_link_query {
-        let Ok((_, clue_transform)) = card_query.get(clue_entity) else {
-            continue;
-        };
-        let Ok((_, target_transform)) = card_query.get(link.target) else {
-            continue;
-        };
-        draw_dashed_line(
-            &mut gizmos,
-            clue_transform.translation.truncate(),
-            target_transform.translation.truncate(),
-            Color::srgb(0.95, 0.82, 0.35),
-        );
-    }
-
     if let Some(selected_entity) = state.selected_entity
         && let Ok((_, transform)) = card_query.get(selected_entity)
     {
@@ -1105,27 +1059,6 @@ fn draw_editor_gizmos(
             handle,
             Color::srgb(0.95, 0.47, 0.24),
         );
-    }
-}
-
-fn draw_dashed_line(gizmos: &mut Gizmos, start: Vec2, end: Vec2, color: Color) {
-    let delta = end - start;
-    let distance = delta.length();
-    if distance <= f32::EPSILON {
-        return;
-    }
-
-    let direction = delta / distance;
-    let step = CLUE_LINK_DASH_LENGTH + CLUE_LINK_GAP_LENGTH;
-    let mut cursor = 0.0;
-    while cursor < distance {
-        let dash_end = (cursor + CLUE_LINK_DASH_LENGTH).min(distance);
-        gizmos.line_2d(
-            start + direction * cursor,
-            start + direction * dash_end,
-            color,
-        );
-        cursor += step;
     }
 }
 
@@ -1384,7 +1317,7 @@ fn projections_overlap(a: (f32, f32), b: (f32, f32)) -> bool {
     a.0 <= b.1 && b.0 <= a.1
 }
 
-fn spawn_editor_card(
+pub fn spawn_editor_card(
     commands: &mut Commands,
     spawn_deps: &mut CardSpawnParams<'_>,
     card_param: &CardParam,
@@ -1398,52 +1331,6 @@ fn spawn_editor_card(
         &spawn_deps.config,
     );
     entity
-}
-
-fn spawn_editor_scene_card(
-    commands: &mut Commands,
-    spawn_deps: &mut CardSpawnParams<'_>,
-    card_param: &CardParam,
-) -> Entity {
-    let clue_target = clue_target_from_scene_card(card_param);
-    let clue_entity = spawn_editor_card(commands, spawn_deps, card_param);
-    let Some((target_prefab_id, target_scene_param)) = clue_target else {
-        return clue_entity;
-    };
-
-    let target_entity = spawn_editor_card(
-        commands,
-        spawn_deps,
-        &CardParam {
-            scene_param: target_scene_param,
-            prefab_id: target_prefab_id,
-            runtime_specialized_param: None,
-        },
-    );
-    commands.entity(clue_entity).insert(EditorClueLink {
-        target: target_entity,
-    });
-    commands
-        .entity(target_entity)
-        .insert(EditorClueTargetCard { clue: clue_entity });
-    clue_entity
-}
-
-fn clue_target_from_scene_card(card_param: &CardParam) -> Option<(u32, CardSceneParam)> {
-    let runtime = card_param.runtime_specialized_param.as_ref()?;
-    if runtime.type_id != "clue" {
-        return None;
-    }
-
-    let params = serde_json::from_value::<ClueCardParams>(runtime.params.clone()).ok()?;
-    if params.interaction_prefab_id == 0 {
-        None
-    } else {
-        Some((
-            params.interaction_prefab_id,
-            params.interaction_target_scene_param,
-        ))
-    }
 }
 
 fn append_editor_card_overlays(
@@ -1481,8 +1368,8 @@ fn save_scene(
             Entity,
             &Card,
             &Transform,
-            Option<&EditorClueLink>,
-            Option<&EditorClueTargetCard>,
+            Option<&EditorRuntimeSpecializedParam>,
+            Option<&EditorSpecializedAuxiliaryCard>,
         ),
         Without<EditorDragPreview>,
     >,
@@ -1497,8 +1384,8 @@ fn save_scene_to_path(
             Entity,
             &Card,
             &Transform,
-            Option<&EditorClueLink>,
-            Option<&EditorClueTargetCard>,
+            Option<&EditorRuntimeSpecializedParam>,
+            Option<&EditorSpecializedAuxiliaryCard>,
         ),
         Without<EditorDragPreview>,
     >,
@@ -1506,8 +1393,8 @@ fn save_scene_to_path(
 ) -> String {
     let mut cards = card_query
         .iter()
-        .filter_map(|(entity, card, transform, link, target)| {
-            editor_card_to_scene_card(entity, card, transform, link, target, card_query)
+        .filter_map(|(entity, card, transform, runtime, auxiliary)| {
+            editor_card_to_scene_card(card, transform, runtime, auxiliary)
                 .map(|card| (entity, card))
         })
         .collect::<Vec<_>>();
@@ -1551,42 +1438,17 @@ fn save_scene_to_path(
 }
 
 fn editor_card_to_scene_card(
-    _entity: Entity,
     card: &Card,
     transform: &Transform,
-    link: Option<&EditorClueLink>,
-    target: Option<&EditorClueTargetCard>,
-    card_query: &Query<
-        (
-            Entity,
-            &Card,
-            &Transform,
-            Option<&EditorClueLink>,
-            Option<&EditorClueTargetCard>,
-        ),
-        Without<EditorDragPreview>,
-    >,
+    runtime: Option<&EditorRuntimeSpecializedParam>,
+    auxiliary: Option<&EditorSpecializedAuxiliaryCard>,
 ) -> Option<CardParam> {
-    if target.is_some() {
+    if auxiliary.is_some() {
         return None;
     }
 
     let mut card_param = card.to_card_param(transform);
-    let Some(link) = link else {
-        return Some(card_param);
-    };
-
-    let Ok((_, target_card, target_transform, _, _)) = card_query.get(link.target) else {
-        return Some(card_param);
-    };
-
-    card_param.runtime_specialized_param = Some(CardRuntimeSpecializedConfig {
-        type_id: "clue".to_string(),
-        params: json!({
-            "interaction_prefab_id": target_card.instance_type.get_prefab_id(),
-            "interaction_target_scene_param": target_card.to_card_param(target_transform).scene_param,
-        }),
-    });
+    card_param.runtime_specialized_param = runtime.map(|runtime| runtime.0.clone());
     Some(card_param)
 }
 
@@ -1597,8 +1459,8 @@ fn load_scene(
             Entity,
             &Card,
             &Transform,
-            Option<&EditorClueLink>,
-            Option<&EditorClueTargetCard>,
+            Option<&EditorRuntimeSpecializedParam>,
+            Option<&EditorSpecializedAuxiliaryCard>,
         ),
         Without<EditorDragPreview>,
     >,
@@ -1615,8 +1477,8 @@ fn load_scene_from_path(
             Entity,
             &Card,
             &Transform,
-            Option<&EditorClueLink>,
-            Option<&EditorClueTargetCard>,
+            Option<&EditorRuntimeSpecializedParam>,
+            Option<&EditorSpecializedAuxiliaryCard>,
         ),
         Without<EditorDragPreview>,
     >,
@@ -1649,7 +1511,8 @@ fn load_scene_from_path(
 
     let cards = scene.cards;
     for card in &cards {
-        spawn_editor_scene_card(commands, spawn_deps, card);
+        let entity = spawn_editor_card(commands, spawn_deps, card);
+        commands.entity(entity).insert(EditorPlacedCard);
     }
 
     format!("已从 {} 导入 {} 张卡牌", path.display(), cards.len())
