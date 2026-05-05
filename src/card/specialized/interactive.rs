@@ -1,10 +1,10 @@
 mod dialogue;
 mod hello_world;
 
-use crate::card::card_params::CardSpecialized;
+use crate::card::card_params::{CardSpawnParams, CardSpecialized};
 use crate::card::{Card, CardKind};
 use crate::coin::player::PlayerCoin;
-use crate::coin::player::controller::{EPlayerCoinState, PlayerCoinState};
+use crate::coin::player::controller::PlayerCoinState;
 use crate::config::GameConfig;
 use crate::game_view::GameState;
 use crate::register_card_specialized_param;
@@ -55,7 +55,7 @@ impl CardSpecialized for InteractionCardParams {
         CardKind::Interaction
     }
 
-    fn insert_components(&self, entity: &mut EntityCommands<'_>) {
+    fn spawn_with(&self, entity: &mut EntityCommands<'_>, _spawn_params: &mut CardSpawnParams<'_>) {
         let Some(registration) = inventory::iter::<CardInteractionRegistration>
             .into_iter()
             .find(|registration| registration.type_id == self.interaction.type_id)

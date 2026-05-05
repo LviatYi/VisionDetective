@@ -1,9 +1,10 @@
 use crate::card::CardKind;
+use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
 use anyhow::Result;
-use bevy::ecs::system::EntityCommands;
+use bevy::ecs::system::{EntityCommands, SystemParam};
 use bevy::math::Vec2;
-use bevy::prelude::Resource;
+use bevy::prelude::{AssetServer, Assets, ColorMaterial, Mesh, Res, ResMut, Resource};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -123,7 +124,17 @@ pub trait CardSpecialized: Send + Sync {
     fn kind(&self) -> CardKind;
 
     /// Inserts kind-specific ECS components into the spawned entity.
-    fn insert_components(&self, entity: &mut EntityCommands<'_>);
+    fn spawn_with(&self, entity: &mut EntityCommands<'_>, spawn_params: &mut CardSpawnParams<'_>);
+}
+
+#[derive(SystemParam)]
+pub struct CardSpawnParams<'w> {
+    pub asset_server: Res<'w, AssetServer>,
+    pub config: Res<'w, GameConfig>,
+    pub meshes: ResMut<'w, Assets<Mesh>>,
+    pub materials: ResMut<'w, Assets<ColorMaterial>>,
+    pub card_presets_config: Res<'w, CardPresetsConfig>,
+    pub card_specialized_registry: Res<'w, CardSpecializedRegistry>,
 }
 
 /// Serialized specialized preset entry loaded from configuration.

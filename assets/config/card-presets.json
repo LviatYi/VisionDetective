@@ -158,8 +158,7 @@
       "id": 10000006,
       "type": "clue",
       "params": {
-        "reveal_threshold": 0.55,
-        "sample_count": 5
+        "reveal_threshold": "normal"
       }
     }
   ],

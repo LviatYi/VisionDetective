@@ -1,5 +1,5 @@
 use crate::card::CardKind;
-use crate::card::card_params::CardSpecialized;
+use crate::card::card_params::{CardSpawnParams, CardSpecialized};
 use crate::physics::obstacle::Obstacle;
 use crate::register_card_specialized_param;
 use bevy::ecs::system::EntityCommands;
@@ -30,7 +30,7 @@ impl CardSpecialized for ObstacleCardParams {
         CardKind::Obstacle
     }
 
-    fn insert_components(&self, entity: &mut EntityCommands<'_>) {
+    fn spawn_with(&self, entity: &mut EntityCommands<'_>, _spawn_params: &mut CardSpawnParams<'_>) {
         entity.insert(Obstacle::new(match &self.obstacle_def {
             CardObstacleType::Full => {
                 vec![

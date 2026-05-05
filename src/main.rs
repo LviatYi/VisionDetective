@@ -10,7 +10,7 @@ pub mod scene;
 
 use crate::asset::font;
 use crate::card::CardPlugin;
-use crate::card::card_params::CardSpecializedRegistry;
+use crate::card::card_params::CardSpawnParams;
 use crate::coin::player::PlayerPlugin;
 use crate::coin::player::controller::{EPlayerCoinState, PlayerCoinState};
 use crate::config::GameConfig;
@@ -83,57 +83,45 @@ fn finish_game_loading(mut next_game_state: ResMut<NextState<GameState>>) {
     next_game_state.set(GameState::InGame);
 }
 
-fn setup_game_scene(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    config: Res<GameConfig>,
-    card_presets_config: Res<CardPresetsConfig>,
-    card_specialized_registry: Res<CardSpecializedRegistry>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+fn setup_game_scene(mut commands: Commands, mut card_spawn_params: CardSpawnParams<'_>) {
     commands.spawn((Camera2d, GameView));
-    spawn_demo_cards(
-        &mut commands,
-        asset_server.as_ref(),
-        &config,
-        &mut meshes,
-        &mut materials,
-        &card_presets_config,
-        card_specialized_registry.as_ref(),
+    spawn_demo_cards(&mut commands, &mut card_spawn_params);
+
+    let ui_font = font::load_assets(
+        &card_spawn_params.asset_server,
+        &card_spawn_params.config,
+        font::FontType::Default,
     );
 
-    let ui_font = font::load_assets(asset_server, &config, font::FontType::Default);
-
     commands.spawn((
-        Text::new(config.ui.tutorial_text.clone()),
+        Text::new(card_spawn_params.config.ui.tutorial_text.clone()),
         TextFont {
             font: ui_font.clone(),
-            font_size: config.ui.tutorial_font_size,
+            font_size: card_spawn_params.config.ui.tutorial_font_size,
             ..default()
         },
         TextColor(Color::WHITE),
         Node {
             position_type: PositionType::Absolute,
-            top: px(config.ui.tutorial_offset[1]),
-            left: px(config.ui.tutorial_offset[0]),
+            top: px(card_spawn_params.config.ui.tutorial_offset[1]),
+            left: px(card_spawn_params.config.ui.tutorial_offset[0]),
             ..default()
         },
         GameView,
     ));
 
     commands.spawn((
-        Text::new(config.ui.status_initial_text.clone()),
+        Text::new(card_spawn_params.config.ui.status_initial_text.clone()),
         TextFont {
             font: ui_font,
-            font_size: config.ui.status_font_size,
+            font_size: card_spawn_params.config.ui.status_font_size,
             ..default()
         },
-        TextColor(config.ui.status_color()),
+        TextColor(card_spawn_params.config.ui.status_color()),
         Node {
             position_type: PositionType::Absolute,
-            bottom: px(config.ui.status_offset[1]),
-            left: px(config.ui.status_offset[0]),
+            bottom: px(card_spawn_params.config.ui.status_offset[1]),
+            left: px(card_spawn_params.config.ui.status_offset[0]),
             ..default()
         },
         StatusText,

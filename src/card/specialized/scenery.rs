@@ -1,5 +1,5 @@
 use crate::card::CardKind;
-use crate::card::card_params::CardSpecialized;
+use crate::card::card_params::{CardSpawnParams, CardSpecialized};
 use crate::register_card_specialized_param;
 use bevy::ecs::system::EntityCommands;
 use serde::{Deserialize, Serialize};
@@ -13,7 +13,12 @@ impl CardSpecialized for SceneryCardParams {
         CardKind::Scenery
     }
 
-    fn insert_components(&self, _entity: &mut EntityCommands<'_>) {}
+    fn spawn_with(
+        &self,
+        _entity: &mut EntityCommands<'_>,
+        _spawn_params: &mut CardSpawnParams<'_>,
+    ) {
+    }
 }
 
 register_card_specialized_param!("scenery", SceneryCardParams);

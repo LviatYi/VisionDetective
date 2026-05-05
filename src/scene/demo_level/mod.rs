@@ -1,8 +1,6 @@
 use crate::GameView;
-use crate::card::card_params::{CardParam, CardSceneParam, CardSpecializedRegistry};
+use crate::card::card_params::{CardParam, CardSceneParam, CardSpawnParams};
 use crate::card::spawn_card_by_card_param;
-use crate::config::GameConfig;
-use crate::config::card_config::CardPresetsConfig;
 use bevy::prelude::*;
 
 struct DemoCard {
@@ -51,45 +49,20 @@ const DEMO_CARDS: &[DemoCard] = &[
     },
 ];
 
-pub fn spawn_demo_cards(
-    commands: &mut Commands,
-    asset_server: &AssetServer,
-    config: &GameConfig,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<ColorMaterial>,
-    card_presets_config: &CardPresetsConfig,
-    card_specialized_registry: &CardSpecializedRegistry,
-) {
+pub fn spawn_demo_cards(commands: &mut Commands, spawn_params: &mut CardSpawnParams<'_>) {
     for card in DEMO_CARDS {
-        spawn_demo_card(
-            commands,
-            asset_server,
-            config,
-            meshes,
-            materials,
-            card_presets_config,
-            card_specialized_registry,
-            card,
-        );
+        spawn_demo_card(commands, spawn_params, card);
     }
 }
 
 fn spawn_demo_card(
     commands: &mut Commands,
-    asset_server: &AssetServer,
-    config: &GameConfig,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<ColorMaterial>,
-    card_presets_config: &CardPresetsConfig,
-    card_specialized_registry: &CardSpecializedRegistry,
+    spawn_params: &mut CardSpawnParams<'_>,
     card: &DemoCard,
 ) {
     let entity = spawn_card_by_card_param(
         commands,
-        asset_server,
-        config,
-        meshes,
-        materials,
+        spawn_params,
         &CardParam {
             scene_param: CardSceneParam {
                 position: card.position,
@@ -98,8 +71,6 @@ fn spawn_demo_card(
             },
             prefab_id: card.prefab_id,
         },
-        card_presets_config,
-        card_specialized_registry,
     );
 
     commands.entity(entity).insert(GameView);

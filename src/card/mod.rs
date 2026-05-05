@@ -2,12 +2,16 @@ pub mod card_params;
 pub mod specialized;
 
 use crate::card::card_params::{CardImageLayoutType, CardSceneParam};
-use crate::card::card_params::{CardParam, CardSpecializedRegistry};
+use crate::card::card_params::{CardParam, CardSpawnParams, CardSpecializedRegistry};
 use crate::config::GameConfig;
-use crate::config::card_config::CardPresetsConfig;
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
+use geo::orient::Direction;
+use geo::{
+    BooleanOps, Coord as GeoCoord, LineString as GeoLineString, Orient, Polygon as GeoPolygon,
+    TriangulateEarcut,
+};
 use serde::Deserialize;
 
 pub struct CardPlugin;
@@ -48,6 +52,40 @@ impl CardInstanceType {
 }
 
 impl Card {
+    pub const fn card_area() -> f32 {
+        CARD_SIZE.x * CARD_SIZE.y
+    }
+
+    pub fn card_geo_polygon() -> GeoPolygon<f32> {
+        let half = CARD_SIZE * 0.5;
+        GeoPolygon::new(
+            GeoLineString::from(vec![
+                GeoCoord {
+                    x: -half.x,
+                    y: -half.y,
+                },
+                GeoCoord {
+                    x: half.x,
+                    y: -half.y,
+                },
+                GeoCoord {
+                    x: half.x,
+                    y: half.y,
+                },
+                GeoCoord {
+                    x: -half.x,
+                    y: half.y,
+                },
+                GeoCoord {
+                    x: -half.x,
+                    y: -half.y,
+                },
+            ]),
+            vec![],
+        )
+        .orient(Direction::Default)
+    }
+
     pub fn intersect_circle(&self, transform: &GlobalTransform, point: Vec2, radius: f32) -> bool {
         let local_point = transform
             .to_matrix()
@@ -94,17 +132,14 @@ impl Plugin for CardPlugin {
 
 pub fn spawn_card_by_card_param(
     commands: &mut Commands,
-    asset_server: &AssetServer,
-    config: &GameConfig,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<ColorMaterial>,
+    spawn_params: &mut CardSpawnParams<'_>,
     card_param: &CardParam,
-    card_presets_config: &CardPresetsConfig,
-    card_specialized_registry: &CardSpecializedRegistry,
 ) -> Entity {
-    let appearance = card_param.load_appearance(card_presets_config);
-    let specialized =
-        card_param.load_specialized_config(card_presets_config, card_specialized_registry);
+    let appearance = card_param.load_appearance(&spawn_params.card_presets_config);
+    let specialized = card_param.load_specialized_config(
+        &spawn_params.card_presets_config,
+        &spawn_params.card_specialized_registry,
+    );
     let card_kind = specialized
         .as_ref()
         .map(|specialized| specialized.kind())
@@ -112,9 +147,9 @@ pub fn spawn_card_by_card_param(
     let fill_color = parse_hex_color(&appearance.background_color_appearance_override)
         .unwrap_or_else(|| {
             if specialized.is_some() {
-                config.cards.fill_color(card_kind)
+                spawn_params.config.cards.fill_color(card_kind)
             } else {
-                config.cards.default_fill_color()
+                spawn_params.config.cards.default_fill_color()
             }
         });
 
@@ -132,34 +167,34 @@ pub fn spawn_card_by_card_param(
         },
         card_kind,
         Pickable::default(),
-        Mesh2d(meshes.add(rounded_rectangle_mesh(
+        Mesh2d(spawn_params.meshes.add(rounded_rectangle_mesh(
             CARD_SIZE,
-            config.cards.corner_radius,
-            config.cards.rounded_corner_segments,
+            spawn_params.config.cards.corner_radius,
+            spawn_params.config.cards.rounded_corner_segments,
         ))),
-        MeshMaterial2d(materials.add(fill_color)),
+        MeshMaterial2d(spawn_params.materials.add(fill_color)),
     ));
 
     if let Some(specialized) = specialized {
-        specialized.insert_components(&mut entity);
+        specialized.spawn_with(&mut entity, spawn_params);
     }
 
     entity.with_children(|parent| {
         spawn_card_image(
             parent,
-            asset_server,
-            config,
-            meshes,
-            materials,
+            spawn_params.asset_server.as_ref(),
+            &spawn_params.config,
+            spawn_params.meshes.as_mut(),
+            spawn_params.materials.as_mut(),
             &appearance.image_layout_type,
             &appearance.image_res_path,
         );
         spawn_card_title(
             parent,
-            asset_server,
-            config,
-            meshes,
-            materials,
+            spawn_params.asset_server.as_ref(),
+            &spawn_params.config,
+            spawn_params.meshes.as_mut(),
+            spawn_params.materials.as_mut(),
             &appearance.title,
         );
     });

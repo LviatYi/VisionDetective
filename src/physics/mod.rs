@@ -14,22 +14,16 @@ pub struct PhysicsPlugin;
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct Velocity(Vec3);
 
-#[derive(Message, Clone, Copy, Debug)]
-pub struct PlayerCoinStopped {
-    pub position: Vec2,
-}
-
 impl Plugin for PhysicsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<PlayerCoinStopped>()
-            .add_systems(
-                Update,
-                move_player_coin_transform.run_if(in_state(GameState::InGame)),
-            )
-            .add_systems(
-                Update,
-                obstacle::draw_obstacle_paths.run_if(in_state(AppView::Editor)),
-            );
+        app.add_systems(
+            Update,
+            move_player_coin_transform.run_if(in_state(GameState::InGame)),
+        )
+        .add_systems(
+            Update,
+            obstacle::draw_obstacle_paths.run_if(in_state(AppView::Editor)),
+        );
     }
 }
 
@@ -39,7 +33,6 @@ pub fn move_player_coin_transform(
     mut player_state: ResMut<PlayerCoinState>,
     mut transform_query: Query<(&mut Transform, &mut PlayerCoin, &mut Velocity)>,
     obstacle_query: Query<(&Transform, &Obstacle), Without<PlayerCoin>>,
-    mut stopped_writer: MessageWriter<PlayerCoinStopped>,
 ) {
     let Ok((mut transform, mut coin, mut velocity)) = transform_query.single_mut() else {
         return;
@@ -100,9 +93,6 @@ pub fn move_player_coin_transform(
             velocity.y = 0.0;
             if matches!(**player_state, EPlayerCoinState::Ejecting) {
                 player_state.set_state(EPlayerCoinState::Idle);
-                stopped_writer.write(PlayerCoinStopped {
-                    position: transform.translation.truncate(),
-                });
             }
         } else {
             let friction_delta = config.physics.sliding_friction * dt;

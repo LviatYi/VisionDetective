@@ -17,7 +17,7 @@ pub mod font {
     }
 
     pub fn load_assets(
-        asset_server: Res<AssetServer>,
+        asset_server: &Res<AssetServer>,
         config: &GameConfig,
         font: FontType,
     ) -> Handle<Font> {

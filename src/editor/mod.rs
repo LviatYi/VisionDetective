@@ -1,11 +1,10 @@
 use crate::AppView;
-use crate::card::card_params::{CardParam, CardSceneParam, CardSpecializedRegistry};
+use crate::card::card_params::{CardParam, CardSceneParam, CardSpawnParams};
 use crate::card::{CARD_SIZE, Card, spawn_card_by_card_param};
 use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
 use crate::editor::editor_view::{EditorView, setup_editor_view};
 use crate::game_view::main_view::cleanup_view;
-use bevy::ecs::system::SystemParam;
 use bevy::input::ButtonInput;
 use bevy::picking::pointer::PointerButton;
 use bevy::picking::prelude::{Drag, Move, Out, Over, Pointer, Press, Release, Scroll};
@@ -111,16 +110,6 @@ struct PrefabPreviewItem {
     id: u32,
     title: String,
     background_color: Color,
-}
-
-#[derive(SystemParam)]
-struct EditorCardSpawnDeps<'w> {
-    asset_server: Res<'w, AssetServer>,
-    config: Res<'w, GameConfig>,
-    meshes: ResMut<'w, Assets<Mesh>>,
-    materials: ResMut<'w, Assets<ColorMaterial>>,
-    card_presets_config: Res<'w, CardPresetsConfig>,
-    card_specialized_registry: Res<'w, CardSpecializedRegistry>,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -428,7 +417,7 @@ fn handle_toolbar_buttons(
     mut press_events: MessageReader<Pointer<Press>>,
     action_query: Query<&EditorButtonAction>,
     card_query: Query<(Entity, &Card, &Transform), Without<EditorDragPreview>>,
-    mut spawn_deps: EditorCardSpawnDeps,
+    mut spawn_deps: CardSpawnParams<'_>,
     mut state: ResMut<EditorInteractionState>,
 ) {
     for event in press_events.read() {
@@ -463,7 +452,7 @@ fn handle_prefab_drag_start(
     mut commands: Commands,
     mut press_events: MessageReader<Pointer<Press>>,
     preview_query: Query<&PrefabPreviewButton>,
-    mut spawn_deps: EditorCardSpawnDeps,
+    mut spawn_deps: CardSpawnParams<'_>,
     mut state: ResMut<EditorInteractionState>,
 ) {
     for event in press_events.read() {
@@ -802,7 +791,7 @@ fn handle_editor_shortcuts(
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     card_query: Query<(Entity, &Card, &Transform), Without<EditorDragPreview>>,
-    spawn_deps: EditorCardSpawnDeps,
+    spawn_deps: CardSpawnParams<'_>,
     mut state: ResMut<EditorInteractionState>,
 ) {
     let ctrl_pressed = keyboard_input.pressed(KeyCode::ControlLeft)
@@ -1267,19 +1256,10 @@ fn projections_overlap(a: (f32, f32), b: (f32, f32)) -> bool {
 
 fn spawn_editor_card(
     commands: &mut Commands,
-    spawn_deps: &mut EditorCardSpawnDeps,
+    spawn_deps: &mut CardSpawnParams<'_>,
     card_param: &CardParam,
 ) -> Entity {
-    let entity = spawn_card_by_card_param(
-        commands,
-        &spawn_deps.asset_server,
-        &spawn_deps.config,
-        spawn_deps.meshes.as_mut(),
-        spawn_deps.materials.as_mut(),
-        card_param,
-        &spawn_deps.card_presets_config,
-        &spawn_deps.card_specialized_registry,
-    );
+    let entity = spawn_card_by_card_param(commands, spawn_deps, card_param);
     commands.entity(entity).insert(EditorView);
     append_editor_card_overlays(
         commands,
@@ -1376,7 +1356,7 @@ fn save_scene_to_path(
 fn load_scene(
     commands: &mut Commands,
     card_query: &Query<(Entity, &Card, &Transform), Without<EditorDragPreview>>,
-    mut spawn_deps: EditorCardSpawnDeps,
+    mut spawn_deps: CardSpawnParams<'_>,
     format: SceneFileFormat,
 ) -> String {
     load_scene_from_path(commands, card_query, &mut spawn_deps, &scene_path(format))
@@ -1385,7 +1365,7 @@ fn load_scene(
 fn load_scene_from_path(
     commands: &mut Commands,
     card_query: &Query<(Entity, &Card, &Transform), Without<EditorDragPreview>>,
-    spawn_deps: &mut EditorCardSpawnDeps,
+    spawn_deps: &mut CardSpawnParams<'_>,
     path: &Path,
 ) -> String {
     let format = match scene_file_format_from_path(path) {

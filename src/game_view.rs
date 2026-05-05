@@ -62,7 +62,7 @@ pub mod main_view {
         asset_server: Res<AssetServer>,
         config: Res<GameConfig>,
     ) {
-        let ui_font = font::load_assets(asset_server, &config, font::FontType::Default);
+        let ui_font = font::load_assets(&asset_server, &config, font::FontType::Default);
 
         commands.spawn((Camera2d, MainMenuView));
 
