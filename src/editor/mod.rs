@@ -30,7 +30,6 @@ const PREFAB_SCROLL_STEP: f32 = 28.0;
 const ROTATION_HANDLE_RADIUS: f32 = 14.0;
 const EDITOR_SCENE_DIR: &str = "assets/editor";
 const EDITOR_SCENE_TOML: &str = "editor_scene.toml";
-const EDITOR_SCENE_BIN: &str = "editor_scene.bin";
 const CARD_ORDER_STEP: f32 = 1.0;
 const DRAG_PREVIEW_ORDER: f32 = 20.0;
 const ORDER_LABEL_FONT_SIZE: f32 = 13.0;
@@ -868,19 +867,13 @@ fn handle_editor_shortcuts(
         state.status_message = save_scene(&card_query, SceneFileFormat::Toml);
     }
 
-    if keyboard_input.just_pressed(KeyCode::KeyB) {
-        state.status_message = save_scene(&card_query, SceneFileFormat::Binary);
-    }
-
     if keyboard_input.just_pressed(KeyCode::KeyI) {
-        let format = if keyboard_input.pressed(KeyCode::ShiftLeft)
-            || keyboard_input.pressed(KeyCode::ShiftRight)
-        {
-            SceneFileFormat::Binary
-        } else {
-            SceneFileFormat::Toml
-        };
-        state.status_message = load_scene(&mut commands, &card_query, spawn_deps, format);
+        state.status_message = load_scene(
+            &mut commands,
+            &card_query,
+            spawn_deps,
+            SceneFileFormat::Toml,
+        );
         state.selected_entity = None;
     }
 }
@@ -1359,7 +1352,7 @@ fn append_editor_card_overlays(
 #[derive(Clone, Copy)]
 enum SceneFileFormat {
     Toml,
-    Binary,
+    // Binary,
 }
 
 fn save_scene(
@@ -1426,9 +1419,6 @@ fn save_scene_to_path(
         SceneFileFormat::Toml => toml::to_string_pretty(&scene)
             .map_err(|error| error.to_string())
             .and_then(|raw| fs::write(path, raw).map_err(|error| error.to_string())),
-        SceneFileFormat::Binary => {
-            write_scene_binary(&scene, path).map_err(|error| error.to_string())
-        }
     };
 
     match result {
@@ -1495,7 +1485,6 @@ fn load_scene_from_path(
             Ok(raw) => toml::from_str::<EditorSceneFile>(&raw).map_err(|error| error.to_string()),
             Err(error) => Err(error.to_string()),
         },
-        SceneFileFormat::Binary => read_scene_binary(&path).map_err(|error| error.to_string()),
     };
 
     let scene = match scene {
@@ -1525,7 +1514,6 @@ fn editor_scene_dir() -> PathBuf {
 fn scene_path(format: SceneFileFormat) -> PathBuf {
     let file_name = match format {
         SceneFileFormat::Toml => EDITOR_SCENE_TOML,
-        SceneFileFormat::Binary => EDITOR_SCENE_BIN,
     };
 
     editor_scene_dir().join(file_name)
@@ -1536,7 +1524,7 @@ fn pick_scene_export_path() -> Option<PathBuf> {
         .set_title("导出场景")
         .set_directory(editor_scene_dir())
         .set_file_name(EDITOR_SCENE_TOML)
-        .add_filter("场景文件", &["toml", "bin"])
+        .add_filter("场景文件", &["toml"])
         .save_file()
 }
 
@@ -1544,170 +1532,19 @@ fn pick_scene_import_path() -> Option<PathBuf> {
     FileDialog::new()
         .set_title("导入场景")
         .set_directory(editor_scene_dir())
-        .add_filter("场景文件", &["toml", "bin"])
+        .add_filter("场景文件", &["toml"])
         .pick_file()
 }
 
 fn scene_file_format_from_path(path: &Path) -> Result<SceneFileFormat, String> {
     let Some(extension) = path.extension().and_then(|ext| ext.to_str()) else {
-        return Err(format!(
-            "文件格式不受支持 {}：请使用 .toml 或 .bin",
-            path.display()
-        ));
+        return Err(format!("文件格式不受支持 {}：请使用 .toml", path.display()));
     };
 
     match extension.to_ascii_lowercase().as_str() {
         "toml" => Ok(SceneFileFormat::Toml),
-        "bin" => Ok(SceneFileFormat::Binary),
-        _ => Err(format!(
-            "文件格式不受支持 {}：请使用 .toml 或 .bin",
-            path.display()
-        )),
+        _ => Err(format!("文件格式不受支持 {}：请使用 .toml", path.display())),
     }
-}
-
-fn write_scene_binary(scene: &EditorSceneFile, path: &Path) -> std::io::Result<()> {
-    if scene
-        .cards
-        .iter()
-        .any(|card| card.runtime_specialized_param.is_some())
-    {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Unsupported,
-            "二进制场景格式暂不支持 runtime_specialized_param，请导出 TOML",
-        ));
-    }
-
-    let mut bytes = Vec::new();
-    bytes.extend_from_slice(b"VDES");
-    bytes.extend_from_slice(&(scene.cards.len() as u32).to_le_bytes());
-
-    for card in &scene.cards {
-        bytes.extend_from_slice(&card.prefab_id.to_le_bytes());
-        bytes.extend_from_slice(&card.scene_param.position.x.to_le_bytes());
-        bytes.extend_from_slice(&card.scene_param.position.y.to_le_bytes());
-        bytes.extend_from_slice(&card.scene_param.rotation.to_le_bytes());
-        bytes.extend_from_slice(&card.scene_param.order.to_le_bytes());
-    }
-
-    fs::write(path, bytes)
-}
-
-fn read_scene_binary(path: &Path) -> Result<EditorSceneFile, String> {
-    let bytes = fs::read(path).map_err(|error| error.to_string())?;
-    if bytes.len() < 8 || &bytes[0..4] != b"VDES" {
-        return Err("非法二进制场景文件头".into());
-    }
-
-    let mut cursor = 4usize;
-    let count = read_u32(&bytes, &mut cursor)? as usize;
-
-    if bytes.len() == 8 + count * 20 {
-        let mut cards = Vec::with_capacity(count);
-        for _ in 0..count {
-            let prefab_id = read_u32(&bytes, &mut cursor)?;
-            let position = Vec2::new(
-                read_f32(&bytes, &mut cursor)?,
-                read_f32(&bytes, &mut cursor)?,
-            );
-            let rotation = read_f32(&bytes, &mut cursor)?;
-            let order = read_f32(&bytes, &mut cursor)?;
-            cards.push(CardParam {
-                scene_param: CardSceneParam {
-                    position,
-                    rotation,
-                    order,
-                },
-                prefab_id,
-                runtime_specialized_param: None,
-            });
-        }
-
-        return Ok(EditorSceneFile { cards });
-    }
-
-    if bytes.len() == 8 + count * 16 {
-        let mut cards = Vec::with_capacity(count);
-        for _ in 0..count {
-            let prefab_id = read_u32(&bytes, &mut cursor)?;
-            let position = Vec2::new(
-                read_f32(&bytes, &mut cursor)?,
-                read_f32(&bytes, &mut cursor)?,
-            );
-            let rotation = read_f32(&bytes, &mut cursor)?;
-            cards.push(CardParam {
-                scene_param: CardSceneParam {
-                    position,
-                    rotation,
-                    order: 0.0,
-                },
-                prefab_id,
-                runtime_specialized_param: None,
-            });
-        }
-
-        return Ok(EditorSceneFile { cards });
-    }
-
-    for _ in 0..count {
-        let title_len = read_u16(&bytes, &mut cursor)? as usize;
-        let title_range_end = cursor + title_len;
-        if title_range_end > bytes.len() {
-            return Err("场景文件截断：标题越界".into());
-        }
-        cursor = title_range_end;
-
-        let mut translation = [0.0; 3];
-        for value in &mut translation {
-            *value = read_f32(&bytes, &mut cursor)?;
-        }
-        let mut size = [0.0; 2];
-        for value in &mut size {
-            *value = read_f32(&bytes, &mut cursor)?;
-        }
-    }
-
-    Ok(EditorSceneFile { cards: Vec::new() })
-}
-
-fn read_u16(bytes: &[u8], cursor: &mut usize) -> Result<u16, String> {
-    let end = *cursor + 2;
-    if end > bytes.len() {
-        return Err("场景文件截断：u16 越界".into());
-    }
-    let value = u16::from_le_bytes([bytes[*cursor], bytes[*cursor + 1]]);
-    *cursor = end;
-    Ok(value)
-}
-
-fn read_u32(bytes: &[u8], cursor: &mut usize) -> Result<u32, String> {
-    let end = *cursor + 4;
-    if end > bytes.len() {
-        return Err("场景文件截断：u32 越界".into());
-    }
-    let value = u32::from_le_bytes([
-        bytes[*cursor],
-        bytes[*cursor + 1],
-        bytes[*cursor + 2],
-        bytes[*cursor + 3],
-    ]);
-    *cursor = end;
-    Ok(value)
-}
-
-fn read_f32(bytes: &[u8], cursor: &mut usize) -> Result<f32, String> {
-    let end = *cursor + 4;
-    if end > bytes.len() {
-        return Err("场景文件截断：f32 越界".into());
-    }
-    let value = f32::from_le_bytes([
-        bytes[*cursor],
-        bytes[*cursor + 1],
-        bytes[*cursor + 2],
-        bytes[*cursor + 3],
-    ]);
-    *cursor = end;
-    Ok(value)
 }
 
 pub mod editor_view {
