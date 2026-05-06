@@ -1,0 +1,35 @@
+[[cards]]
+prefab_id = 1003
+
+[cards.scene_param]
+position = [
+    -23.33332,
+    14.666661,
+]
+rotation = -0.0
+order = 1.0
+
+[[cards]]
+prefab_id = 1006
+
+[cards.scene_param]
+position = [
+    255.33333,
+    -71.33332,
+]
+rotation = -0.0
+order = 2.0
+
+[cards.runtime_specialized_param]
+type = "clue"
+
+[cards.runtime_specialized_param.params]
+interaction_prefab_id = 1003
+
+[cards.runtime_specialized_param.params.interaction_target_scene_param]
+order = 3.0
+position = [
+    422.97674560546875,
+    -187.9999542236328,
+]
+rotation = -0.0

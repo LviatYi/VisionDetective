@@ -16,7 +16,7 @@ use bevy::window::{PrimaryWindow, Window};
 use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
-use std::f32::consts::FRAC_PI_4;
+use std::f32::consts::{FRAC_PI_4, PI, TAU};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -613,6 +613,7 @@ fn update_drag_preview_card(
     let Some(world_position) = pointer_world.0 else {
         return;
     };
+    let world_position = normalize_editor_position(world_position);
 
     let Ok((mut transform, mut visibility)) = preview_query.get_mut(preview_entity) else {
         return;
@@ -685,6 +686,7 @@ fn handle_prefab_drop(
         state.status_message = "放置卡牌失败：无法映射到场景坐标".into();
         return;
     };
+    let world_position = normalize_editor_position(world_position);
 
     let Some(entity) = preview_entity else {
         state.status_message = "放置卡牌失败：拖拽预览不存在".into();
@@ -790,7 +792,7 @@ fn handle_scene_editing(
         if let Some(moving) = state.moving_entity
             && let Ok(mut transform) = transform_query.get_mut(moving.entity)
         {
-            let next = cursor_world_position + moving.pointer_offset;
+            let next = normalize_editor_position(cursor_world_position + moving.pointer_offset);
             transform.translation.x = next.x;
             transform.translation.y = next.y;
         }
@@ -799,7 +801,8 @@ fn handle_scene_editing(
             && let Ok(mut transform) = transform_query.get_mut(rotating.entity)
         {
             let center = transform.translation.truncate();
-            let angle = (cursor_world_position - center).to_angle() - FRAC_PI_4;
+            let angle =
+                normalize_editor_rotation((cursor_world_position - center).to_angle() - FRAC_PI_4);
             transform.rotation = Quat::from_rotation_z(angle);
         }
     }
@@ -1124,6 +1127,23 @@ fn cursor_world_position(
         .ok()
 }
 
+fn normalize_editor_position(position: Vec2) -> Vec2 {
+    Vec2::new(position.x.round(), position.y.round())
+}
+
+fn normalize_editor_rotation(rotation: f32) -> f32 {
+    let normalized = (rotation + PI).rem_euclid(TAU) - PI;
+    if normalized == -PI { PI } else { normalized }
+}
+
+fn normalize_editor_scene_param(scene_param: &CardSceneParam) -> CardSceneParam {
+    CardSceneParam {
+        position: normalize_editor_position(scene_param.position),
+        rotation: normalize_editor_rotation(scene_param.rotation),
+        order: scene_param.order,
+    }
+}
+
 fn parse_ui_color(input: &str) -> Option<Color> {
     let input = input.trim().trim_start_matches('#');
     if input.is_empty() {
@@ -1315,7 +1335,12 @@ pub fn spawn_editor_card(
     spawn_deps: &mut CardSpawnParams<'_>,
     card_param: &CardParam,
 ) -> Entity {
-    let entity = spawn_card_by_card_param(commands, spawn_deps, card_param);
+    let normalized_card_param = CardParam {
+        scene_param: normalize_editor_scene_param(&card_param.scene_param),
+        prefab_id: card_param.prefab_id,
+        runtime_specialized_param: card_param.runtime_specialized_param.clone(),
+    };
+    let entity = spawn_card_by_card_param(commands, spawn_deps, &normalized_card_param);
     commands.entity(entity).insert(EditorView);
     append_editor_card_overlays(
         commands,

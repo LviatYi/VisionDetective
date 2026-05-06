@@ -22,7 +22,7 @@ use crate::physics::PhysicsPlugin;
 use crate::physics::Velocity;
 use crate::physics::vision::VisionPlugin;
 use crate::picking::VisionPickingPlugin;
-use crate::scene::demo_level::spawn_demo_cards;
+use crate::scene::demo_level::load_demo_scene;
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 
@@ -85,7 +85,7 @@ fn finish_game_loading(mut next_game_state: ResMut<NextState<GameState>>) {
 
 fn setup_game_scene(mut commands: Commands, mut card_spawn_params: CardSpawnParams<'_>) {
     commands.spawn((Camera2d, GameView));
-    spawn_demo_cards(&mut commands, &mut card_spawn_params);
+    load_demo_scene(&mut commands, &mut card_spawn_params);
 
     let ui_font = font::load_assets(
         &card_spawn_params.asset_server,

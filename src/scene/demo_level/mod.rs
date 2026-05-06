@@ -1,112 +1,41 @@
 use crate::GameView;
-use crate::card::card_params::{
-    CardParam, CardRuntimeSpecializedConfig, CardSceneParam, CardSpawnParams,
-};
+use crate::card::card_params::{CardParam, CardSpawnParams};
 use crate::card::spawn_card_by_card_param;
 use bevy::prelude::*;
-use serde_json::json;
+use serde::Deserialize;
+use std::fs;
+use std::path::PathBuf;
 
-struct DemoCard {
-    prefab_id: u32,
-    position: Vec2,
-    order: f32,
-    rotation: f32,
-    runtime_specialized_param: Option<DemoRuntimeSpecializedParam>,
+const DEMO_SCENE_PATH: &str = "assets/scene/scene-demo-01.toml";
+
+#[derive(Deserialize, Default)]
+struct SceneFile {
+    #[serde(default)]
+    cards: Vec<CardParam>,
 }
 
-#[derive(Clone, Copy)]
-struct DemoRuntimeSpecializedParam {
-    type_id: &'static str,
-    interaction_prefab_id: u32,
-    interaction_target_position: Vec2,
-    interaction_target_order: f32,
-    interaction_target_rotation: f32,
-}
+pub fn load_demo_scene(commands: &mut Commands, spawn_params: &mut CardSpawnParams<'_>) {
+    let scene_path = demo_scene_path();
+    let scene = match fs::read_to_string(&scene_path)
+        .map_err(|error| error.to_string())
+        .and_then(|raw| toml::from_str::<SceneFile>(&raw).map_err(|error| error.to_string()))
+    {
+        Ok(scene) => scene,
+        Err(error) => {
+            bevy::log::error!(
+                "failed to load demo scene {}: {error}",
+                scene_path.display()
+            );
+            return;
+        }
+    };
 
-const DEMO_CARDS: &[DemoCard] = &[
-    DemoCard {
-        prefab_id: 1001,
-        position: Vec2::new(-310.0, -110.0),
-        order: 0.8,
-        rotation: -0.06,
-        runtime_specialized_param: None,
-    },
-    DemoCard {
-        prefab_id: 1002,
-        position: Vec2::new(-10.0, 20.0),
-        order: 0.8,
-        rotation: 0.18,
-        runtime_specialized_param: None,
-    },
-    DemoCard {
-        prefab_id: 1003,
-        position: Vec2::new(265.0, -120.0),
-        order: 0.8,
-        rotation: 0.1,
-        runtime_specialized_param: None,
-    },
-    DemoCard {
-        prefab_id: 1004,
-        position: Vec2::new(280.0, 150.0),
-        order: 0.8,
-        rotation: 0.0,
-        runtime_specialized_param: None,
-    },
-    DemoCard {
-        prefab_id: 1006,
-        position: Vec2::new(105.0, -185.0),
-        order: 0.8,
-        rotation: -0.12,
-        runtime_specialized_param: Some(DemoRuntimeSpecializedParam {
-            type_id: "clue",
-            interaction_prefab_id: 1005,
-            interaction_target_position: Vec2::new(-255.0, 145.0),
-            interaction_target_order: 0.8,
-            interaction_target_rotation: 0.0,
-        }),
-    },
-];
-
-pub fn spawn_demo_cards(commands: &mut Commands, spawn_params: &mut CardSpawnParams<'_>) {
-    for card in DEMO_CARDS {
-        spawn_demo_card(commands, spawn_params, card);
+    for card in &scene.cards {
+        let entity = spawn_card_by_card_param(commands, spawn_params, card);
+        commands.entity(entity).insert(GameView);
     }
 }
 
-fn spawn_demo_card(
-    commands: &mut Commands,
-    spawn_params: &mut CardSpawnParams<'_>,
-    card: &DemoCard,
-) -> Entity {
-    let entity = spawn_card_by_card_param(
-        commands,
-        spawn_params,
-        &CardParam {
-            scene_param: CardSceneParam {
-                position: card.position,
-                rotation: card.rotation,
-                order: card.order,
-            },
-            prefab_id: card.prefab_id,
-            runtime_specialized_param: card.runtime_specialized_param.map(|param| {
-                CardRuntimeSpecializedConfig {
-                    type_id: param.type_id.to_string(),
-                    params: json!({
-                        "interaction_prefab_id": param.interaction_prefab_id,
-                        "interaction_target_scene_param": {
-                            "position": [
-                                param.interaction_target_position.x,
-                                param.interaction_target_position.y
-                            ],
-                            "rotation": param.interaction_target_rotation,
-                            "order": param.interaction_target_order,
-                        },
-                    }),
-                }
-            }),
-        },
-    );
-
-    commands.entity(entity).insert(GameView);
-    entity
+fn demo_scene_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(DEMO_SCENE_PATH)
 }
