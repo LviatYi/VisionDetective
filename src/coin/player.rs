@@ -339,15 +339,6 @@ pub mod controller {
         player_state: Res<PlayerCoinState>,
         player_query: Query<&Transform, With<PlayerCoin>>,
     ) {
-        gizmos.rect_2d(
-            Vec2::ZERO,
-            Vec2::new(
-                config.physics.arena_half_width * 2.0,
-                config.physics.arena_half_height * 2.0,
-            ),
-            config.player.arena_outline_color(),
-        );
-
         let Ok(player_transform) = player_query.single() else {
             return;
         };

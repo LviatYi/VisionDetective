@@ -41,7 +41,6 @@ height_scale_factor = 0.75
 aim_ring_padding = 6.0
 # RGBA color for the player aim highlight ring.
 aim_ring_color = [1.0, 1.0, 1.0, 0.12]
-arena_outline_color = [0.22, 0.28, 0.31]
 charge_line_color = [0.98, 0.43, 0.29]
 launch_line_color = [0.26, 0.87, 0.71]
 # Radius of the predicted landing marker while charging.
@@ -74,9 +73,6 @@ title_glass_corner_radius = 5.0
 title_glass_color = [1.0, 1.0, 1.0, 0.5]
 
 [physics]
-# Half extents of the rectangular arena in world units.
-arena_half_width = 500.0
-arena_half_height = 280.0
 # Velocity multiplier applied after wall or obstacle bounce.
 bounce_factor = 0.72
 # Horizontal damping applied on each ground contact and vertical rebound.

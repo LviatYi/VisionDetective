@@ -1,4 +1,5 @@
 pub mod asset;
+pub mod camera_control;
 pub mod card;
 pub mod coin;
 pub mod config;
@@ -9,6 +10,7 @@ pub mod picking;
 pub mod scene;
 
 use crate::asset::font;
+use crate::camera_control::{CameraControlPlugin, GameCamera};
 use crate::card::CardPlugin;
 use crate::card::card_params::CardSpawnParams;
 use crate::coin::player::PlayerPlugin;
@@ -59,6 +61,7 @@ fn main() {
             VisionPickingPlugin,
             CardPlugin,
             EditorPlugin,
+            CameraControlPlugin,
         ))
         .add_systems(OnEnter(GameState::Loading), setup_game_scene)
         .add_systems(
@@ -84,7 +87,7 @@ fn finish_game_loading(mut next_game_state: ResMut<NextState<GameState>>) {
 }
 
 fn setup_game_scene(mut commands: Commands, mut card_spawn_params: CardSpawnParams<'_>) {
-    commands.spawn((Camera2d, GameView));
+    commands.spawn((Camera2d, GameView, GameCamera));
     load_demo_scene(&mut commands, &mut card_spawn_params);
 
     let ui_font = font::load_assets(

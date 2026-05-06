@@ -48,27 +48,6 @@ pub fn move_player_coin_transform(
 
     transform.translation += velocity.with_z(0.0) * dt;
 
-    let min_x = -config.physics.arena_half_width + config.visuals.player_radius;
-    let max_x = config.physics.arena_half_width - config.visuals.player_radius;
-    let min_y = -config.physics.arena_half_height + config.visuals.player_radius;
-    let max_y = config.physics.arena_half_height - config.visuals.player_radius;
-
-    if transform.translation.x < min_x {
-        transform.translation.x = min_x;
-        velocity.x = velocity.x.abs() * config.physics.bounce_factor;
-    } else if transform.translation.x > max_x {
-        transform.translation.x = max_x;
-        velocity.x = -velocity.x.abs() * config.physics.bounce_factor;
-    }
-
-    if transform.translation.y < min_y {
-        transform.translation.y = min_y;
-        velocity.y = velocity.y.abs() * config.physics.bounce_factor;
-    } else if transform.translation.y > max_y {
-        transform.translation.y = max_y;
-        velocity.y = -velocity.y.abs() * config.physics.bounce_factor;
-    }
-
     resolve_obstacle_collisions(&config, &mut transform, &mut velocity, &obstacle_query);
 
     if airborne && coin.sim_z <= 0.0 {

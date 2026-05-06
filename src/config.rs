@@ -93,7 +93,6 @@ pub struct PlayerConfig {
     pub height_scale_factor: f32,
     pub aim_ring_padding: f32,
     pub aim_ring_color: [f32; 4],
-    pub arena_outline_color: [f32; 3],
     pub charge_line_color: [f32; 3],
     pub launch_line_color: [f32; 3],
     pub launch_marker_radius: f32,
@@ -106,14 +105,6 @@ impl PlayerConfig {
             self.aim_ring_color[1],
             self.aim_ring_color[2],
             self.aim_ring_color[3],
-        )
-    }
-
-    pub fn arena_outline_color(&self) -> Color {
-        Color::srgb(
-            self.arena_outline_color[0],
-            self.arena_outline_color[1],
-            self.arena_outline_color[2],
         )
     }
 
@@ -157,8 +148,6 @@ impl UiConfig {
 
 #[derive(Clone, Deserialize)]
 pub struct PhysicsConfig {
-    pub arena_half_width: f32,
-    pub arena_half_height: f32,
     pub bounce_factor: f32,
     pub landing_speed_loss: f32,
     pub sliding_friction: f32,
