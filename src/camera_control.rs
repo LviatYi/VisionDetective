@@ -1,6 +1,7 @@
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::PlayerCoinState;
 use crate::game_view::GameState;
+use crate::input::GameplayInputBlocker;
 use crate::physics::{Velocity, move_player_coin_transform};
 use bevy::prelude::*;
 
@@ -38,6 +39,7 @@ fn update_game_camera(
     player_query: Query<(&Transform, &Velocity), (With<PlayerCoin>, Without<GameCamera>)>,
     mut camera_query: Query<(&mut Transform, &Projection), (With<GameCamera>, Without<PlayerCoin>)>,
     mut phase: ResMut<CameraControlPhase>,
+    mut input_blocker: ResMut<GameplayInputBlocker>,
 ) {
     let dt = time.delta_secs();
     if dt <= 0.0 {
@@ -63,6 +65,7 @@ fn update_game_camera(
 
     if player_state.is_stop() || player_velocity.length_squared() < PLAYER_MOVING_EPSILON_SQUARED {
         focus_camera_on_player(dt, player_position, &mut camera_transform, &mut phase);
+        update_camera_focus_input_blocker(&phase, &mut input_blocker);
         return;
     }
 
@@ -73,6 +76,7 @@ fn update_game_camera(
             &mut camera_transform,
             &mut phase,
         );
+        update_camera_focus_input_blocker(&phase, &mut input_blocker);
         return;
     }
 
@@ -87,6 +91,7 @@ fn update_game_camera(
     } else {
         hold_camera(dt, &mut phase);
     }
+    update_camera_focus_input_blocker(&phase, &mut input_blocker);
 }
 
 fn focus_camera_on_player(
@@ -197,6 +202,17 @@ fn phase_velocity(phase: CameraControlPhase) -> Vec2 {
     }
 }
 
+fn update_camera_focus_input_blocker(
+    phase: &CameraControlPhase,
+    input_blocker: &mut GameplayInputBlocker,
+) {
+    if matches!(phase, CameraControlPhase::Focus(_)) {
+        input_blocker.block(CAMERA_FOCUS_INPUT_BLOCKER);
+    } else {
+        input_blocker.unblock(CAMERA_FOCUS_INPUT_BLOCKER);
+    }
+}
+
 const VIEWPORT_EDGE_RATIO: f32 = 0.3;
 const PURSUE_CATCH_UP_DISTANCE: f32 = 240.0;
 const FOCUS_SMOOTHNESS: f32 = 4.8;
@@ -210,3 +226,4 @@ const FOCUS_REST_DISTANCE_SQUARED: f32 = FOCUS_REST_DISTANCE * FOCUS_REST_DISTAN
 const HOLD_REST_VELOCITY: f32 = 0.5;
 const HOLD_REST_VELOCITY_SQUARED: f32 = HOLD_REST_VELOCITY * HOLD_REST_VELOCITY;
 const MIN_PURSUIT_VELOCITY_DELTA: f32 = 0.01;
+const CAMERA_FOCUS_INPUT_BLOCKER: &str = "camera_focusing";

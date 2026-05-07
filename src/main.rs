@@ -5,6 +5,7 @@ pub mod coin;
 pub mod config;
 pub mod editor;
 mod game_view;
+pub mod input;
 pub mod physics;
 pub mod picking;
 pub mod scene;
@@ -20,6 +21,7 @@ use crate::config::card_config::CardPresetsConfig;
 use crate::editor::EditorPlugin;
 use crate::game_view::main_view::{cleanup_view, handle_esc_to_main_menu};
 use crate::game_view::{AppView, GameState, GameViewPlugin};
+use crate::input::GameplayInputBlocker;
 use crate::physics::PhysicsPlugin;
 use crate::physics::Velocity;
 use crate::physics::vision::VisionPlugin;
@@ -42,6 +44,7 @@ fn main() {
         .insert_resource(ClearColor(config.window.clear_color()))
         .insert_resource(config.clone())
         .insert_resource(card_presets_config.clone())
+        .init_resource::<GameplayInputBlocker>()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: config.window.title.clone().into(),
