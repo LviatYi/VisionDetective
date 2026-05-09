@@ -19,7 +19,7 @@ use bevy::sprite::Anchor;
 use bevy::window::{PrimaryWindow, Window};
 use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::f32::consts::{FRAC_PI_4, PI, TAU};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -44,6 +44,7 @@ const EDITOR_CAMERA_DEFAULT_ZOOM: f32 = 1.0;
 const EDITOR_CAMERA_MIN_ZOOM: f32 = 0.35;
 const EDITOR_CAMERA_MAX_ZOOM: f32 = 4.0;
 const EDITOR_CAMERA_ZOOM_BASE: f32 = 1.12;
+const EDITOR_BOX_SELECT_MIN_SIZE: f32 = 4.0;
 
 pub struct EditorPlugin;
 
@@ -57,11 +58,13 @@ struct EditorPointerWorldPosition(Option<Vec2>);
 #[derive(Resource, Default)]
 pub struct EditorInteractionState {
     selected_entity: Option<Entity>,
+    selected_entities: Vec<Entity>,
     dragging_prefab: Option<u32>,
     drag_preview_entity: Option<Entity>,
     moving_entity: Option<MovingEntityState>,
     rotating_entity: Option<RotatingEntityState>,
     camera_panning: Option<EditorCameraPanState>,
+    box_selection: Option<EditorBoxSelectionState>,
     prefab_scroll_offset: f32,
     escape_consumed: bool,
     pending_exit_confirmation: bool,
@@ -74,6 +77,7 @@ impl EditorInteractionState {
             || self.moving_entity.is_some()
             || self.rotating_entity.is_some()
             || self.camera_panning.is_some()
+            || self.box_selection.is_some()
     }
 
     pub fn take_escape_consumed(&mut self) -> bool {
@@ -83,7 +87,7 @@ impl EditorInteractionState {
     }
 
     pub fn select_entity(&mut self, entity: Entity) {
-        self.selected_entity = Some(entity);
+        self.set_selection(vec![entity]);
     }
 
     pub fn set_status_message(&mut self, message: impl Into<String>) {
@@ -109,6 +113,31 @@ impl EditorInteractionState {
     fn clear_exit_confirmation(&mut self) {
         self.pending_exit_confirmation = false;
     }
+
+    fn set_selection(&mut self, entities: Vec<Entity>) {
+        self.selected_entity = entities.first().copied();
+        self.selected_entities = entities;
+    }
+
+    fn clear_selection(&mut self) {
+        self.selected_entity = None;
+        self.selected_entities.clear();
+    }
+
+    fn selected_entities_for_move(&self, entity: Entity) -> Vec<Entity> {
+        if self.selected_entities.contains(&entity) {
+            let mut entities = vec![entity];
+            entities.extend(
+                self.selected_entities
+                    .iter()
+                    .copied()
+                    .filter(|selected_entity| *selected_entity != entity),
+            );
+            entities
+        } else {
+            vec![entity]
+        }
+    }
 }
 
 #[derive(Bundle)]
@@ -121,12 +150,18 @@ struct EditorButtonBundle {
 
 #[derive(Clone)]
 pub struct MovingEntityState {
-    entity: Entity,
     pointer_offset: Vec2,
     start_position: Vec2,
     axis_lock: EditorAxisLock,
+    moving_entities: Vec<MovingEntityMember>,
     before_scene: EditorSceneFile,
     changed: bool,
+}
+
+#[derive(Clone)]
+struct MovingEntityMember {
+    entity: Entity,
+    start_position: Vec2,
 }
 
 #[derive(Clone)]
@@ -139,6 +174,12 @@ pub struct RotatingEntityState {
 #[derive(Clone, Copy)]
 struct EditorCameraPanState {
     last_cursor_position: Vec2,
+}
+
+#[derive(Clone, Copy)]
+struct EditorBoxSelectionState {
+    start_position: Vec2,
+    current_position: Vec2,
 }
 
 #[derive(Component)]
@@ -487,7 +528,7 @@ fn setup_editor_ui(
 
                     sidebar.spawn((
                         Text::new(
-                            "操作说明\n1. 直接按住卡牌预览并拖到主场景，松开后会克隆一张。\n2. 左键拖动卡牌位置，坐标会吸附到整数。\n3. 右键拖动主场景可平移编辑器视角，空白处滚轮调整视角高度。\n4. 拖动右上角旋转控制点，角度按 30° 粒度吸附。\n5. 鼠标悬浮卡牌时滚轮调整其在相交卡牌组内的层级。\n6. PageUp / PageDown 调整层级，Home / End 置底或置顶。\n7. Delete 删除选中卡牌。\n8. Ctrl+Z 撤销，Ctrl+Shift+Z 重做。\n9. Ctrl+E 导出，Ctrl+I 导入。",
+                            "操作说明\n1. 直接按住卡牌预览并拖到主场景，松开后会克隆一张。\n2. 左键拖动卡牌位置，空白处左键拖动可框选多张卡牌。\n3. 拖动选中卡牌可整体移动，按住 Shift 仅横向或纵向移动。\n4. 右键拖动主场景可平移编辑器视角，空白处滚轮调整视角高度。\n5. 拖动右上角旋转控制点，角度按 30° 粒度吸附。\n6. 鼠标悬浮卡牌时滚轮调整其在相交卡牌组内的层级。\n7. PageUp / PageDown 调整层级，Home / End 置底或置顶。\n8. Delete 删除选中卡牌。\n9. Ctrl+Z 撤销，Ctrl+Shift+Z 重做。\n10. Ctrl+E 导出，Ctrl+I 导入。",
                         ),
                         TextFont {
                             font: ui_font.clone(),
@@ -698,7 +739,7 @@ fn handle_toolbar_buttons(
                         }
                         None => "已取消导入".into(),
                     };
-                state.selected_entity = None;
+                state.clear_selection();
             }
             EditorButtonAction::ResetCameraView => {
                 let Ok((mut camera_transform, mut projection)) = camera_query.single_mut() else {
@@ -758,6 +799,7 @@ fn handle_prefab_drag_start(
         state.drag_preview_entity = Some(entity);
         state.moving_entity = None;
         state.rotating_entity = None;
+        state.box_selection = None;
         state.status_message = format!("正在拖拽预制体 #{}", preview_button.prefab_id);
     }
 }
@@ -951,7 +993,7 @@ fn handle_prefab_drop(
         .remove::<EditorDragPreview>()
         .insert((Visibility::Visible, EditorPlacedCard));
 
-    state.selected_entity = Some(entity);
+    state.set_selection(vec![entity]);
     record_editor_undo(&mut history, before_scene);
     state.clear_exit_confirmation();
     state.status_message = format!(
@@ -979,6 +1021,7 @@ fn handle_editor_camera_pan(
         if state.dragging_prefab.is_some()
             || state.moving_entity.is_some()
             || state.rotating_entity.is_some()
+            || state.box_selection.is_some()
         {
             continue;
         }
@@ -1118,6 +1161,7 @@ fn handle_scene_editing(
         >,
     )>,
     linked_entities_query: Query<&EditorLinkedEntities>,
+    reset_button_query: Query<(), With<EditorResetCameraButton>>,
     mut state: ResMut<EditorInteractionState>,
     mut history: ResMut<EditorUndoHistory>,
 ) {
@@ -1128,6 +1172,7 @@ fn handle_scene_editing(
     for event in press_events.read() {
         if event.button != PointerButton::Primary
             || !cursor_is_over_scene(window, event.pointer_location.position)
+            || reset_button_query.get(event.entity).is_ok()
         {
             continue;
         }
@@ -1139,7 +1184,7 @@ fn handle_scene_editing(
         state.clear_exit_confirmation();
         let mut start_rotation = None;
         let mut start_move = None;
-        let mut clear_selection = false;
+        let mut start_box_selection = false;
         {
             let card_query = card_queries.p0();
 
@@ -1160,7 +1205,7 @@ fn handle_scene_editing(
             } else if !keyboard_input.pressed(KeyCode::ControlLeft)
                 && !keyboard_input.pressed(KeyCode::ControlRight)
             {
-                clear_selection = true;
+                start_box_selection = true;
             }
         }
 
@@ -1175,6 +1220,7 @@ fn handle_scene_editing(
                 changed: false,
             });
             state.moving_entity = None;
+            state.box_selection = None;
             state.status_message = "正在旋转卡牌".into();
             return;
         }
@@ -1184,20 +1230,41 @@ fn handle_scene_editing(
                 let snapshot_query = card_queries.p2();
                 collect_editor_scene_snapshot(&snapshot_query)
             };
-            state.selected_entity = Some(entity);
+            let selected_entities = state.selected_entities_for_move(entity);
+            let moving_entities = {
+                let card_query = card_queries.p0();
+                selected_entities
+                    .iter()
+                    .filter_map(|entity| {
+                        card_query.get(*entity).ok().map(|(_, _, _, transform)| {
+                            MovingEntityMember {
+                                entity: *entity,
+                                start_position: transform.translation.truncate(),
+                            }
+                        })
+                    })
+                    .collect::<Vec<_>>()
+            };
+            state.set_selection(selected_entities);
             state.rotating_entity = None;
+            state.box_selection = None;
             state.moving_entity = Some(MovingEntityState {
-                entity,
                 pointer_offset,
                 start_position,
                 axis_lock: EditorAxisLock::None,
+                moving_entities,
                 before_scene,
                 changed: false,
             });
             state.status_message = format!("已选中卡牌 #{entity:?}，拖动中");
-        } else if clear_selection {
-            state.selected_entity = None;
-            state.status_message = "已取消选中".into();
+        } else if start_box_selection {
+            state.rotating_entity = None;
+            state.moving_entity = None;
+            state.box_selection = Some(EditorBoxSelectionState {
+                start_position: cursor_world_position,
+                current_position: cursor_world_position,
+            });
+            state.status_message = "正在框选卡牌".into();
         }
     }
 
@@ -1216,7 +1283,7 @@ fn handle_scene_editing(
                 || keyboard_input.pressed(KeyCode::ShiftRight);
             let snap_cards = {
                 let card_query = card_queries.p0();
-                collect_editor_snap_cards(moving.entity, &card_query)
+                collect_editor_snap_cards(&moving.moving_entities, &card_query)
             };
             let raw_next = normalize_editor_position(cursor_world_position + moving.pointer_offset);
             let axis_lock = update_editor_axis_lock(
@@ -1228,14 +1295,23 @@ fn handle_scene_editing(
             let axis_locked_next =
                 apply_editor_axis_lock(raw_next, moving.start_position, axis_lock);
             let next = snap_editor_card_position(axis_locked_next, &snap_cards, axis_lock);
+            let delta = next - moving.start_position;
 
             let mut transform_query = card_queries.p1();
-            if let Ok(mut transform) = transform_query.get_mut(moving.entity) {
-                moving.changed |=
-                    transform.translation.x != next.x || transform.translation.y != next.y;
-                transform.translation.x = next.x;
-                transform.translation.y = next.y;
+            for moving_entity in &moving.moving_entities {
+                if let Ok(mut transform) = transform_query.get_mut(moving_entity.entity) {
+                    let next_position =
+                        normalize_editor_position(moving_entity.start_position + delta);
+                    moving.changed |= transform.translation.x != next_position.x
+                        || transform.translation.y != next_position.y;
+                    transform.translation.x = next_position.x;
+                    transform.translation.y = next_position.y;
+                }
             }
+        }
+
+        if let Some(box_selection) = state.box_selection.as_mut() {
+            box_selection.current_position = cursor_world_position;
         }
 
         let mut transform_query = card_queries.p1();
@@ -1259,7 +1335,11 @@ fn handle_scene_editing(
             if moving.changed {
                 record_editor_undo(&mut history, moving.before_scene);
                 state.clear_exit_confirmation();
-                state.status_message = "卡牌位置已更新".into();
+                state.status_message = if moving.moving_entities.len() > 1 {
+                    format!("已移动 {} 张卡牌", moving.moving_entities.len())
+                } else {
+                    "卡牌位置已更新".into()
+                };
             }
         } else if let Some(rotating) = state.rotating_entity.take() {
             if rotating.changed {
@@ -1267,20 +1347,42 @@ fn handle_scene_editing(
                 state.clear_exit_confirmation();
                 state.status_message = "卡牌旋转已更新".into();
             }
+        } else if let Some(box_selection) = state.box_selection.take() {
+            let selected_entities = {
+                let card_query = card_queries.p0();
+                collect_box_selected_entities(box_selection, &card_query)
+            };
+            if selected_entities.is_empty() {
+                state.clear_selection();
+                state.status_message = "框选区域内没有卡牌".into();
+            } else {
+                let count = selected_entities.len();
+                state.set_selection(selected_entities);
+                state.status_message = format!("已框选 {count} 张卡牌");
+            }
         }
     }
 
-    if keyboard_input.just_pressed(KeyCode::Delete)
-        && let Some(entity) = state.selected_entity.take()
-    {
+    if keyboard_input.just_pressed(KeyCode::Delete) && !state.selected_entities.is_empty() {
         let before_scene = {
             let snapshot_query = card_queries.p2();
             collect_editor_scene_snapshot(&snapshot_query)
         };
-        despawn_editor_card_with_linked_entities(&mut commands, entity, &linked_entities_query);
+        let selected_entities = std::mem::take(&mut state.selected_entities);
+        let mut despawned_entities = HashSet::new();
+        for entity in selected_entities {
+            despawn_editor_card_with_linked_entities(
+                &mut commands,
+                entity,
+                &linked_entities_query,
+                &mut despawned_entities,
+            );
+        }
+        state.clear_selection();
         record_editor_undo(&mut history, before_scene);
         state.moving_entity = None;
         state.rotating_entity = None;
+        state.box_selection = None;
         state.clear_exit_confirmation();
         state.status_message = "已删除选中卡牌".into();
     }
@@ -1290,10 +1392,16 @@ fn despawn_editor_card_with_linked_entities(
     commands: &mut Commands,
     entity: Entity,
     linked_entities_query: &Query<&EditorLinkedEntities>,
+    despawned_entities: &mut HashSet<Entity>,
 ) {
+    if !despawned_entities.insert(entity) {
+        return;
+    }
     if let Ok(linked_entities) = linked_entities_query.get(entity) {
         for linked_entity in &linked_entities.entities {
-            commands.entity(*linked_entity).despawn();
+            if despawned_entities.insert(*linked_entity) {
+                commands.entity(*linked_entity).despawn();
+            }
         }
     }
     commands.entity(entity).despawn();
@@ -1333,7 +1441,7 @@ fn handle_editor_shortcuts(
             state.status_message =
                 undo_editor_operation(&mut commands, &card_query, spawn_deps, &mut history);
         }
-        state.selected_entity = None;
+        state.clear_selection();
         state.clear_exit_confirmation();
         return;
     }
@@ -1382,7 +1490,7 @@ fn handle_editor_shortcuts(
                 }
                 None => "已取消导入".into(),
             };
-        state.selected_entity = None;
+        state.clear_selection();
     }
 }
 
@@ -1437,7 +1545,7 @@ fn handle_card_order_shortcuts(
 
     let mut card_query = card_queries.p0();
     let Ok((_, mut transform)) = card_query.get_mut(selected_entity) else {
-        state.selected_entity = None;
+        state.clear_selection();
         state.status_message = "调整层级失败：选中卡牌不存在".into();
         return;
     };
@@ -1549,7 +1657,7 @@ fn handle_card_order_wheel(
         }
     }
 
-    state.selected_entity = Some(hovered_entity);
+    state.set_selection(vec![hovered_entity]);
     record_editor_undo(&mut history, before_scene);
     state.clear_exit_confirmation();
     state.status_message = format!(
@@ -1648,9 +1756,14 @@ fn update_editor_status_text(
         return;
     };
 
-    let selection_text = match state.selected_entity {
-        Some(entity) => format!("当前选中: #{entity:?}"),
-        None => "当前选中: 无".into(),
+    let selection_text = match state.selected_entities.as_slice() {
+        [] => "当前选中: 无".into(),
+        [entity] => format!("当前选中: #{entity:?}"),
+        entities => format!(
+            "当前选中: {} 张卡牌，主选中 #{:?}",
+            entities.len(),
+            entities[0]
+        ),
     };
 
     **text = format!("{selection_text}\n{}", state.status_message);
@@ -1661,10 +1774,15 @@ fn draw_editor_gizmos(
     state: Res<EditorInteractionState>,
     card_query: Query<(Entity, &Transform), (With<Card>, Without<EditorDragPreview>)>,
 ) {
+    for selected_entity in &state.selected_entities {
+        if let Ok((_, transform)) = card_query.get(*selected_entity) {
+            draw_card_outline(&mut gizmos, transform, Color::srgb(0.32, 0.90, 0.95));
+        }
+    }
+
     if let Some(selected_entity) = state.selected_entity
         && let Ok((_, transform)) = card_query.get(selected_entity)
     {
-        draw_card_outline(&mut gizmos, transform, Color::srgb(0.32, 0.90, 0.95));
         let handle = rotation_handle_position(transform);
         gizmos.circle_2d(
             handle,
@@ -1676,6 +1794,24 @@ fn draw_editor_gizmos(
             handle,
             Color::srgb(0.95, 0.47, 0.24),
         );
+    }
+
+    if let Some(box_selection) = state.box_selection {
+        let (min, max) =
+            editor_selection_bounds(box_selection.start_position, box_selection.current_position);
+        let corners = [
+            Vec2::new(min.x, min.y),
+            Vec2::new(max.x, min.y),
+            Vec2::new(max.x, max.y),
+            Vec2::new(min.x, max.y),
+        ];
+        for index in 0..corners.len() {
+            gizmos.line_2d(
+                corners[index],
+                corners[(index + 1) % corners.len()],
+                Color::srgb(0.32, 0.90, 0.95),
+            );
+        }
     }
 }
 
@@ -1725,6 +1861,47 @@ fn rotation_handle_contains_point<F: bevy::ecs::query::QueryFilter>(
     };
 
     cursor_world.distance(rotation_handle_position(transform)) <= ROTATION_HANDLE_RADIUS
+}
+
+fn editor_selection_bounds(a: Vec2, b: Vec2) -> (Vec2, Vec2) {
+    (
+        Vec2::new(a.x.min(b.x), a.y.min(b.y)),
+        Vec2::new(a.x.max(b.x), a.y.max(b.y)),
+    )
+}
+
+fn collect_box_selected_entities<F: bevy::ecs::query::QueryFilter>(
+    box_selection: EditorBoxSelectionState,
+    card_query: &Query<(Entity, &Card, &GlobalTransform, &Transform), F>,
+) -> Vec<Entity> {
+    let (min, max) =
+        editor_selection_bounds(box_selection.start_position, box_selection.current_position);
+    if (max.x - min.x).abs() < EDITOR_BOX_SELECT_MIN_SIZE
+        && (max.y - min.y).abs() < EDITOR_BOX_SELECT_MIN_SIZE
+    {
+        return Vec::new();
+    }
+
+    card_query
+        .iter()
+        .filter_map(|(entity, _, _, transform)| {
+            if selection_rect_intersects_card(min, max, transform) {
+                Some(entity)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn selection_rect_intersects_card(min: Vec2, max: Vec2, transform: &Transform) -> bool {
+    let selection_corners = [
+        Vec2::new(min.x, min.y),
+        Vec2::new(max.x, min.y),
+        Vec2::new(max.x, max.y),
+        Vec2::new(min.x, max.y),
+    ];
+    oriented_rectangles_intersect(&selection_corners, &obstacle_card_corners(transform))
 }
 
 pub fn cursor_is_over_scene(window: &Window, cursor_position: Vec2) -> bool {
@@ -1888,12 +2065,16 @@ fn apply_editor_axis_lock(position: Vec2, start_position: Vec2, axis_lock: Edito
 }
 
 fn collect_editor_snap_cards<F: bevy::ecs::query::QueryFilter>(
-    moving_entity: Entity,
+    moving_entities: &[MovingEntityMember],
     card_query: &Query<(Entity, &Card, &GlobalTransform, &Transform), F>,
 ) -> Vec<EditorSnapCard> {
     card_query
         .iter()
-        .filter(|(entity, _, _, _)| *entity != moving_entity)
+        .filter(|(entity, _, _, _)| {
+            !moving_entities
+                .iter()
+                .any(|moving_entity| moving_entity.entity == *entity)
+        })
         .map(|(_, _, _, transform)| EditorSnapCard {
             center: transform.translation.truncate(),
             half_size: CARD_SIZE * 0.5,
