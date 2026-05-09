@@ -164,7 +164,6 @@ pub struct VisionConfig {
     pub intersection_epsilon: f32,
     pub fill_color: [f32; 4],
     pub outline_color: [f32; 4],
-    pub mesh_z: f32,
 }
 
 impl VisionConfig {

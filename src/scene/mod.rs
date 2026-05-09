@@ -5,6 +5,7 @@ pub mod demo_level;
 #[derive(Debug, Copy, Clone)]
 pub enum SceneLayer {
     Card,
+    PlayerVision,
     PlayerCoin,
     Coin,
 }
@@ -13,7 +14,8 @@ impl SceneLayer {
     pub fn get_layer_base_z(&self) -> f32 {
         (match self {
             SceneLayer::Card => 10000,
-            SceneLayer::PlayerCoin => 30000,
+            SceneLayer::PlayerVision => 30000,
+            SceneLayer::PlayerCoin => 30001,
             SceneLayer::Coin => 30100,
         } as f32)
     }

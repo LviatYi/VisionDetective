@@ -7,6 +7,8 @@ use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
 use crate::editor::editor_view::{EditorView, setup_editor_view};
 use crate::game_view::main_view::cleanup_view;
+use crate::physics::obstacle::Obstacle;
+use crate::physics::vision::{build_vision_mesh, compute_visible_points};
 use crate::scene::SceneLayer;
 use bevy::input::ButtonInput;
 use bevy::picking::pointer::PointerButton;
@@ -157,6 +159,9 @@ struct EditorDragPreview;
 #[derive(Component)]
 struct EditorCardOrderText;
 
+#[derive(Component)]
+struct EditorVisionPreview;
+
 #[derive(Component, Clone, Copy)]
 pub struct EditorPlacedCard;
 
@@ -214,6 +219,7 @@ impl Plugin for EditorPlugin {
             .add_systems(OnEnter(AppView::Editor), reset_editor_state)
             .add_systems(OnEnter(AppView::Editor), reset_editor_history)
             .add_systems(OnEnter(AppView::Editor), setup_editor_view)
+            .add_systems(OnEnter(AppView::Editor), setup_editor_vision_preview)
             .add_systems(OnEnter(AppView::Editor), setup_editor_ui)
             .add_systems(OnExit(AppView::Editor), cleanup_view::<EditorView>)
             .add_systems(
@@ -235,6 +241,7 @@ impl Plugin for EditorPlugin {
                     handle_card_order_shortcuts,
                     update_editor_card_order_text,
                     update_editor_camera_reset_button_visibility,
+                    update_editor_vision_preview,
                     handle_editor_shortcuts,
                     update_editor_status_text,
                 )
@@ -254,6 +261,26 @@ fn reset_editor_state(mut state: ResMut<EditorInteractionState>) {
 
 fn reset_editor_history(mut history: ResMut<EditorUndoHistory>) {
     history.clear();
+}
+
+fn setup_editor_vision_preview(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    commands.spawn((
+        Mesh2d(meshes.add(build_vision_mesh(&config, Vec2::ZERO, &[]))),
+        MeshMaterial2d(materials.add(config.vision.fill_color())),
+        Transform::from_translation(Vec3::new(
+            0.0,
+            0.0,
+            SceneLayer::PlayerVision.get_layer_base_z(),
+        )),
+        Visibility::Hidden,
+        EditorVisionPreview,
+        EditorView,
+    ));
 }
 
 fn setup_editor_ui(
@@ -1381,6 +1408,40 @@ fn update_editor_camera_reset_button_visibility(
     } else {
         Visibility::Hidden
     };
+}
+
+fn update_editor_vision_preview(
+    config: Res<GameConfig>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    pointer_world: Res<EditorPointerWorldPosition>,
+    obstacle_query: Query<(&Transform, &Obstacle)>,
+    mut preview_query: Query<(&Mesh2d, &mut Visibility), With<EditorVisionPreview>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
+    let Ok((preview_mesh, mut visibility)) = preview_query.single_mut() else {
+        return;
+    };
+
+    let alt_pressed =
+        keyboard_input.pressed(KeyCode::AltLeft) || keyboard_input.pressed(KeyCode::AltRight);
+    let Some(center) = pointer_world.0 else {
+        *visibility = Visibility::Hidden;
+        return;
+    };
+
+    if !alt_pressed {
+        *visibility = Visibility::Hidden;
+        return;
+    }
+
+    let Some(mesh) = meshes.get_mut(&preview_mesh.0) else {
+        *visibility = Visibility::Hidden;
+        return;
+    };
+
+    let visible_points = compute_visible_points(&config, center, &obstacle_query);
+    *mesh = build_vision_mesh(&config, center, &visible_points);
+    *visibility = Visibility::Visible;
 }
 
 fn update_editor_status_text(

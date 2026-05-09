@@ -97,8 +97,6 @@ vertex_epsilon = 0.0025
 intersection_epsilon = 0.0001
 fill_color = [0.92, 0.95, 0.80, 0.18]
 outline_color = [0.95, 0.98, 0.86, 0.42]
-# Render layer for the visibility mesh.
-mesh_z = 0.5
 
 [obstacles]
 edge_color = [0.64, 0.67, 0.78]

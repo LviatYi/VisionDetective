@@ -3,6 +3,7 @@ use crate::coin::player::PlayerCoin;
 use crate::config::GameConfig;
 use crate::game_view::GameState;
 use crate::physics::obstacle::Obstacle;
+use crate::scene::SceneLayer;
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
@@ -31,7 +32,11 @@ pub fn setup_vision_system(
     commands.spawn((
         Mesh2d(meshes.add(build_vision_mesh(&config, Vec2::ZERO, &[]))),
         MeshMaterial2d(materials.add(config.vision.fill_color())),
-        Transform::from_translation(Vec3::new(0.0, 0.0, config.vision.mesh_z)),
+        Transform::from_translation(Vec3::new(
+            0.0,
+            0.0,
+            SceneLayer::PlayerVision.get_layer_base_z(),
+        )),
         VisionFieldMesh,
         GameView,
     ));
@@ -67,17 +72,21 @@ pub fn draw_vision_radius(
         return;
     };
 
-    gizmos.circle_2d(
+    draw_vision_radius_at(
+        &config,
+        &mut gizmos,
         player_transform.translation.truncate(),
-        config.vision.radius,
-        config.vision.outline_color(),
     );
 }
 
-pub fn compute_visible_points(
+pub fn draw_vision_radius_at(config: &GameConfig, gizmos: &mut Gizmos, center: Vec2) {
+    gizmos.circle_2d(center, config.vision.radius, config.vision.outline_color());
+}
+
+pub fn compute_visible_points<F: bevy::ecs::query::QueryFilter>(
     config: &GameConfig,
     origin: Vec2,
-    obstacle_query: &Query<(&Transform, &Obstacle), Without<PlayerCoin>>,
+    obstacle_query: &Query<(&Transform, &Obstacle), F>,
 ) -> Vec<Vec2> {
     let mut rays_radius = Vec::with_capacity(config.vision.ray_count * 2);
 
@@ -113,11 +122,11 @@ pub fn compute_visible_points(
         .collect()
 }
 
-fn cast_visibility_ray(
+fn cast_visibility_ray<F: bevy::ecs::query::QueryFilter>(
     config: &GameConfig,
     origin: Vec2,
     angle: f32,
-    obstacle_query: &Query<(&Transform, &Obstacle), Without<PlayerCoin>>,
+    obstacle_query: &Query<(&Transform, &Obstacle), F>,
 ) -> Vec2 {
     let direction = Vec2::from_angle(angle);
     let mut closest_distance = config.vision.radius;
@@ -163,7 +172,7 @@ pub fn ray_segment_intersection(
     Some(ray_distance)
 }
 
-fn build_vision_mesh(config: &GameConfig, center: Vec2, visible_points: &[Vec2]) -> Mesh {
+pub fn build_vision_mesh(config: &GameConfig, center: Vec2, visible_points: &[Vec2]) -> Mesh {
     let mut mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::default(),
