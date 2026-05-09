@@ -214,6 +214,7 @@ pub struct SceneConfig {
 
 #[derive(Clone, Deserialize)]
 pub struct CardConfig {
+    pub background_card_image_path: String,
     pub scenery_fill_color: [f32; 4],
     pub obstacle_fill_color: [f32; 4],
     pub interaction_fill_color: [f32; 4],
