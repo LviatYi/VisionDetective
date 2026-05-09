@@ -90,7 +90,17 @@ fn finish_game_loading(mut next_game_state: ResMut<NextState<GameState>>) {
 }
 
 fn setup_game_scene(mut commands: Commands, mut card_spawn_params: CardSpawnParams<'_>) {
-    commands.spawn((Camera2d, GameView, GameCamera));
+    commands.spawn((
+        Camera2d,
+        Projection::Orthographic(OrthographicProjection {
+            near: -100000.0,
+            far: 100000.0,
+            ..OrthographicProjection::default_2d()
+        }),
+        GameView,
+        GameCamera,
+    ));
+
     load_demo_scene(&mut commands, &mut card_spawn_params);
 
     let ui_font = font::load_assets(

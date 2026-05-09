@@ -19,6 +19,7 @@ pub mod controller {
     use crate::coin::player::PlayerCoin;
     use crate::config::GameConfig;
     use crate::physics::Velocity;
+    use crate::scene::SceneLayer;
     use bevy::math::{Vec2, Vec3};
     use bevy::picking::pointer::PointerButton;
     use bevy::picking::prelude::{Drag, DragEnd, Move, Out, Over, Pointer, Press, Release};
@@ -113,7 +114,11 @@ pub mod controller {
         commands.spawn((
             Mesh2d(meshes.add(Circle::new(config.visuals.player_radius))),
             MeshMaterial2d(materials.add(config.visuals.player_color())),
-            Transform::from_translation(Vec3::new(0.0, 0.0, config.visuals.player_z)),
+            Transform::from_translation(Vec3::new(
+                0.0,
+                0.0,
+                SceneLayer::PlayerCoin.get_layer_base_z() + config.visuals.player_z,
+            )),
             PlayerCoin::default(),
             Velocity::default(),
             Pickable::default(),

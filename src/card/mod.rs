@@ -4,6 +4,7 @@ pub mod specialized;
 use crate::card::card_params::{CardImageLayoutType, CardSceneParam};
 use crate::card::card_params::{CardParam, CardSpawnParams, CardSpecializedRegistry};
 use crate::config::GameConfig;
+use crate::scene::SceneLayer;
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
@@ -156,7 +157,7 @@ pub fn spawn_card_by_card_param(
             card_param
                 .scene_param
                 .position
-                .extend(card_param.scene_param.order),
+                .extend(SceneLayer::Card.get_layer_base_z() + card_param.scene_param.order),
         )
         .with_rotation(Quat::from_rotation_z(card_param.scene_param.rotation)),
         Card {
