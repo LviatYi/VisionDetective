@@ -2,6 +2,7 @@ use crate::card::CardKind;
 use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
 use anyhow::Result;
+use bevy::color::{Color, Srgba};
 use bevy::ecs::system::{EntityCommands, SystemParam};
 use bevy::math::Vec2;
 use bevy::prelude::{AssetServer, Assets, ColorMaterial, Mesh, Res, ResMut, Resource};
@@ -54,12 +55,12 @@ impl CardParam {
 
     pub fn load_specialized_config(
         &self,
-        config: &CardPresetsConfig,
+        card_presets_config: &CardPresetsConfig,
         registry: &CardSpecializedRegistry,
     ) -> Option<Box<dyn CardSpecialized>> {
-        let prefab = self.load_prefab(config)?;
+        let prefab = self.load_prefab(card_presets_config)?;
 
-        config
+        card_presets_config
             .specialized
             .iter()
             .find(|specialized| specialized.id == prefab.specialized_id)
@@ -72,6 +73,27 @@ impl CardParam {
                     .map(|item| (item, params))
             })
             .and_then(|(registration, json)| registration.deserialize(&json).ok())
+    }
+
+    pub fn resolve_fill_color(
+        &self,
+        config: &GameConfig,
+        card_presets_config: &CardPresetsConfig,
+        registry: &CardSpecializedRegistry,
+    ) -> Color {
+        let appearance = self.load_appearance(card_presets_config);
+        if appearance.background_color_appearance_override.is_empty() {
+            None
+        } else {
+            Srgba::hex(&appearance.background_color_appearance_override)
+                .map(|c| Color::Srgba(c))
+                .ok()
+        }
+        .or_else(|| {
+            self.load_specialized_config(card_presets_config, registry)
+                .map(|item| config.cards.fill_color(item.kind()))
+        })
+        .unwrap_or_else(|| config.cards.default_fill_color())
     }
 
     fn merged_specialized_params(&self, base: CardSpecializedConfig) -> Option<(String, Value)> {
@@ -130,17 +152,6 @@ impl CardAppearanceConfig {
         }
     }
 }
-
-// /// Layout modes for card artwork.
-// #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
-// #[serde(rename_all = "snake_case")]
-// pub enum CardImageLayoutType {
-//     /// Draw the image within the normal card content area.
-//     #[default]
-//     Normal,
-//     /// Draw the image in a full-bleed style.
-//     Full,
-// }
 
 /// Trait implemented by every card-kind-specific parameter payload.
 pub trait CardSpecialized: Send + Sync {

@@ -190,14 +190,11 @@ pub fn spawn_card_by_card_param(
         .as_ref()
         .map(|specialized| specialized.kind())
         .unwrap_or(CardKind::Scenery);
-    let fill_color = parse_hex_color(&appearance.background_color_appearance_override)
-        .unwrap_or_else(|| {
-            if specialized.is_some() {
-                spawn_params.config.cards.fill_color(card_kind)
-            } else {
-                spawn_params.config.cards.default_fill_color()
-            }
-        });
+    let fill_color = card_param.resolve_fill_color(
+        &spawn_params.config,
+        &spawn_params.card_presets_config,
+        &spawn_params.card_specialized_registry,
+    );
 
     let z_order = SceneLayer::Card.get_layer_base_z() + card_param.scene_param.order;
 

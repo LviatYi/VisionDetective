@@ -9,25 +9,21 @@
     {
       "id": 100002,
       "title": "Wall",
-      "background_color_appearance_override": "#52596FFF",
       "image_res_path": "pic/street-wallx72ppi.png"
     },
     {
       "id": 100003,
       "title": "交互卡模拟",
-      "background_color_appearance_override": "#C6783DFF",
       "image_res_path": ""
     },
     {
       "id": 100004,
       "title": "曲线障碍卡模拟",
-      "background_color_appearance_override": "#7D6148FF",
       "image_res_path": "pic/street-wallx72ppi.png"
     },
     {
       "id": 100005,
       "title": "对话交互卡",
-      "background_color_appearance_override": "#C6783DFF",
       "image_res_path": ""
     },
     {

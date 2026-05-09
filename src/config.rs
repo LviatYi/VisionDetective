@@ -2,7 +2,7 @@ pub mod card_config;
 
 use bevy::color::Color;
 use bevy::math::{Vec2, Vec3};
-use bevy::prelude::Resource;
+use bevy::prelude::{Resource, Srgba};
 use serde::Deserialize;
 use std::fs;
 use std::path::PathBuf;
@@ -215,10 +215,11 @@ pub struct SceneConfig {
 #[derive(Clone, Deserialize)]
 pub struct CardConfig {
     pub background_card_image_path: String,
-    pub scenery_fill_color: [f32; 4],
-    pub obstacle_fill_color: [f32; 4],
-    pub interaction_fill_color: [f32; 4],
-    pub default_fill_color: [f32; 4],
+    pub scenery_fill_color: String,
+    pub obstacle_fill_color: String,
+    pub interaction_fill_color: String,
+    pub clue_fill_color: String,
+    pub default_fill_color: String,
     pub corner_radius: f32,
     pub rounded_corner_segments: usize,
     pub normal_image_size_ratio: [f32; 2],
@@ -231,24 +232,19 @@ pub struct CardConfig {
 }
 
 impl CardConfig {
-    pub fn fill_color(&self, appearance: crate::card::CardKind) -> Color {
-        let rgba = match appearance {
-            crate::card::CardKind::Scenery => self.scenery_fill_color,
-            crate::card::CardKind::Obstacle => self.obstacle_fill_color,
-            crate::card::CardKind::Interaction => self.interaction_fill_color,
-            crate::card::CardKind::Clue => self.obstacle_fill_color,
-        };
-
-        Color::srgba(rgba[0], rgba[1], rgba[2], rgba[3])
+    pub fn fill_color(&self, kind: crate::card::CardKind) -> Color {
+        match kind {
+            crate::card::CardKind::Scenery => Srgba::hex(&self.scenery_fill_color),
+            crate::card::CardKind::Obstacle => Srgba::hex(&self.obstacle_fill_color),
+            crate::card::CardKind::Interaction => Srgba::hex(&self.interaction_fill_color),
+            crate::card::CardKind::Clue => Srgba::hex(&self.clue_fill_color),
+        }
+        .map(|c| Color::Srgba(c))
+        .unwrap_or_else(|_| self.default_fill_color())
     }
 
     pub fn default_fill_color(&self) -> Color {
-        Color::srgba(
-            self.default_fill_color[0],
-            self.default_fill_color[1],
-            self.default_fill_color[2],
-            self.default_fill_color[3],
-        )
+        Color::Srgba(Srgba::hex(&self.default_fill_color).unwrap_or_default())
     }
 
     pub fn normal_image_size_ratio(&self) -> Vec2 {

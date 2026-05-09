@@ -1,6 +1,7 @@
 use crate::AppView;
 use crate::card::card_params::{
     CardParam, CardRuntimeSpecializedConfig, CardSceneParam, CardSpawnParams,
+    CardSpecializedRegistry,
 };
 use crate::card::{CARD_SIZE, Card, spawn_card_by_card_param};
 use crate::config::GameConfig;
@@ -395,9 +396,14 @@ fn setup_editor_ui(
     asset_server: Res<AssetServer>,
     config: Res<GameConfig>,
     card_presets_config: Res<CardPresetsConfig>,
+    card_specialized_registry: Res<CardSpecializedRegistry>,
 ) {
     let ui_font = asset_server.load(config.assets.default_font.clone());
-    let preview_items = prefab_preview_items(&card_presets_config, &config);
+    let preview_items = prefab_preview_items(
+        &card_presets_config,
+        &config,
+        card_specialized_registry.as_ref(),
+    );
 
     commands
         .spawn((
@@ -555,6 +561,7 @@ fn setup_editor_ui(
 fn prefab_preview_items(
     card_presets_config: &CardPresetsConfig,
     config: &GameConfig,
+    card_specialized_registry: &CardSpecializedRegistry,
 ) -> Vec<PrefabPreviewItem> {
     card_presets_config
         .prefabs
@@ -570,8 +577,11 @@ fn prefab_preview_items(
                 runtime_specialized_param: None,
             };
             let appearance = card_param.load_appearance(card_presets_config);
-            let background_color = parse_ui_color(&appearance.background_color_appearance_override)
-                .unwrap_or_else(|| config.cards.default_fill_color());
+            let background_color = card_param.resolve_fill_color(
+                config,
+                card_presets_config,
+                card_specialized_registry,
+            );
 
             PrefabPreviewItem {
                 id: prefab.id,
