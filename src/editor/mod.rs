@@ -38,6 +38,7 @@ const CARD_ORDER_STEP: f32 = 1.0;
 const DRAG_PREVIEW_ORDER: f32 = 20.0;
 const ORDER_LABEL_FONT_SIZE: f32 = 13.0;
 const EDITOR_ROTATION_STEP: f32 = PI / 6.0;
+const EDITOR_SNAP_DISTANCE: f32 = 8.0;
 
 pub struct EditorPlugin;
 
@@ -117,6 +118,8 @@ struct EditorButtonBundle {
 pub struct MovingEntityState {
     entity: Entity,
     pointer_offset: Vec2,
+    start_position: Vec2,
+    axis_lock: EditorAxisLock,
     before_scene: EditorSceneFile,
     changed: bool,
 }
@@ -1077,6 +1080,7 @@ fn handle_scene_editing(
                 start_move = Some((
                     entity,
                     transform.translation.truncate() - cursor_world_position,
+                    transform.translation.truncate(),
                 ));
             } else if !keyboard_input.pressed(KeyCode::ControlLeft)
                 && !keyboard_input.pressed(KeyCode::ControlRight)
@@ -1100,7 +1104,7 @@ fn handle_scene_editing(
             return;
         }
 
-        if let Some((entity, pointer_offset)) = start_move {
+        if let Some((entity, pointer_offset, start_position)) = start_move {
             let before_scene = {
                 let snapshot_query = card_queries.p2();
                 collect_editor_scene_snapshot(&snapshot_query)
@@ -1110,6 +1114,8 @@ fn handle_scene_editing(
             state.moving_entity = Some(MovingEntityState {
                 entity,
                 pointer_offset,
+                start_position,
+                axis_lock: EditorAxisLock::None,
                 before_scene,
                 changed: false,
             });
@@ -1129,18 +1135,35 @@ fn handle_scene_editing(
         else {
             continue;
         };
-        let mut transform_query = card_queries.p1();
 
-        if let Some(moving) = state.moving_entity.as_mut()
-            && let Ok(mut transform) = transform_query.get_mut(moving.entity)
-        {
-            let next = normalize_editor_position(cursor_world_position + moving.pointer_offset);
-            moving.changed |=
-                transform.translation.x != next.x || transform.translation.y != next.y;
-            transform.translation.x = next.x;
-            transform.translation.y = next.y;
+        if let Some(moving) = state.moving_entity.as_mut() {
+            let shift_pressed = keyboard_input.pressed(KeyCode::ShiftLeft)
+                || keyboard_input.pressed(KeyCode::ShiftRight);
+            let snap_cards = {
+                let card_query = card_queries.p0();
+                collect_editor_snap_cards(moving.entity, &card_query)
+            };
+            let raw_next = normalize_editor_position(cursor_world_position + moving.pointer_offset);
+            let axis_lock = update_editor_axis_lock(
+                &mut moving.axis_lock,
+                raw_next,
+                moving.start_position,
+                shift_pressed,
+            );
+            let axis_locked_next =
+                apply_editor_axis_lock(raw_next, moving.start_position, axis_lock);
+            let next = snap_editor_card_position(axis_locked_next, &snap_cards, axis_lock);
+
+            let mut transform_query = card_queries.p1();
+            if let Ok(mut transform) = transform_query.get_mut(moving.entity) {
+                moving.changed |=
+                    transform.translation.x != next.x || transform.translation.y != next.y;
+                transform.translation.x = next.x;
+                transform.translation.y = next.y;
+            }
         }
 
+        let mut transform_query = card_queries.p1();
         if let Some(rotating) = state.rotating_entity.as_mut()
             && let Ok(mut transform) = transform_query.get_mut(rotating.entity)
         {
@@ -1648,6 +1671,10 @@ fn normalize_editor_position(position: Vec2) -> Vec2 {
     Vec2::new(position.x.round(), position.y.round())
 }
 
+fn normalize_editor_axis(axis: f32) -> f32 {
+    axis.round()
+}
+
 fn normalize_editor_rotation(rotation: f32) -> f32 {
     let stepped = (rotation / EDITOR_ROTATION_STEP).round() * EDITOR_ROTATION_STEP;
     let normalized = (stepped + PI).rem_euclid(TAU) - PI;
@@ -1709,11 +1736,148 @@ enum CardOrderDirection {
     Down,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EditorAxisLock {
+    None,
+    Horizontal,
+    Vertical,
+}
+
 #[derive(Clone)]
 struct CardOrderSnapshot {
     entity: Entity,
     corners: [Vec2; 4],
     order: f32,
+}
+
+#[derive(Clone, Copy)]
+struct EditorSnapCard {
+    center: Vec2,
+    half_size: Vec2,
+}
+
+impl EditorSnapCard {
+    fn left(&self) -> f32 {
+        self.center.x - self.half_size.x
+    }
+
+    fn right(&self) -> f32 {
+        self.center.x + self.half_size.x
+    }
+
+    fn bottom(&self) -> f32 {
+        self.center.y - self.half_size.y
+    }
+
+    fn top(&self) -> f32 {
+        self.center.y + self.half_size.y
+    }
+}
+
+fn update_editor_axis_lock(
+    axis_lock: &mut EditorAxisLock,
+    position: Vec2,
+    start_position: Vec2,
+    shift_pressed: bool,
+) -> EditorAxisLock {
+    if !shift_pressed {
+        *axis_lock = EditorAxisLock::None;
+        return EditorAxisLock::None;
+    }
+
+    if *axis_lock != EditorAxisLock::None {
+        return *axis_lock;
+    }
+
+    let delta = position - start_position;
+    *axis_lock = if delta.x.abs() >= delta.y.abs() {
+        EditorAxisLock::Horizontal
+    } else {
+        EditorAxisLock::Vertical
+    };
+    *axis_lock
+}
+
+fn apply_editor_axis_lock(position: Vec2, start_position: Vec2, axis_lock: EditorAxisLock) -> Vec2 {
+    match axis_lock {
+        EditorAxisLock::None => position,
+        EditorAxisLock::Horizontal => Vec2::new(position.x, start_position.y),
+        EditorAxisLock::Vertical => Vec2::new(start_position.x, position.y),
+    }
+}
+
+fn collect_editor_snap_cards<F: bevy::ecs::query::QueryFilter>(
+    moving_entity: Entity,
+    card_query: &Query<(Entity, &Card, &GlobalTransform, &Transform), F>,
+) -> Vec<EditorSnapCard> {
+    card_query
+        .iter()
+        .filter(|(entity, _, _, _)| *entity != moving_entity)
+        .map(|(_, _, _, transform)| EditorSnapCard {
+            center: transform.translation.truncate(),
+            half_size: CARD_SIZE * 0.5,
+        })
+        .collect()
+}
+
+fn snap_editor_card_position(
+    position: Vec2,
+    snap_cards: &[EditorSnapCard],
+    axis_lock: EditorAxisLock,
+) -> Vec2 {
+    let half_size = CARD_SIZE * 0.5;
+    let x = if axis_lock != EditorAxisLock::Vertical {
+        closest_editor_snap_axis(
+            position.x,
+            &[-half_size.x, 0.0, half_size.x],
+            |card| [card.left(), card.center.x, card.right()],
+            snap_cards,
+        )
+    } else {
+        None
+    };
+
+    let y = if axis_lock != EditorAxisLock::Horizontal {
+        closest_editor_snap_axis(
+            position.y,
+            &[-half_size.y, 0.0, half_size.y],
+            |card| [card.bottom(), card.center.y, card.top()],
+            snap_cards,
+        )
+    } else {
+        None
+    };
+
+    Vec2::new(x.unwrap_or(position.x), y.unwrap_or(position.y))
+}
+
+fn closest_editor_snap_axis(
+    position: f32,
+    moving_offsets: &[f32],
+    target_lines: impl Fn(&EditorSnapCard) -> [f32; 3],
+    snap_cards: &[EditorSnapCard],
+) -> Option<f32> {
+    let mut best: Option<(f32, f32)> = None;
+
+    for moving_offset in moving_offsets {
+        for snap_card in snap_cards {
+            for target_line in target_lines(snap_card) {
+                let candidate_position = target_line - moving_offset;
+                let distance = (candidate_position - position).abs();
+                if distance > EDITOR_SNAP_DISTANCE {
+                    continue;
+                }
+                if best
+                    .map(|(best_distance, _)| distance < best_distance)
+                    .unwrap_or(true)
+                {
+                    best = Some((distance, candidate_position));
+                }
+            }
+        }
+    }
+
+    best.map(|(_, candidate)| normalize_editor_axis(candidate))
 }
 
 fn next_card_order_from_transforms<'a>(transforms: impl Iterator<Item = &'a Transform>) -> f32 {
