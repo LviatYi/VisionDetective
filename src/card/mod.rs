@@ -9,11 +9,14 @@ use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
+use bevy::text::{Text2dUpdateSystems, TextLayoutInfo};
 use geo::orient::Direction;
 use geo::{Coord as GeoCoord, LineString as GeoLineString, Orient, Polygon as GeoPolygon};
 use serde::Deserialize;
 
 pub struct CardPlugin;
+
+const TITLE_TEXT_SCALE_EPSILON: f32 = 0.001;
 
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -38,6 +41,11 @@ pub const CARD_TITLE_Z_ORDER_OFFSET: f32 = 0.03;
 pub struct Card {
     pub title: String,
     pub instance_type: CardInstanceType,
+}
+
+#[derive(Component, Clone, Copy)]
+struct FitCardTitleText {
+    max_width: f32,
 }
 
 #[derive(Clone, Debug)]
@@ -157,6 +165,10 @@ impl Card {
 impl Plugin for CardPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CardSpecializedRegistry>();
+        app.add_systems(
+            PostUpdate,
+            fit_card_title_text_width.after(Text2dUpdateSystems),
+        );
         app.add_plugins((
             specialized::interactive::InteractionCardPlugin,
             specialized::clue::ClueCardPlugin,
@@ -262,6 +274,7 @@ fn spawn_card_title(
     title: &str,
 ) {
     let title_position_y = (0.5 - config.cards.title_offset_y_ratio) * CARD_SIZE.y;
+    let max_title_width = CARD_SIZE.x * config.cards.title_text_width_ratio;
 
     parent.spawn((
         Text2d::new(title.to_string()),
@@ -273,9 +286,28 @@ fn spawn_card_title(
         TextColor(Color::BLACK),
         TextLayout::new_with_justify(Justify::Center),
         Anchor::CENTER,
-        Transform::from_xyz(0.0, title_position_y, CARD_TITLE_Z_ORDER_OFFSET)
-            .with_scale(Vec3::new(title_text_scale_x(title, config), 1.0, 1.0)),
+        Transform::from_xyz(0.0, title_position_y, CARD_TITLE_Z_ORDER_OFFSET),
+        FitCardTitleText {
+            max_width: max_title_width,
+        },
     ));
+}
+
+fn fit_card_title_text_width(
+    mut text_query: Query<(&FitCardTitleText, &TextLayoutInfo, &mut Transform)>,
+) {
+    for (fit, layout, mut transform) in &mut text_query {
+        if fit.max_width <= f32::EPSILON || layout.size.x <= f32::EPSILON {
+            continue;
+        }
+
+        let next_scale_x = (fit.max_width / layout.size.x).min(1.0);
+        if (transform.scale.x - next_scale_x).abs() <= TITLE_TEXT_SCALE_EPSILON {
+            continue;
+        }
+
+        transform.scale.x = next_scale_x;
+    }
 }
 
 fn rounded_rectangle_mesh(size: Vec2, radius: f32, corner_segments: usize) -> Mesh {
@@ -339,26 +371,6 @@ fn rounded_rectangle_mesh(size: Vec2, radius: f32, corner_segments: usize) -> Me
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
     mesh.insert_indices(Indices::U32(indices));
     mesh
-}
-
-fn title_text_scale_x(title: &str, config: &GameConfig) -> f32 {
-    let max_width = (CARD_SIZE.x - config.cards.title_glass_padding().x * 2.0).max(1.0);
-    let text_width = estimated_title_width(title, config).max(1.0);
-
-    (max_width / text_width).min(1.0)
-}
-
-fn estimated_title_width(title: &str, config: &GameConfig) -> f32 {
-    title
-        .chars()
-        .map(|character| {
-            if character.is_ascii() {
-                config.cards.title_font_size * 0.55
-            } else {
-                config.cards.title_font_size
-            }
-        })
-        .sum::<f32>()
 }
 
 fn normalize_asset_path(path: &str) -> Option<String> {

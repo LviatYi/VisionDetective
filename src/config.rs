@@ -224,6 +224,7 @@ pub struct CardConfig {
     pub normal_image_size_ratio: [f32; 2],
     pub normal_image_offset_y: f32,
     pub title_font_size: f32,
+    pub title_text_width_ratio: f32,
     pub title_offset_y_ratio: f32,
     pub title_glass_padding: [f32; 2],
     pub title_glass_corner_radius: f32,
