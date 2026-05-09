@@ -33,6 +33,7 @@ const PREFAB_SCROLL_STEP: f32 = 28.0;
 const ROTATION_HANDLE_RADIUS: f32 = 14.0;
 const EDITOR_SCENE_DIR: &str = "assets/editor";
 const EDITOR_SCENE_TOML: &str = "editor_scene.toml";
+const EDITOR_STATE_TOML: &str = "editor-state.toml";
 const CARD_ORDER_STEP: f32 = 1.0;
 const DRAG_PREVIEW_ORDER: f32 = 20.0;
 const ORDER_LABEL_FONT_SIZE: f32 = 13.0;
@@ -188,6 +189,17 @@ struct EditorSceneFile {
     pub cards: Vec<CardParam>,
 }
 
+#[derive(Serialize, Deserialize, Default)]
+struct EditorPersistentState {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    last_scene_path: Option<PathBuf>,
+}
+
+#[derive(Resource, Default)]
+struct EditorFileState {
+    current_scene_path: Option<PathBuf>,
+}
+
 #[derive(Resource, Default)]
 pub struct EditorUndoHistory {
     undo_stack: Vec<EditorSceneFile>,
@@ -216,11 +228,20 @@ impl Plugin for EditorPlugin {
         app.init_resource::<EditorInteractionState>()
             .init_resource::<EditorPointerWorldPosition>()
             .init_resource::<EditorUndoHistory>()
-            .add_systems(OnEnter(AppView::Editor), reset_editor_state)
-            .add_systems(OnEnter(AppView::Editor), reset_editor_history)
-            .add_systems(OnEnter(AppView::Editor), setup_editor_view)
-            .add_systems(OnEnter(AppView::Editor), setup_editor_vision_preview)
-            .add_systems(OnEnter(AppView::Editor), setup_editor_ui)
+            .init_resource::<EditorFileState>()
+            .add_systems(
+                OnEnter(AppView::Editor),
+                (
+                    reset_editor_state,
+                    reset_editor_history,
+                    load_editor_file_state,
+                    setup_editor_view,
+                    setup_editor_vision_preview,
+                    setup_editor_ui,
+                    open_last_editor_scene,
+                )
+                    .chain(),
+            )
             .add_systems(OnExit(AppView::Editor), cleanup_view::<EditorView>)
             .add_systems(
                 Update,
@@ -261,6 +282,42 @@ fn reset_editor_state(mut state: ResMut<EditorInteractionState>) {
 
 fn reset_editor_history(mut history: ResMut<EditorUndoHistory>) {
     history.clear();
+}
+
+fn load_editor_file_state(mut file_state: ResMut<EditorFileState>) {
+    *file_state = read_editor_file_state();
+}
+
+fn open_last_editor_scene(
+    mut commands: Commands,
+    card_query: Query<
+        (
+            Entity,
+            &Card,
+            &Transform,
+            Option<&EditorRuntimeSpecializedParam>,
+            Option<&EditorSpecializedAuxiliaryCard>,
+        ),
+        Without<EditorDragPreview>,
+    >,
+    mut spawn_deps: CardSpawnParams<'_>,
+    mut state: ResMut<EditorInteractionState>,
+    mut history: ResMut<EditorUndoHistory>,
+    file_state: Res<EditorFileState>,
+) {
+    let Some(path) = file_state.current_scene_path.as_deref() else {
+        return;
+    };
+    if !path.exists() {
+        state.status_message = format!("上次编辑文件不存在：{}", path.display());
+        return;
+    }
+
+    state.status_message = load_scene_from_path(&mut commands, &card_query, &mut spawn_deps, path);
+    if state.status_message.starts_with("已从") {
+        history.clear();
+        state.clear_exit_confirmation();
+    }
 }
 
 fn setup_editor_vision_preview(
@@ -584,6 +641,7 @@ fn handle_toolbar_buttons(
     mut spawn_deps: CardSpawnParams<'_>,
     mut state: ResMut<EditorInteractionState>,
     mut history: ResMut<EditorUndoHistory>,
+    mut file_state: ResMut<EditorFileState>,
 ) {
     for event in press_events.read() {
         if event.button != PointerButton::Primary {
@@ -595,35 +653,39 @@ fn handle_toolbar_buttons(
 
         match action {
             EditorButtonAction::ExportScene => {
-                state.status_message = match pick_scene_export_path() {
-                    Some(path) => {
-                        let message = save_scene_to_path(&card_query, &path);
-                        if message.starts_with("已导出") {
-                            history.mark_clean();
-                            state.clear_exit_confirmation();
+                state.status_message =
+                    match pick_scene_export_path(file_state.current_scene_path.as_deref()) {
+                        Some(path) => {
+                            let message = save_scene_to_path(&card_query, &path);
+                            if message.starts_with("已导出") {
+                                history.mark_clean();
+                                state.clear_exit_confirmation();
+                                remember_editor_scene_path(&mut file_state, path);
+                            }
+                            message
                         }
-                        message
-                    }
-                    None => "已取消导出".into(),
-                };
+                        None => "已取消导出".into(),
+                    };
             }
             EditorButtonAction::ImportScene => {
-                state.status_message = match pick_scene_import_path() {
-                    Some(path) => {
-                        let message = load_scene_from_path(
-                            &mut commands,
-                            &card_query,
-                            &mut spawn_deps,
-                            &path,
-                        );
-                        if message.starts_with("已从") {
-                            history.clear();
-                            state.clear_exit_confirmation();
+                state.status_message =
+                    match pick_scene_import_path(file_state.current_scene_path.as_deref()) {
+                        Some(path) => {
+                            let message = load_scene_from_path(
+                                &mut commands,
+                                &card_query,
+                                &mut spawn_deps,
+                                &path,
+                            );
+                            if message.starts_with("已从") {
+                                history.clear();
+                                state.clear_exit_confirmation();
+                                remember_editor_scene_path(&mut file_state, path);
+                            }
+                            message
                         }
-                        message
-                    }
-                    None => "已取消导入".into(),
-                };
+                        None => "已取消导入".into(),
+                    };
                 state.selected_entity = None;
             }
             EditorButtonAction::ResetCameraView => {
@@ -1152,9 +1214,10 @@ fn handle_editor_shortcuts(
         ),
         Without<EditorDragPreview>,
     >,
-    spawn_deps: CardSpawnParams<'_>,
+    mut spawn_deps: CardSpawnParams<'_>,
     mut state: ResMut<EditorInteractionState>,
     mut history: ResMut<EditorUndoHistory>,
+    mut file_state: ResMut<EditorFileState>,
 ) {
     let ctrl_pressed = keyboard_input.pressed(KeyCode::ControlLeft)
         || keyboard_input.pressed(KeyCode::ControlRight);
@@ -1178,24 +1241,49 @@ fn handle_editor_shortcuts(
     }
 
     if keyboard_input.just_pressed(KeyCode::KeyE) {
-        state.status_message = save_scene(&card_query, SceneFileFormat::Toml);
+        state.status_message =
+            match pick_scene_export_path(file_state.current_scene_path.as_deref()) {
+                Some(path) => {
+                    let message = save_scene_to_path(&card_query, &path);
+                    if message.starts_with("已导出") {
+                        history.mark_clean();
+                        state.clear_exit_confirmation();
+                        remember_editor_scene_path(&mut file_state, path);
+                    }
+                    message
+                }
+                None => "已取消导出".into(),
+            };
+    }
+
+    if keyboard_input.just_pressed(KeyCode::KeyS) {
+        let Some(path) = file_state.current_scene_path.clone() else {
+            state.status_message = "保存失败：尚未选择编辑文件，请先导出或导入场景".into();
+            return;
+        };
+        state.status_message = save_scene_to_path(&card_query, &path);
         if state.status_message.starts_with("已导出") {
             history.mark_clean();
             state.clear_exit_confirmation();
+            remember_editor_scene_path(&mut file_state, path);
         }
     }
 
     if keyboard_input.just_pressed(KeyCode::KeyI) {
-        state.status_message = load_scene(
-            &mut commands,
-            &card_query,
-            spawn_deps,
-            SceneFileFormat::Toml,
-        );
-        if state.status_message.starts_with("已从") {
-            history.clear();
-            state.clear_exit_confirmation();
-        }
+        state.status_message =
+            match pick_scene_import_path(file_state.current_scene_path.as_deref()) {
+                Some(path) => {
+                    let message =
+                        load_scene_from_path(&mut commands, &card_query, &mut spawn_deps, &path);
+                    if message.starts_with("已从") {
+                        history.clear();
+                        state.clear_exit_confirmation();
+                        remember_editor_scene_path(&mut file_state, path);
+                    }
+                    message
+                }
+                None => "已取消导入".into(),
+            };
         state.selected_entity = None;
     }
 }
@@ -1953,22 +2041,6 @@ enum SceneFileFormat {
     // Binary,
 }
 
-fn save_scene(
-    card_query: &Query<
-        (
-            Entity,
-            &Card,
-            &Transform,
-            Option<&EditorRuntimeSpecializedParam>,
-            Option<&EditorSpecializedAuxiliaryCard>,
-        ),
-        Without<EditorDragPreview>,
-    >,
-    format: SceneFileFormat,
-) -> String {
-    save_scene_to_path(card_query, &scene_path(format))
-}
-
 fn save_scene_to_path(
     card_query: &Query<
         (
@@ -2051,24 +2123,6 @@ fn editor_card_to_scene_card(
     Some(card_param)
 }
 
-fn load_scene(
-    commands: &mut Commands,
-    card_query: &Query<
-        (
-            Entity,
-            &Card,
-            &Transform,
-            Option<&EditorRuntimeSpecializedParam>,
-            Option<&EditorSpecializedAuxiliaryCard>,
-        ),
-        Without<EditorDragPreview>,
-    >,
-    mut spawn_deps: CardSpawnParams<'_>,
-    format: SceneFileFormat,
-) -> String {
-    load_scene_from_path(commands, card_query, &mut spawn_deps, &scene_path(format))
-}
-
 fn load_scene_from_path(
     commands: &mut Commands,
     card_query: &Query<
@@ -2120,27 +2174,65 @@ fn editor_scene_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(EDITOR_SCENE_DIR)
 }
 
-fn scene_path(format: SceneFileFormat) -> PathBuf {
-    let file_name = match format {
-        SceneFileFormat::Toml => EDITOR_SCENE_TOML,
-    };
-
-    editor_scene_dir().join(file_name)
+fn editor_state_path() -> PathBuf {
+    editor_scene_dir().join(EDITOR_STATE_TOML)
 }
 
-fn pick_scene_export_path() -> Option<PathBuf> {
+fn read_editor_file_state() -> EditorFileState {
+    let path = editor_state_path();
+    let Ok(raw) = fs::read_to_string(&path) else {
+        return EditorFileState::default();
+    };
+    let Ok(state) = toml::from_str::<EditorPersistentState>(&raw) else {
+        return EditorFileState::default();
+    };
+
+    EditorFileState {
+        current_scene_path: state.last_scene_path,
+    }
+}
+
+fn remember_editor_scene_path(file_state: &mut EditorFileState, path: PathBuf) {
+    file_state.current_scene_path = Some(path);
+    let persistent = EditorPersistentState {
+        last_scene_path: file_state.current_scene_path.clone(),
+    };
+    let state_path = editor_state_path();
+    if let Some(parent) = state_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    if let Ok(raw) = toml::to_string_pretty(&persistent) {
+        let _ = fs::write(state_path, raw);
+    }
+}
+
+fn pick_scene_export_path(current_path: Option<&Path>) -> Option<PathBuf> {
+    let directory = current_path
+        .and_then(Path::parent)
+        .map(Path::to_path_buf)
+        .unwrap_or_else(editor_scene_dir);
+    let file_name = current_path
+        .and_then(Path::file_name)
+        .and_then(|name| name.to_str())
+        .unwrap_or(EDITOR_SCENE_TOML);
+
     FileDialog::new()
         .set_title("导出场景")
-        .set_directory(editor_scene_dir())
-        .set_file_name(EDITOR_SCENE_TOML)
+        .set_directory(directory)
+        .set_file_name(file_name)
         .add_filter("场景文件", &["toml"])
         .save_file()
 }
 
-fn pick_scene_import_path() -> Option<PathBuf> {
+fn pick_scene_import_path(current_path: Option<&Path>) -> Option<PathBuf> {
+    let directory = current_path
+        .and_then(Path::parent)
+        .map(Path::to_path_buf)
+        .unwrap_or_else(editor_scene_dir);
+
     FileDialog::new()
         .set_title("导入场景")
-        .set_directory(editor_scene_dir())
+        .set_directory(directory)
         .add_filter("场景文件", &["toml"])
         .pick_file()
 }
