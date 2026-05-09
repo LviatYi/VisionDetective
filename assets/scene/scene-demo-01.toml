@@ -1,24 +1,112 @@
 [[cards]]
-prefab_id = 1003
+prefab_id = 1005
 
 [cards.scene_param]
 position = [
-    -23.33332,
-    14.666661,
+    -315.0,
+    136.0,
 ]
-rotation = -0.0
-order = 1.0
+rotation = 0.5235989
+order = 2.0
+
+[[cards]]
+prefab_id = 1004
+
+[cards.scene_param]
+position = [
+    -175.0,
+    63.0,
+]
+rotation = 0.0
+order = 3.0
+
+[[cards]]
+prefab_id = 1001
+
+[cards.scene_param]
+position = [
+    0.0,
+    259.0,
+]
+rotation = 0.0
+order = 4.0
+
+[[cards]]
+prefab_id = 1001
+
+[cards.scene_param]
+position = [
+    44.0,
+    185.0,
+]
+rotation = 0.0
+order = 5.0
+
+[[cards]]
+prefab_id = 1002
+
+[cards.scene_param]
+position = [
+    168.0,
+    226.0,
+]
+rotation = 1.0471976
+order = 6.0
+
+[[cards]]
+prefab_id = 1002
+
+[cards.scene_param]
+position = [
+    262.0,
+    151.0,
+]
+rotation = 0.5235989
+order = 7.0
+
+[[cards]]
+prefab_id = 1002
+
+[cards.scene_param]
+position = [
+    300.0,
+    33.0,
+]
+rotation = 0.0
+order = 8.0
+
+[[cards]]
+prefab_id = 1002
+
+[cards.scene_param]
+position = [
+    -259.0,
+    -105.0,
+]
+rotation = 0.0
+order = 9.0
+
+[[cards]]
+prefab_id = 1002
+
+[cards.scene_param]
+position = [
+    -260.0,
+    -256.0,
+]
+rotation = 0.0
+order = 10.0
 
 [[cards]]
 prefab_id = 1006
 
 [cards.scene_param]
 position = [
-    255.33333,
-    -71.33332,
+    -361.0,
+    -176.0,
 ]
-rotation = -0.0
-order = 2.0
+rotation = 0.0
+order = 11.0
 
 [cards.runtime_specialized_param]
 type = "clue"
@@ -27,9 +115,9 @@ type = "clue"
 interaction_prefab_id = 1003
 
 [cards.runtime_specialized_param.params.interaction_target_scene_param]
-order = 3.0
+order = 20012.0
 position = [
-    422.97674560546875,
-    -187.9999542236328,
+    -138.0,
+    -248.0,
 ]
 rotation = -0.0

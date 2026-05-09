@@ -7,6 +7,7 @@ use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
 use crate::editor::editor_view::{EditorView, setup_editor_view};
 use crate::game_view::main_view::cleanup_view;
+use crate::scene::SceneLayer;
 use bevy::input::ButtonInput;
 use bevy::picking::pointer::PointerButton;
 use bevy::picking::prelude::{Drag, Move, Out, Over, Pointer, Press, Release, Scroll};
@@ -33,6 +34,7 @@ const EDITOR_SCENE_TOML: &str = "editor_scene.toml";
 const CARD_ORDER_STEP: f32 = 1.0;
 const DRAG_PREVIEW_ORDER: f32 = 20.0;
 const ORDER_LABEL_FONT_SIZE: f32 = 13.0;
+const EDITOR_ROTATION_STEP: f32 = PI / 6.0;
 
 pub struct EditorPlugin;
 
@@ -52,6 +54,7 @@ pub struct EditorInteractionState {
     rotating_entity: Option<RotatingEntityState>,
     prefab_scroll_offset: f32,
     escape_consumed: bool,
+    pending_exit_confirmation: bool,
     status_message: String,
 }
 
@@ -75,6 +78,26 @@ impl EditorInteractionState {
     pub fn set_status_message(&mut self, message: impl Into<String>) {
         self.status_message = message.into();
     }
+
+    pub fn request_exit_to_main_menu(&mut self, has_unsaved_changes: bool) -> bool {
+        if !has_unsaved_changes {
+            self.pending_exit_confirmation = false;
+            return true;
+        }
+
+        if self.pending_exit_confirmation {
+            self.pending_exit_confirmation = false;
+            return true;
+        }
+
+        self.pending_exit_confirmation = true;
+        self.status_message = "当前场景存在未保存修改。再次按 Esc 确认退出。".into();
+        false
+    }
+
+    fn clear_exit_confirmation(&mut self) {
+        self.pending_exit_confirmation = false;
+    }
 }
 
 #[derive(Bundle)]
@@ -85,15 +108,19 @@ struct EditorButtonBundle {
     action: EditorButtonAction,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct MovingEntityState {
     entity: Entity,
     pointer_offset: Vec2,
+    before_scene: EditorSceneFile,
+    changed: bool,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct RotatingEntityState {
     entity: Entity,
+    before_scene: EditorSceneFile,
+    changed: bool,
 }
 
 #[derive(Component)]
@@ -139,17 +166,42 @@ struct PrefabPreviewItem {
     background_color: Color,
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 struct EditorSceneFile {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cards: Vec<CardParam>,
+}
+
+#[derive(Resource, Default)]
+pub struct EditorUndoHistory {
+    undo_stack: Vec<EditorSceneFile>,
+    redo_stack: Vec<EditorSceneFile>,
+    dirty: bool,
+}
+
+impl EditorUndoHistory {
+    pub fn has_unsaved_changes(&self) -> bool {
+        self.dirty
+    }
+
+    fn mark_clean(&mut self) {
+        self.dirty = false;
+    }
+
+    fn clear(&mut self) {
+        self.undo_stack.clear();
+        self.redo_stack.clear();
+        self.dirty = false;
+    }
 }
 
 impl Plugin for EditorPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<EditorInteractionState>()
             .init_resource::<EditorPointerWorldPosition>()
+            .init_resource::<EditorUndoHistory>()
             .add_systems(OnEnter(AppView::Editor), reset_editor_state)
+            .add_systems(OnEnter(AppView::Editor), reset_editor_history)
             .add_systems(OnEnter(AppView::Editor), setup_editor_view)
             .add_systems(OnEnter(AppView::Editor), setup_editor_ui)
             .add_systems(OnExit(AppView::Editor), cleanup_view::<EditorView>)
@@ -185,6 +237,10 @@ fn reset_editor_state(mut state: ResMut<EditorInteractionState>) {
         status_message: "编辑器已就绪".into(),
         ..default()
     };
+}
+
+fn reset_editor_history(mut history: ResMut<EditorUndoHistory>) {
+    history.clear();
 }
 
 fn setup_editor_ui(
@@ -295,7 +351,7 @@ fn setup_editor_ui(
 
                     sidebar.spawn((
                         Text::new(
-                            "操作说明\n1. 直接按住卡牌预览并拖到主场景，松开后会克隆一张。\n2. 左键拖动卡牌位置。\n3. 拖动右上角旋转控制点可直接旋转。\n4. 鼠标悬浮卡牌时滚轮调整其在相交卡牌组内的层级。\n5. PageUp / PageDown 调整层级，Home / End 置底或置顶。\n6. Delete 删除选中卡牌。\n7. Ctrl+E / Ctrl+B 导出，Ctrl+I / Ctrl+Shift+I 导入。",
+                            "操作说明\n1. 直接按住卡牌预览并拖到主场景，松开后会克隆一张。\n2. 左键拖动卡牌位置，坐标会吸附到整数。\n3. 拖动右上角旋转控制点，角度按 30° 粒度吸附。\n4. 鼠标悬浮卡牌时滚轮调整其在相交卡牌组内的层级。\n5. PageUp / PageDown 调整层级，Home / End 置底或置顶。\n6. Delete 删除选中卡牌。\n7. Ctrl+Z 撤销，Ctrl+Shift+Z 重做。\n8. Ctrl+E 导出，Ctrl+I 导入。",
                         ),
                         TextFont {
                             font: ui_font.clone(),
@@ -456,6 +512,7 @@ fn handle_toolbar_buttons(
     >,
     mut spawn_deps: CardSpawnParams<'_>,
     mut state: ResMut<EditorInteractionState>,
+    mut history: ResMut<EditorUndoHistory>,
 ) {
     for event in press_events.read() {
         if event.button != PointerButton::Primary {
@@ -468,14 +525,31 @@ fn handle_toolbar_buttons(
         match action {
             EditorButtonAction::ExportScene => {
                 state.status_message = match pick_scene_export_path() {
-                    Some(path) => save_scene_to_path(&card_query, &path),
+                    Some(path) => {
+                        let message = save_scene_to_path(&card_query, &path);
+                        if message.starts_with("已导出") {
+                            history.mark_clean();
+                            state.clear_exit_confirmation();
+                        }
+                        message
+                    }
                     None => "已取消导出".into(),
                 };
             }
             EditorButtonAction::ImportScene => {
                 state.status_message = match pick_scene_import_path() {
                     Some(path) => {
-                        load_scene_from_path(&mut commands, &card_query, &mut spawn_deps, &path)
+                        let message = load_scene_from_path(
+                            &mut commands,
+                            &card_query,
+                            &mut spawn_deps,
+                            &path,
+                        );
+                        if message.starts_with("已从") {
+                            history.clear();
+                            state.clear_exit_confirmation();
+                        }
+                        message
                     }
                     None => "已取消导入".into(),
                 };
@@ -621,7 +695,7 @@ fn update_drag_preview_card(
 
     transform.translation.x = world_position.x;
     transform.translation.y = world_position.y;
-    transform.translation.z = DRAG_PREVIEW_ORDER;
+    transform.translation.z = editor_global_z_from_order(DRAG_PREVIEW_ORDER);
     transform.rotation = Quat::IDENTITY;
     *visibility = Visibility::Visible;
 }
@@ -649,8 +723,18 @@ fn handle_prefab_drop(
     window_query: Query<&Window, With<PrimaryWindow>>,
     pointer_world: Res<EditorPointerWorldPosition>,
     mut preview_query: Query<&mut Transform, With<EditorDragPreview>>,
-    card_query: Query<&Transform, (With<Card>, Without<EditorDragPreview>)>,
+    card_query: Query<
+        (
+            Entity,
+            &Card,
+            &Transform,
+            Option<&EditorRuntimeSpecializedParam>,
+            Option<&EditorSpecializedAuxiliaryCard>,
+        ),
+        Without<EditorDragPreview>,
+    >,
     mut state: ResMut<EditorInteractionState>,
+    mut history: ResMut<EditorUndoHistory>,
 ) {
     let Some(prefab_id) = state.dragging_prefab else {
         return;
@@ -693,11 +777,13 @@ fn handle_prefab_drop(
         return;
     };
 
-    let placed_order = next_card_order(&card_query);
+    let before_scene = collect_editor_scene_snapshot(&card_query);
+    let placed_order =
+        next_card_order_from_transforms(card_query.iter().map(|(_, _, transform, _, _)| transform));
     if let Ok(mut transform) = preview_query.get_mut(entity) {
         transform.translation.x = world_position.x;
         transform.translation.y = world_position.y;
-        transform.translation.z = placed_order;
+        transform.translation.z = editor_global_z_from_order(placed_order);
         transform.rotation = Quat::IDENTITY;
     }
 
@@ -707,6 +793,8 @@ fn handle_prefab_drop(
         .insert((Visibility::Visible, EditorPlacedCard));
 
     state.selected_entity = Some(entity);
+    record_editor_undo(&mut history, before_scene);
+    state.clear_exit_confirmation();
     state.status_message = format!(
         "已放置卡牌 #{} ({:.0}, {:.0})，层级 {:.0}",
         prefab_id, world_position.x, world_position.y, placed_order
@@ -724,9 +812,20 @@ fn handle_scene_editing(
     mut card_queries: ParamSet<(
         Query<(Entity, &Card, &GlobalTransform, &Transform), Without<EditorDragPreview>>,
         Query<&mut Transform>,
+        Query<
+            (
+                Entity,
+                &Card,
+                &Transform,
+                Option<&EditorRuntimeSpecializedParam>,
+                Option<&EditorSpecializedAuxiliaryCard>,
+            ),
+            Without<EditorDragPreview>,
+        >,
     )>,
     linked_entities_query: Query<&EditorLinkedEntities>,
     mut state: ResMut<EditorInteractionState>,
+    mut history: ResMut<EditorUndoHistory>,
 ) {
     let Ok(window) = window_query.single() else {
         return;
@@ -743,6 +842,10 @@ fn handle_scene_editing(
         else {
             continue;
         };
+        state.clear_exit_confirmation();
+        let mut start_rotation = None;
+        let mut start_move = None;
+        let mut clear_selection = false;
         {
             let card_query = card_queries.p0();
 
@@ -753,28 +856,51 @@ fn handle_scene_editing(
                     &card_query,
                 )
             {
-                state.rotating_entity = Some(RotatingEntityState {
-                    entity: selected_entity,
-                });
-                state.moving_entity = None;
-                state.status_message = "正在旋转卡牌".into();
-                return;
-            }
-
-            if let Ok((entity, _, _, transform)) = card_query.get(event.entity) {
-                state.selected_entity = Some(entity);
-                state.rotating_entity = None;
-                state.moving_entity = Some(MovingEntityState {
+                start_rotation = Some(selected_entity);
+            } else if let Ok((entity, _, _, transform)) = card_query.get(event.entity) {
+                start_move = Some((
                     entity,
-                    pointer_offset: transform.translation.truncate() - cursor_world_position,
-                });
-                state.status_message = format!("已选中卡牌 #{entity:?}，拖动中");
+                    transform.translation.truncate() - cursor_world_position,
+                ));
             } else if !keyboard_input.pressed(KeyCode::ControlLeft)
                 && !keyboard_input.pressed(KeyCode::ControlRight)
             {
-                state.selected_entity = None;
-                state.status_message = "已取消选中".into();
+                clear_selection = true;
             }
+        }
+
+        if let Some(entity) = start_rotation {
+            let before_scene = {
+                let snapshot_query = card_queries.p2();
+                collect_editor_scene_snapshot(&snapshot_query)
+            };
+            state.rotating_entity = Some(RotatingEntityState {
+                entity,
+                before_scene,
+                changed: false,
+            });
+            state.moving_entity = None;
+            state.status_message = "正在旋转卡牌".into();
+            return;
+        }
+
+        if let Some((entity, pointer_offset)) = start_move {
+            let before_scene = {
+                let snapshot_query = card_queries.p2();
+                collect_editor_scene_snapshot(&snapshot_query)
+            };
+            state.selected_entity = Some(entity);
+            state.rotating_entity = None;
+            state.moving_entity = Some(MovingEntityState {
+                entity,
+                pointer_offset,
+                before_scene,
+                changed: false,
+            });
+            state.status_message = format!("已选中卡牌 #{entity:?}，拖动中");
+        } else if clear_selection {
+            state.selected_entity = None;
+            state.status_message = "已取消选中".into();
         }
     }
 
@@ -789,20 +915,24 @@ fn handle_scene_editing(
         };
         let mut transform_query = card_queries.p1();
 
-        if let Some(moving) = state.moving_entity
+        if let Some(moving) = state.moving_entity.as_mut()
             && let Ok(mut transform) = transform_query.get_mut(moving.entity)
         {
             let next = normalize_editor_position(cursor_world_position + moving.pointer_offset);
+            moving.changed |=
+                transform.translation.x != next.x || transform.translation.y != next.y;
             transform.translation.x = next.x;
             transform.translation.y = next.y;
         }
 
-        if let Some(rotating) = state.rotating_entity
+        if let Some(rotating) = state.rotating_entity.as_mut()
             && let Ok(mut transform) = transform_query.get_mut(rotating.entity)
         {
             let center = transform.translation.truncate();
             let angle =
                 normalize_editor_rotation((cursor_world_position - center).to_angle() - FRAC_PI_4);
+            let old_angle = transform.rotation.to_euler(EulerRot::XYZ).2;
+            rotating.changed |= normalize_editor_rotation(old_angle - angle).abs() > f32::EPSILON;
             transform.rotation = Quat::from_rotation_z(angle);
         }
     }
@@ -811,21 +941,33 @@ fn handle_scene_editing(
         .read()
         .any(|event| event.button == PointerButton::Primary);
     if released {
-        if state.moving_entity.is_some() {
-            state.status_message = "卡牌位置已更新".into();
-        } else if state.rotating_entity.is_some() {
-            state.status_message = "卡牌旋转已更新".into();
+        if let Some(moving) = state.moving_entity.take() {
+            if moving.changed {
+                record_editor_undo(&mut history, moving.before_scene);
+                state.clear_exit_confirmation();
+                state.status_message = "卡牌位置已更新".into();
+            }
+        } else if let Some(rotating) = state.rotating_entity.take() {
+            if rotating.changed {
+                record_editor_undo(&mut history, rotating.before_scene);
+                state.clear_exit_confirmation();
+                state.status_message = "卡牌旋转已更新".into();
+            }
         }
-        state.moving_entity = None;
-        state.rotating_entity = None;
     }
 
     if keyboard_input.just_pressed(KeyCode::Delete)
         && let Some(entity) = state.selected_entity.take()
     {
+        let before_scene = {
+            let snapshot_query = card_queries.p2();
+            collect_editor_scene_snapshot(&snapshot_query)
+        };
         despawn_editor_card_with_linked_entities(&mut commands, entity, &linked_entities_query);
+        record_editor_undo(&mut history, before_scene);
         state.moving_entity = None;
         state.rotating_entity = None;
+        state.clear_exit_confirmation();
         state.status_message = "已删除选中卡牌".into();
     }
 }
@@ -858,6 +1000,7 @@ fn handle_editor_shortcuts(
     >,
     spawn_deps: CardSpawnParams<'_>,
     mut state: ResMut<EditorInteractionState>,
+    mut history: ResMut<EditorUndoHistory>,
 ) {
     let ctrl_pressed = keyboard_input.pressed(KeyCode::ControlLeft)
         || keyboard_input.pressed(KeyCode::ControlRight);
@@ -866,8 +1009,26 @@ fn handle_editor_shortcuts(
         return;
     }
 
+    if keyboard_input.just_pressed(KeyCode::KeyZ) {
+        if keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)
+        {
+            state.status_message =
+                redo_editor_operation(&mut commands, &card_query, spawn_deps, &mut history);
+        } else {
+            state.status_message =
+                undo_editor_operation(&mut commands, &card_query, spawn_deps, &mut history);
+        }
+        state.selected_entity = None;
+        state.clear_exit_confirmation();
+        return;
+    }
+
     if keyboard_input.just_pressed(KeyCode::KeyE) {
         state.status_message = save_scene(&card_query, SceneFileFormat::Toml);
+        if state.status_message.starts_with("已导出") {
+            history.mark_clean();
+            state.clear_exit_confirmation();
+        }
     }
 
     if keyboard_input.just_pressed(KeyCode::KeyI) {
@@ -877,14 +1038,31 @@ fn handle_editor_shortcuts(
             spawn_deps,
             SceneFileFormat::Toml,
         );
+        if state.status_message.starts_with("已从") {
+            history.clear();
+            state.clear_exit_confirmation();
+        }
         state.selected_entity = None;
     }
 }
 
 fn handle_card_order_shortcuts(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut card_query: Query<(Entity, &mut Transform), (With<Card>, Without<EditorDragPreview>)>,
+    mut card_queries: ParamSet<(
+        Query<(Entity, &mut Transform), (With<Card>, Without<EditorDragPreview>)>,
+        Query<
+            (
+                Entity,
+                &Card,
+                &Transform,
+                Option<&EditorRuntimeSpecializedParam>,
+                Option<&EditorSpecializedAuxiliaryCard>,
+            ),
+            Without<EditorDragPreview>,
+        >,
+    )>,
     mut state: ResMut<EditorInteractionState>,
+    mut history: ResMut<EditorUndoHistory>,
 ) {
     if state.captures_pointer() {
         return;
@@ -899,9 +1077,11 @@ fn handle_card_order_shortcuts(
     } else if keyboard_input.just_pressed(KeyCode::PageDown) {
         Some(CardOrderChange::Step(-CARD_ORDER_STEP))
     } else if keyboard_input.just_pressed(KeyCode::End) {
-        max_card_order_mut(&card_query).map(|order| CardOrderChange::Set(order + CARD_ORDER_STEP))
+        max_card_order_mut(&card_queries.p0())
+            .map(|order| CardOrderChange::Set(order + CARD_ORDER_STEP))
     } else if keyboard_input.just_pressed(KeyCode::Home) {
-        min_card_order_mut(&card_query).map(|order| CardOrderChange::Set(order - CARD_ORDER_STEP))
+        min_card_order_mut(&card_queries.p0())
+            .map(|order| CardOrderChange::Set(order - CARD_ORDER_STEP))
     } else {
         None
     };
@@ -910,18 +1090,35 @@ fn handle_card_order_shortcuts(
         return;
     };
 
+    let before_scene = {
+        let snapshot_query = card_queries.p1();
+        collect_editor_scene_snapshot(&snapshot_query)
+    };
+
+    let mut card_query = card_queries.p0();
     let Ok((_, mut transform)) = card_query.get_mut(selected_entity) else {
         state.selected_entity = None;
         state.status_message = "调整层级失败：选中卡牌不存在".into();
         return;
     };
 
+    let old_order = editor_local_order_from_transform(&transform);
     match order_delta {
-        CardOrderChange::Step(delta) => transform.translation.z += delta,
-        CardOrderChange::Set(order) => transform.translation.z = order,
+        CardOrderChange::Step(delta) => {
+            let next_order = editor_local_order_from_transform(&transform) + delta;
+            transform.translation.z = editor_global_z_from_order(next_order);
+        }
+        CardOrderChange::Set(order) => transform.translation.z = editor_global_z_from_order(order),
+    }
+    let new_order = editor_local_order_from_transform(&transform);
+    if (old_order - new_order).abs() <= f32::EPSILON {
+        state.status_message = "卡牌层级未变化".into();
+        return;
     }
 
-    state.status_message = format!("卡牌层级已更新为 {:.0}", transform.translation.z);
+    record_editor_undo(&mut history, before_scene);
+    state.clear_exit_confirmation();
+    state.status_message = format!("卡牌层级已更新为 {:.0}", new_order);
 }
 
 fn handle_card_order_wheel(
@@ -929,8 +1126,19 @@ fn handle_card_order_wheel(
     mut card_queries: ParamSet<(
         Query<(Entity, &Card, &GlobalTransform, &Transform), Without<EditorDragPreview>>,
         Query<&mut Transform, (With<Card>, Without<EditorDragPreview>)>,
+        Query<
+            (
+                Entity,
+                &Card,
+                &Transform,
+                Option<&EditorRuntimeSpecializedParam>,
+                Option<&EditorSpecializedAuxiliaryCard>,
+            ),
+            Without<EditorDragPreview>,
+        >,
     )>,
     mut state: ResMut<EditorInteractionState>,
+    mut history: ResMut<EditorUndoHistory>,
 ) {
     if state.captures_pointer() {
         return;
@@ -987,16 +1195,23 @@ fn handle_card_order_wheel(
         .map(|(_, order)| *order)
         .unwrap_or_default();
 
+    let before_scene = {
+        let snapshot_query = card_queries.p2();
+        collect_editor_scene_snapshot(&snapshot_query)
+    };
+
     {
         let mut transform_query = card_queries.p1();
         for (entity, order) in assignments {
             if let Ok(mut transform) = transform_query.get_mut(entity) {
-                transform.translation.z = order;
+                transform.translation.z = editor_global_z_from_order(order);
             }
         }
     }
 
     state.selected_entity = Some(hovered_entity);
+    record_editor_undo(&mut history, before_scene);
+    state.clear_exit_confirmation();
     state.status_message = format!(
         "已通过滚轮调整相交卡牌组层级：卡牌 #{hovered_entity:?}，当前层级 {:.0}",
         next_order
@@ -1011,7 +1226,7 @@ fn update_editor_card_order_text(
         let Ok(transform) = card_query.get(parent.parent()) else {
             continue;
         };
-        **text = format!("order {:.0}", transform.translation.z);
+        **text = format!("order {:.0}", editor_local_order_from_transform(transform));
     }
 }
 
@@ -1132,7 +1347,8 @@ fn normalize_editor_position(position: Vec2) -> Vec2 {
 }
 
 fn normalize_editor_rotation(rotation: f32) -> f32 {
-    let normalized = (rotation + PI).rem_euclid(TAU) - PI;
+    let stepped = (rotation / EDITOR_ROTATION_STEP).round() * EDITOR_ROTATION_STEP;
+    let normalized = (stepped + PI).rem_euclid(TAU) - PI;
     if normalized == -PI { PI } else { normalized }
 }
 
@@ -1140,8 +1356,35 @@ fn normalize_editor_scene_param(scene_param: &CardSceneParam) -> CardSceneParam 
     CardSceneParam {
         position: normalize_editor_position(scene_param.position),
         rotation: normalize_editor_rotation(scene_param.rotation),
-        order: scene_param.order,
+        order: normalize_editor_order(scene_param.order),
     }
+}
+
+fn normalize_editor_export_scene_param(scene_param: &CardSceneParam) -> CardSceneParam {
+    println!("scene_param: {:?}", scene_param);
+    let csp = CardSceneParam {
+        position: Vec2::new(
+            scene_param.position.x.round(),
+            scene_param.position.y.round(),
+        ),
+        rotation: normalize_editor_rotation(scene_param.rotation),
+        order: normalize_editor_order(scene_param.order),
+    };
+
+    println!("csp: {:?}", csp);
+    csp
+}
+
+fn normalize_editor_order(order: f32) -> f32 {
+    order.round().max(0.0)
+}
+
+fn editor_local_order_from_transform(transform: &Transform) -> f32 {
+    normalize_editor_order(transform.translation.z - SceneLayer::Card.get_layer_base_z())
+}
+
+fn editor_global_z_from_order(order: f32) -> f32 {
+    SceneLayer::Card.get_layer_base_z() + normalize_editor_order(order)
 }
 
 fn parse_ui_color(input: &str) -> Option<Color> {
@@ -1171,10 +1414,9 @@ struct CardOrderSnapshot {
     order: f32,
 }
 
-fn next_card_order<F: bevy::ecs::query::QueryFilter>(query: &Query<&Transform, F>) -> f32 {
-    query
-        .iter()
-        .map(|transform| transform.translation.z)
+fn next_card_order_from_transforms<'a>(transforms: impl Iterator<Item = &'a Transform>) -> f32 {
+    transforms
+        .map(editor_local_order_from_transform)
         .reduce(f32::max)
         .unwrap_or(0.0)
         + CARD_ORDER_STEP
@@ -1185,7 +1427,7 @@ fn min_card_order_mut<F: bevy::ecs::query::QueryFilter>(
 ) -> Option<f32> {
     query
         .iter()
-        .map(|(_, transform)| transform.translation.z)
+        .map(|(_, transform)| editor_local_order_from_transform(transform))
         .reduce(f32::min)
 }
 
@@ -1194,7 +1436,7 @@ fn max_card_order_mut<F: bevy::ecs::query::QueryFilter>(
 ) -> Option<f32> {
     query
         .iter()
-        .map(|(_, transform)| transform.translation.z)
+        .map(|(_, transform)| editor_local_order_from_transform(transform))
         .reduce(f32::max)
 }
 
@@ -1206,7 +1448,7 @@ fn collect_card_order_snapshots<F: bevy::ecs::query::QueryFilter>(
         .map(|(entity, _, _, transform)| CardOrderSnapshot {
             entity,
             corners: obstacle_card_corners(transform),
-            order: transform.translation.z,
+            order: editor_local_order_from_transform(transform),
         })
         .collect()
 }
@@ -1374,6 +1616,123 @@ fn append_editor_card_overlays(
     });
 }
 
+fn collect_editor_scene_snapshot<F: bevy::ecs::query::QueryFilter>(
+    card_query: &Query<
+        (
+            Entity,
+            &Card,
+            &Transform,
+            Option<&EditorRuntimeSpecializedParam>,
+            Option<&EditorSpecializedAuxiliaryCard>,
+        ),
+        F,
+    >,
+) -> EditorSceneFile {
+    let mut cards = card_query
+        .iter()
+        .filter_map(|(entity, card, transform, runtime, auxiliary)| {
+            editor_card_to_scene_card(card, transform, runtime, auxiliary)
+                .map(|card| (entity, card))
+        })
+        .collect::<Vec<_>>();
+
+    cards.sort_by(|(entity_a, card_a), (entity_b, card_b)| {
+        card_a
+            .scene_param
+            .order
+            .partial_cmp(&card_b.scene_param.order)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| entity_a.index().cmp(&entity_b.index()))
+    });
+
+    EditorSceneFile {
+        cards: cards.into_iter().map(|(_, card)| card).collect(),
+    }
+}
+
+fn record_editor_undo(history: &mut EditorUndoHistory, before_scene: EditorSceneFile) {
+    history.undo_stack.push(before_scene);
+    history.redo_stack.clear();
+    history.dirty = true;
+}
+
+fn undo_editor_operation(
+    commands: &mut Commands,
+    card_query: &Query<
+        (
+            Entity,
+            &Card,
+            &Transform,
+            Option<&EditorRuntimeSpecializedParam>,
+            Option<&EditorSpecializedAuxiliaryCard>,
+        ),
+        Without<EditorDragPreview>,
+    >,
+    mut spawn_deps: CardSpawnParams<'_>,
+    history: &mut EditorUndoHistory,
+) -> String {
+    let Some(previous_scene) = history.undo_stack.pop() else {
+        return "没有可撤销的操作".into();
+    };
+
+    let current_scene = collect_editor_scene_snapshot(card_query);
+    restore_editor_scene(commands, card_query, &mut spawn_deps, &previous_scene);
+    history.redo_stack.push(current_scene);
+    history.dirty = true;
+    "已撤销上一步操作".into()
+}
+
+fn redo_editor_operation(
+    commands: &mut Commands,
+    card_query: &Query<
+        (
+            Entity,
+            &Card,
+            &Transform,
+            Option<&EditorRuntimeSpecializedParam>,
+            Option<&EditorSpecializedAuxiliaryCard>,
+        ),
+        Without<EditorDragPreview>,
+    >,
+    mut spawn_deps: CardSpawnParams<'_>,
+    history: &mut EditorUndoHistory,
+) -> String {
+    let Some(next_scene) = history.redo_stack.pop() else {
+        return "没有可重做的操作".into();
+    };
+
+    let current_scene = collect_editor_scene_snapshot(card_query);
+    restore_editor_scene(commands, card_query, &mut spawn_deps, &next_scene);
+    history.undo_stack.push(current_scene);
+    history.dirty = true;
+    "已重做上一步操作".into()
+}
+
+fn restore_editor_scene(
+    commands: &mut Commands,
+    card_query: &Query<
+        (
+            Entity,
+            &Card,
+            &Transform,
+            Option<&EditorRuntimeSpecializedParam>,
+            Option<&EditorSpecializedAuxiliaryCard>,
+        ),
+        Without<EditorDragPreview>,
+    >,
+    spawn_deps: &mut CardSpawnParams<'_>,
+    scene: &EditorSceneFile,
+) {
+    for (entity, _, _, _, _) in card_query.iter() {
+        commands.entity(entity).despawn();
+    }
+
+    for card in &scene.cards {
+        let entity = spawn_editor_card(commands, spawn_deps, card);
+        commands.entity(entity).insert(EditorPlacedCard);
+    }
+}
+
 #[derive(Clone, Copy)]
 enum SceneFileFormat {
     Toml,
@@ -1426,7 +1785,13 @@ fn save_scene_to_path(
     });
 
     let scene = EditorSceneFile {
-        cards: cards.into_iter().map(|(_, card)| card).collect(),
+        cards: cards
+            .into_iter()
+            .map(|(_, mut card)| {
+                card.scene_param = normalize_editor_export_scene_param(&card.scene_param);
+                card
+            })
+            .collect(),
     };
 
     if let Some(parent) = path.parent()
@@ -1463,6 +1828,11 @@ fn editor_card_to_scene_card(
     }
 
     let mut card_param = card.to_card_param(transform);
+    card_param.scene_param = normalize_editor_scene_param(&CardSceneParam {
+        position: transform.translation.truncate(),
+        rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
+        order: editor_local_order_from_transform(transform),
+    });
     card_param.runtime_specialized_param = runtime.map(|runtime| runtime.0.clone());
     Some(card_param)
 }
@@ -1573,13 +1943,13 @@ fn scene_file_format_from_path(path: &Path) -> Result<SceneFileFormat, String> {
 }
 
 pub mod editor_view {
-    use bevy::camera::Camera2d;
+    use crate::scene::get_layered_game_scene_camera2d_bundle;
     use bevy::prelude::{Commands, Component};
 
     #[derive(Component)]
     pub struct EditorView;
 
     pub(super) fn setup_editor_view(mut commands: Commands) {
-        commands.spawn((Camera2d, EditorView));
+        commands.spawn((get_layered_game_scene_camera2d_bundle(), EditorView));
     }
 }

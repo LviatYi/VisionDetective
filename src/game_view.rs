@@ -46,7 +46,7 @@ pub mod main_view {
     use bevy::prelude::{
         AlignItems, BackgroundColor, Button, ChildSpawnerCommands, Commands, Component, Entity,
         FlexDirection, Font, JustifyContent, KeyCode, MessageReader, NextState, Node, Pickable,
-        Query, Res, ResMut, Text, TextColor, TextFont, UiRect, With, default, percent, px,
+        Query, Res, ResMut, State, Text, TextColor, TextFont, UiRect, With, default, percent, px,
     };
 
     #[derive(Component)]
@@ -179,7 +179,9 @@ pub mod main_view {
 
     pub fn handle_esc_to_main_menu(
         keyboard_input: Res<ButtonInput<KeyCode>>,
+        current_view: Res<State<AppView>>,
         mut editor_state: Option<ResMut<crate::editor::EditorInteractionState>>,
+        editor_history: Option<Res<crate::editor::EditorUndoHistory>>,
         mut next_screen: ResMut<NextState<AppView>>,
     ) {
         if editor_state
@@ -198,6 +200,17 @@ pub mod main_view {
         }
 
         if keyboard_input.just_pressed(KeyCode::Escape) {
+            if *current_view.get() == AppView::Editor
+                && let Some(state) = editor_state.as_mut()
+                && !state.request_exit_to_main_menu(
+                    editor_history
+                        .as_ref()
+                        .map(|history| history.has_unsaved_changes())
+                        .unwrap_or(false),
+                )
+            {
+                return;
+            }
             next_screen.set(AppView::MainMenu);
         }
     }

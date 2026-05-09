@@ -27,6 +27,7 @@ use crate::physics::Velocity;
 use crate::physics::vision::VisionPlugin;
 use crate::picking::VisionPickingPlugin;
 use crate::scene::demo_level::load_demo_scene;
+use crate::scene::get_layered_game_scene_camera2d_bundle;
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 
@@ -91,12 +92,7 @@ fn finish_game_loading(mut next_game_state: ResMut<NextState<GameState>>) {
 
 fn setup_game_scene(mut commands: Commands, mut card_spawn_params: CardSpawnParams<'_>) {
     commands.spawn((
-        Camera2d,
-        Projection::Orthographic(OrthographicProjection {
-            near: -100000.0,
-            far: 100000.0,
-            ..OrthographicProjection::default_2d()
-        }),
+        get_layered_game_scene_camera2d_bundle(),
         GameView,
         GameCamera,
     ));

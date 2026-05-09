@@ -1,3 +1,5 @@
+use bevy::camera::{Camera2d, OrthographicProjection, Projection};
+
 pub mod demo_level;
 
 #[derive(Debug, Copy, Clone)]
@@ -15,4 +17,15 @@ impl SceneLayer {
             SceneLayer::Coin => 30100,
         } as f32)
     }
+}
+
+pub fn get_layered_game_scene_camera2d_bundle() -> (Camera2d, Projection) {
+    (
+        Camera2d,
+        Projection::Orthographic(OrthographicProjection {
+            near: -100000.0,
+            far: 100000.0,
+            ..OrthographicProjection::default_2d()
+        }),
+    )
 }
