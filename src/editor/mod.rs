@@ -52,6 +52,7 @@ pub struct EditorInteractionState {
     drag_preview_entity: Option<Entity>,
     moving_entity: Option<MovingEntityState>,
     rotating_entity: Option<RotatingEntityState>,
+    camera_panning: Option<EditorCameraPanState>,
     prefab_scroll_offset: f32,
     escape_consumed: bool,
     pending_exit_confirmation: bool,
@@ -63,6 +64,7 @@ impl EditorInteractionState {
         self.dragging_prefab.is_some()
             || self.moving_entity.is_some()
             || self.rotating_entity.is_some()
+            || self.camera_panning.is_some()
     }
 
     pub fn take_escape_consumed(&mut self) -> bool {
@@ -123,13 +125,22 @@ pub struct RotatingEntityState {
     changed: bool,
 }
 
+#[derive(Clone, Copy)]
+struct EditorCameraPanState {
+    last_cursor_position: Vec2,
+}
+
 #[derive(Component)]
 struct EditorStatusText;
+
+#[derive(Component)]
+struct EditorResetCameraButton;
 
 #[derive(Component, Clone, Copy)]
 enum EditorButtonAction {
     ExportScene,
     ImportScene,
+    ResetCameraView,
 }
 
 #[derive(Component, Clone, Copy)]
@@ -218,10 +229,12 @@ impl Plugin for EditorPlugin {
                     update_drag_preview_card,
                     cancel_prefab_drag_with_escape,
                     handle_prefab_drop,
+                    handle_editor_camera_pan,
                     handle_scene_editing,
                     handle_card_order_wheel,
                     handle_card_order_shortcuts,
                     update_editor_card_order_text,
+                    update_editor_camera_reset_button_visibility,
                     handle_editor_shortcuts,
                     update_editor_status_text,
                 )
@@ -281,6 +294,36 @@ fn setup_editor_ui(
                 .with_children(|toolbar| {
                     spawn_button(toolbar, &ui_font, "导出", EditorButtonAction::ExportScene);
                     spawn_button(toolbar, &ui_font, "导入", EditorButtonAction::ImportScene);
+                });
+
+            parent
+                .spawn(EditorButtonBundle {
+                    button: Button,
+                    node: Node {
+                        position_type: PositionType::Absolute,
+                        right: px(18.0),
+                        bottom: px(18.0),
+                        height: px(COMPACT_BUTTON_HEIGHT),
+                        padding: UiRect::axes(px(12.0), px(6.0)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    background_color: BackgroundColor(Color::srgb(0.19, 0.29, 0.40)),
+                    action: EditorButtonAction::ResetCameraView,
+                })
+                .insert((Pickable::default(), Visibility::Hidden, EditorResetCameraButton))
+                .with_children(|button| {
+                    button.spawn((
+                        Text::new("回到原视角"),
+                        TextFont {
+                            font: ui_font.clone(),
+                            font_size: 13.0,
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                        Pickable::IGNORE,
+                    ));
                 });
 
             parent
@@ -351,7 +394,7 @@ fn setup_editor_ui(
 
                     sidebar.spawn((
                         Text::new(
-                            "操作说明\n1. 直接按住卡牌预览并拖到主场景，松开后会克隆一张。\n2. 左键拖动卡牌位置，坐标会吸附到整数。\n3. 拖动右上角旋转控制点，角度按 30° 粒度吸附。\n4. 鼠标悬浮卡牌时滚轮调整其在相交卡牌组内的层级。\n5. PageUp / PageDown 调整层级，Home / End 置底或置顶。\n6. Delete 删除选中卡牌。\n7. Ctrl+Z 撤销，Ctrl+Shift+Z 重做。\n8. Ctrl+E 导出，Ctrl+I 导入。",
+                            "操作说明\n1. 直接按住卡牌预览并拖到主场景，松开后会克隆一张。\n2. 左键拖动卡牌位置，坐标会吸附到整数。\n3. 右键拖动主场景可平移编辑器视角。\n4. 拖动右上角旋转控制点，角度按 30° 粒度吸附。\n5. 鼠标悬浮卡牌时滚轮调整其在相交卡牌组内的层级。\n6. PageUp / PageDown 调整层级，Home / End 置底或置顶。\n7. Delete 删除选中卡牌。\n8. Ctrl+Z 撤销，Ctrl+Shift+Z 重做。\n9. Ctrl+E 导出，Ctrl+I 导入。",
                         ),
                         TextFont {
                             font: ui_font.clone(),
@@ -510,6 +553,7 @@ fn handle_toolbar_buttons(
         ),
         Without<EditorDragPreview>,
     >,
+    mut camera_query: Query<&mut Transform, (With<Camera2d>, With<EditorView>, Without<Card>)>,
     mut spawn_deps: CardSpawnParams<'_>,
     mut state: ResMut<EditorInteractionState>,
     mut history: ResMut<EditorUndoHistory>,
@@ -554,6 +598,16 @@ fn handle_toolbar_buttons(
                     None => "已取消导入".into(),
                 };
                 state.selected_entity = None;
+            }
+            EditorButtonAction::ResetCameraView => {
+                let Ok(mut camera_transform) = camera_query.single_mut() else {
+                    state.status_message = "回归视角失败：编辑器相机不存在".into();
+                    continue;
+                };
+                camera_transform.translation.x = 0.0;
+                camera_transform.translation.y = 0.0;
+                state.camera_panning = None;
+                state.status_message = "已回到原先视角".into();
             }
         }
     }
@@ -799,6 +853,79 @@ fn handle_prefab_drop(
         "已放置卡牌 #{} ({:.0}, {:.0})，层级 {:.0}",
         prefab_id, world_position.x, world_position.y, placed_order
     );
+}
+
+fn handle_editor_camera_pan(
+    mut press_events: MessageReader<Pointer<Press>>,
+    mut drag_events: MessageReader<Pointer<Drag>>,
+    mut release_events: MessageReader<Pointer<Release>>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    mut camera_query: Query<
+        (&Camera, &GlobalTransform, &mut Transform),
+        (With<Camera2d>, With<EditorView>),
+    >,
+    mut state: ResMut<EditorInteractionState>,
+) {
+    let Ok(window) = window_query.single() else {
+        return;
+    };
+
+    for event in press_events.read() {
+        if state.dragging_prefab.is_some()
+            || state.moving_entity.is_some()
+            || state.rotating_entity.is_some()
+        {
+            continue;
+        }
+        if event.button != PointerButton::Secondary
+            || !cursor_is_over_scene(window, event.pointer_location.position)
+        {
+            continue;
+        }
+        state.camera_panning = Some(EditorCameraPanState {
+            last_cursor_position: event.pointer_location.position,
+        });
+        state.moving_entity = None;
+        state.rotating_entity = None;
+        state.clear_exit_confirmation();
+        state.status_message = "正在拖动编辑器视角".into();
+    }
+
+    for event in drag_events.read() {
+        if event.button != PointerButton::Secondary {
+            continue;
+        }
+        let Some(camera_panning) = state.camera_panning.as_mut() else {
+            continue;
+        };
+
+        let Ok((camera, camera_global_transform, mut camera_transform)) = camera_query.single_mut()
+        else {
+            continue;
+        };
+        let Ok(previous_world_position) = camera
+            .viewport_to_world_2d(camera_global_transform, camera_panning.last_cursor_position)
+        else {
+            continue;
+        };
+        let Ok(current_world_position) =
+            camera.viewport_to_world_2d(camera_global_transform, event.pointer_location.position)
+        else {
+            continue;
+        };
+
+        let pan_delta = previous_world_position - current_world_position;
+        camera_transform.translation.x += pan_delta.x;
+        camera_transform.translation.y += pan_delta.y;
+        camera_panning.last_cursor_position = event.pointer_location.position;
+    }
+
+    let released = release_events
+        .read()
+        .any(|event| event.button == PointerButton::Secondary);
+    if released && state.camera_panning.take().is_some() {
+        state.status_message = "编辑器视角已更新".into();
+    }
 }
 
 fn handle_scene_editing(
@@ -1228,6 +1355,32 @@ fn update_editor_card_order_text(
         };
         **text = format!("order {:.0}", editor_local_order_from_transform(transform));
     }
+}
+
+fn update_editor_camera_reset_button_visibility(
+    camera_query: Query<
+        &Transform,
+        (
+            With<Camera2d>,
+            With<EditorView>,
+            Without<EditorResetCameraButton>,
+        ),
+    >,
+    mut button_query: Query<&mut Visibility, With<EditorResetCameraButton>>,
+) {
+    let Ok(camera_transform) = camera_query.single() else {
+        return;
+    };
+    let Ok(mut visibility) = button_query.single_mut() else {
+        return;
+    };
+
+    let is_camera_offset = camera_transform.translation.truncate().length_squared() > f32::EPSILON;
+    *visibility = if is_camera_offset {
+        Visibility::Visible
+    } else {
+        Visibility::Hidden
+    };
 }
 
 fn update_editor_status_text(
