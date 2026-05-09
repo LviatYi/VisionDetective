@@ -4,42 +4,36 @@
       "id": 100001,
       "title": "Grass",
       "background_color_appearance_override": "#4C8A68FF",
-      "image_layout_type": "normal",
       "image_res_path": ""
     },
     {
       "id": 100002,
       "title": "Wall",
       "background_color_appearance_override": "#7D6148FF",
-      "image_layout_type": "full",
       "image_res_path": "pic/street-wallx72ppi.png"
     },
     {
       "id": 100003,
       "title": "交互卡模拟",
       "background_color_appearance_override": "#C6783DFF",
-      "image_layout_type": "normal",
       "image_res_path": ""
     },
     {
       "id": 100004,
       "title": "曲线障碍卡模拟",
       "background_color_appearance_override": "#7D6148FF",
-      "image_layout_type": "full",
       "image_res_path": "pic/street-wallx72ppi.png"
     },
     {
       "id": 100005,
       "title": "对话交互卡",
       "background_color_appearance_override": "#C6783DFF",
-      "image_layout_type": "normal",
       "image_res_path": ""
     },
     {
       "id": 100006,
       "title": "线索卡",
       "background_color_appearance_override": "",
-      "image_layout_type": "normal",
       "image_res_path": ""
     }
   ],

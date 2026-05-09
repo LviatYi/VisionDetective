@@ -114,8 +114,8 @@ pub struct CardAppearanceConfig {
     /// Optional override of the background color.
     #[serde(default)]
     pub background_color_appearance_override: String,
-    #[serde(default)]
-    pub image_layout_type: CardImageLayoutType,
+    // #[serde(default)]
+    // pub image_layout_type: CardImageLayoutType,
     pub image_res_path: String,
 }
 
@@ -125,22 +125,22 @@ impl CardAppearanceConfig {
             id: 0,
             title: "Placeholder".to_string(),
             background_color_appearance_override: "".to_string(),
-            image_layout_type: CardImageLayoutType::Normal,
+            // image_layout_type: CardImageLayoutType::Normal,
             image_res_path: String::new(),
         }
     }
 }
 
-/// Layout modes for card artwork.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum CardImageLayoutType {
-    /// Draw the image within the normal card content area.
-    #[default]
-    Normal,
-    /// Draw the image in a full-bleed style.
-    Full,
-}
+// /// Layout modes for card artwork.
+// #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+// #[serde(rename_all = "snake_case")]
+// pub enum CardImageLayoutType {
+//     /// Draw the image within the normal card content area.
+//     #[default]
+//     Normal,
+//     /// Draw the image in a full-bleed style.
+//     Full,
+// }
 
 /// Trait implemented by every card-kind-specific parameter payload.
 pub trait CardSpecialized: Send + Sync {

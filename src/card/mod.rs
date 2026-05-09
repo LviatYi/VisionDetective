@@ -1,7 +1,7 @@
 pub mod card_params;
 pub mod specialized;
 
-use crate::card::card_params::{CardImageLayoutType, CardSceneParam};
+use crate::card::card_params::CardSceneParam;
 use crate::card::card_params::{CardParam, CardSpawnParams, CardSpecializedRegistry};
 use crate::config::GameConfig;
 use crate::scene::SceneLayer;
@@ -24,7 +24,7 @@ pub enum CardKind {
 }
 
 pub const STANDARD_CARD_SIZE: Vec2 = Vec2::new(53.9, 85.6);
-pub const IN_GAME_CARD_SIZE_SCALE: f32 = 1.5;
+pub const IN_GAME_CARD_SIZE_SCALE: f32 = 1.8;
 pub const CARD_SIZE: Vec2 = Vec2::new(
     STANDARD_CARD_SIZE.x * IN_GAME_CARD_SIZE_SCALE,
     STANDARD_CARD_SIZE.y * IN_GAME_CARD_SIZE_SCALE,
@@ -185,7 +185,7 @@ pub fn spawn_card_by_card_param(
             &spawn_params.config,
             spawn_params.meshes.as_mut(),
             spawn_params.materials.as_mut(),
-            &appearance.image_layout_type,
+            // &appearance.image_layout_type,
             &appearance.image_res_path,
             &spawn_params.config.cards.background_card_image_path,
         );
@@ -208,7 +208,7 @@ fn spawn_card_image(
     config: &GameConfig,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<ColorMaterial>,
-    image_layout_type: &CardImageLayoutType,
+    // image_layout_type: &CardImageLayoutType,
     image_res_path: &str,
     background_res_path: &str,
 ) {
@@ -216,26 +216,19 @@ fn spawn_card_image(
         return;
     };
 
-    let image_size = match image_layout_type {
-        CardImageLayoutType::Full => CARD_SIZE,
-        CardImageLayoutType::Normal => CARD_SIZE * config.cards.normal_image_size_ratio(),
-    };
+    // let image_size = match image_layout_type {
+    //     CardImageLayoutType::Full => CARD_SIZE,
+    //     CardImageLayoutType::Normal => CARD_SIZE * config.cards.normal_image_size_ratio(),
+    // };
 
     parent.spawn((
         Mesh2d(meshes.add(rounded_rectangle_mesh(
-            image_size,
+            CARD_SIZE,
             config.cards.corner_radius,
             config.cards.rounded_corner_segments,
         ))),
         MeshMaterial2d(materials.add(ColorMaterial::from(asset_server.load(image_path)))),
-        Transform::from_xyz(
-            0.0,
-            match image_layout_type {
-                CardImageLayoutType::Full => 0.0,
-                CardImageLayoutType::Normal => config.cards.normal_image_offset_y,
-            },
-            0.1,
-        ),
+        Transform::from_xyz(0.0, 0.0, 0.1),
     ));
 
     let Some(bg_path) = normalize_asset_path(background_res_path) else {
@@ -244,19 +237,12 @@ fn spawn_card_image(
 
     parent.spawn((
         Mesh2d(meshes.add(rounded_rectangle_mesh(
-            image_size,
+            CARD_SIZE,
             config.cards.corner_radius,
             config.cards.rounded_corner_segments,
         ))),
         MeshMaterial2d(materials.add(ColorMaterial::from(asset_server.load(bg_path)))),
-        Transform::from_xyz(
-            0.0,
-            match image_layout_type {
-                CardImageLayoutType::Full => 0.0,
-                CardImageLayoutType::Normal => config.cards.normal_image_offset_y,
-            },
-            0.1,
-        ),
+        Transform::from_xyz(0.0, 0.0, 0.1),
     ));
 }
 

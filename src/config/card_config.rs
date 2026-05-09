@@ -35,7 +35,6 @@ impl CardPresetsConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::card::card_params::CardImageLayoutType;
 
     #[test]
     fn test_parse_json() {
@@ -46,28 +45,24 @@ mod tests {
       "id": 100001,
       "title": "景观卡",
       "background_color_appearance_override": "#4C8A68FF",
-      "image_layout_type": "normal",
       "image_res_path": ""
     },
     {
       "id": 100002,
       "title": "障碍卡",
       "background_color_appearance_override": "#7D6148FF",
-      "image_layout_type": "full",
       "image_res_path": "/assets/config/pics/wall-bricks.png"
     },
     {
       "id": 100003,
       "title": "交互卡",
       "background_color_appearance_override": "#C6783DFF",
-      "image_layout_type": "normal",
       "image_res_path": ""
     },
     {
       "id": 100004,
       "title": "曲线障碍卡",
       "background_color_appearance_override": "#7D6148FF",
-      "image_layout_type": "full",
       "image_res_path": "/assets/config/pics/wall-bricks.png"
     }
   ],
@@ -145,10 +140,6 @@ mod tests {
         assert_eq!(
             config.appearances[0].background_color_appearance_override,
             "#4C8A68FF"
-        );
-        assert_eq!(
-            config.appearances[0].image_layout_type,
-            CardImageLayoutType::Normal
         );
         assert_eq!(config.appearances[0].image_res_path, "");
 
