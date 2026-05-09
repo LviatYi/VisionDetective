@@ -227,7 +227,6 @@ pub struct CardConfig {
     pub title_offset_y_ratio: f32,
     pub title_glass_padding: [f32; 2],
     pub title_glass_corner_radius: f32,
-    pub title_glass_color: [f32; 4],
 }
 
 impl CardConfig {
@@ -260,15 +259,6 @@ impl CardConfig {
 
     pub fn title_glass_padding(&self) -> Vec2 {
         Vec2::new(self.title_glass_padding[0], self.title_glass_padding[1])
-    }
-
-    pub fn title_glass_color(&self) -> Color {
-        Color::srgba(
-            self.title_glass_color[0],
-            self.title_glass_color[1],
-            self.title_glass_color[2],
-            self.title_glass_color[3],
-        )
     }
 }
 

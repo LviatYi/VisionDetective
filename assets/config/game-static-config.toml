@@ -68,10 +68,9 @@ rounded_corner_segments = 8
 normal_image_size_ratio = [0.74, 0.48]
 normal_image_offset_y = -6.0
 title_font_size = 18.0
-title_offset_y_ratio = 0.4
+title_offset_y_ratio = 0.1284
 title_glass_padding = [7.0, 4.0]
 title_glass_corner_radius = 5.0
-title_glass_color = [1.0, 1.0, 1.0, 0.5]
 
 [physics]
 # Velocity multiplier applied after wall or obstacle bounce.
