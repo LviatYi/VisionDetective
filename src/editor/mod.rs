@@ -10,6 +10,7 @@ use crate::game_view::main_view::cleanup_view;
 use crate::physics::obstacle::Obstacle;
 use crate::physics::vision::{build_vision_mesh, compute_visible_points};
 use crate::scene::SceneLayer;
+use bevy::camera::Projection;
 use bevy::input::ButtonInput;
 use bevy::picking::pointer::PointerButton;
 use bevy::picking::prelude::{Drag, Move, Out, Over, Pointer, Press, Release, Scroll};
@@ -39,6 +40,10 @@ const DRAG_PREVIEW_ORDER: f32 = 20.0;
 const ORDER_LABEL_FONT_SIZE: f32 = 13.0;
 const EDITOR_ROTATION_STEP: f32 = PI / 6.0;
 const EDITOR_SNAP_DISTANCE: f32 = 8.0;
+const EDITOR_CAMERA_DEFAULT_ZOOM: f32 = 1.0;
+const EDITOR_CAMERA_MIN_ZOOM: f32 = 0.35;
+const EDITOR_CAMERA_MAX_ZOOM: f32 = 4.0;
+const EDITOR_CAMERA_ZOOM_BASE: f32 = 1.12;
 
 pub struct EditorPlugin;
 
@@ -260,6 +265,7 @@ impl Plugin for EditorPlugin {
                     cancel_prefab_drag_with_escape,
                     handle_prefab_drop,
                     handle_editor_camera_pan,
+                    handle_editor_camera_zoom,
                     handle_scene_editing,
                     handle_card_order_wheel,
                     handle_card_order_shortcuts,
@@ -481,7 +487,7 @@ fn setup_editor_ui(
 
                     sidebar.spawn((
                         Text::new(
-                            "操作说明\n1. 直接按住卡牌预览并拖到主场景，松开后会克隆一张。\n2. 左键拖动卡牌位置，坐标会吸附到整数。\n3. 右键拖动主场景可平移编辑器视角。\n4. 拖动右上角旋转控制点，角度按 30° 粒度吸附。\n5. 鼠标悬浮卡牌时滚轮调整其在相交卡牌组内的层级。\n6. PageUp / PageDown 调整层级，Home / End 置底或置顶。\n7. Delete 删除选中卡牌。\n8. Ctrl+Z 撤销，Ctrl+Shift+Z 重做。\n9. Ctrl+E 导出，Ctrl+I 导入。",
+                            "操作说明\n1. 直接按住卡牌预览并拖到主场景，松开后会克隆一张。\n2. 左键拖动卡牌位置，坐标会吸附到整数。\n3. 右键拖动主场景可平移编辑器视角，空白处滚轮调整视角高度。\n4. 拖动右上角旋转控制点，角度按 30° 粒度吸附。\n5. 鼠标悬浮卡牌时滚轮调整其在相交卡牌组内的层级。\n6. PageUp / PageDown 调整层级，Home / End 置底或置顶。\n7. Delete 删除选中卡牌。\n8. Ctrl+Z 撤销，Ctrl+Shift+Z 重做。\n9. Ctrl+E 导出，Ctrl+I 导入。",
                         ),
                         TextFont {
                             font: ui_font.clone(),
@@ -640,7 +646,10 @@ fn handle_toolbar_buttons(
         ),
         Without<EditorDragPreview>,
     >,
-    mut camera_query: Query<&mut Transform, (With<Camera2d>, With<EditorView>, Without<Card>)>,
+    mut camera_query: Query<
+        (&mut Transform, &mut Projection),
+        (With<Camera2d>, With<EditorView>, Without<Card>),
+    >,
     mut spawn_deps: CardSpawnParams<'_>,
     mut state: ResMut<EditorInteractionState>,
     mut history: ResMut<EditorUndoHistory>,
@@ -692,12 +701,16 @@ fn handle_toolbar_buttons(
                 state.selected_entity = None;
             }
             EditorButtonAction::ResetCameraView => {
-                let Ok(mut camera_transform) = camera_query.single_mut() else {
+                let Ok((mut camera_transform, mut projection)) = camera_query.single_mut() else {
                     state.status_message = "回归视角失败：编辑器相机不存在".into();
                     continue;
                 };
                 camera_transform.translation.x = 0.0;
                 camera_transform.translation.y = 0.0;
+                camera_transform.scale = Vec3::ONE;
+                if let Projection::Orthographic(orthographic) = &mut *projection {
+                    orthographic.scale = EDITOR_CAMERA_DEFAULT_ZOOM;
+                }
                 state.camera_panning = None;
                 state.status_message = "已回到原先视角".into();
             }
@@ -1017,6 +1030,68 @@ fn handle_editor_camera_pan(
         .any(|event| event.button == PointerButton::Secondary);
     if released && state.camera_panning.take().is_some() {
         state.status_message = "编辑器视角已更新".into();
+    }
+}
+
+fn handle_editor_camera_zoom(
+    mut scroll_events: MessageReader<Pointer<Scroll>>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    mut camera_query: Query<
+        (&Camera, &GlobalTransform, &mut Transform, &mut Projection),
+        (With<Camera2d>, With<EditorView>),
+    >,
+    card_query: Query<(), (With<Card>, Without<EditorDragPreview>)>,
+    reset_button_query: Query<(), With<EditorResetCameraButton>>,
+    mut state: ResMut<EditorInteractionState>,
+) {
+    if state.captures_pointer() {
+        return;
+    }
+
+    let Ok(window) = window_query.single() else {
+        return;
+    };
+
+    for event in scroll_events.read() {
+        if event.y.abs() <= f32::EPSILON
+            || !cursor_is_over_scene(window, event.pointer_location.position)
+            || card_query.get(event.entity).is_ok()
+            || reset_button_query.get(event.entity).is_ok()
+        {
+            continue;
+        }
+
+        let Ok((camera, camera_global_transform, mut camera_transform, mut projection)) =
+            camera_query.single_mut()
+        else {
+            continue;
+        };
+        let Projection::Orthographic(orthographic) = &mut *projection else {
+            continue;
+        };
+        let Ok(anchor_world_position) =
+            camera.viewport_to_world_2d(camera_global_transform, event.pointer_location.position)
+        else {
+            continue;
+        };
+
+        let current_zoom = orthographic
+            .scale
+            .clamp(EDITOR_CAMERA_MIN_ZOOM, EDITOR_CAMERA_MAX_ZOOM);
+        let next_zoom = (current_zoom * EDITOR_CAMERA_ZOOM_BASE.powf(-event.y))
+            .clamp(EDITOR_CAMERA_MIN_ZOOM, EDITOR_CAMERA_MAX_ZOOM);
+        if (next_zoom - orthographic.scale).abs() <= f32::EPSILON {
+            continue;
+        }
+
+        let camera_position = camera_transform.translation.truncate();
+        let zoom_ratio = next_zoom / current_zoom;
+        let anchored_camera_position =
+            anchor_world_position - (anchor_world_position - camera_position) * zoom_ratio;
+        camera_transform.translation.x = anchored_camera_position.x;
+        camera_transform.translation.y = anchored_camera_position.y;
+        orthographic.scale = next_zoom;
+        state.status_message = format!("编辑器视角高度已调整为 {:.2}x", next_zoom);
     }
 }
 
@@ -1497,7 +1572,7 @@ fn update_editor_card_order_text(
 
 fn update_editor_camera_reset_button_visibility(
     camera_query: Query<
-        &Transform,
+        (&Transform, &Projection),
         (
             With<Camera2d>,
             With<EditorView>,
@@ -1506,7 +1581,7 @@ fn update_editor_camera_reset_button_visibility(
     >,
     mut button_query: Query<&mut Visibility, With<EditorResetCameraButton>>,
 ) {
-    let Ok(camera_transform) = camera_query.single() else {
+    let Ok((camera_transform, projection)) = camera_query.single() else {
         return;
     };
     let Ok(mut visibility) = button_query.single_mut() else {
@@ -1514,7 +1589,13 @@ fn update_editor_camera_reset_button_visibility(
     };
 
     let is_camera_offset = camera_transform.translation.truncate().length_squared() > f32::EPSILON;
-    *visibility = if is_camera_offset {
+    let is_camera_zoomed = match projection {
+        Projection::Orthographic(orthographic) => {
+            (orthographic.scale - EDITOR_CAMERA_DEFAULT_ZOOM).abs() > f32::EPSILON
+        }
+        _ => false,
+    };
+    *visibility = if is_camera_offset || is_camera_zoomed {
         Visibility::Visible
     } else {
         Visibility::Hidden
