@@ -87,6 +87,64 @@
       }
     },
     {
+      "id": 10000021,
+      "type": "obstacle",
+      "params": {
+        "obstacle_def": {
+          "path": [
+            [
+              -34,
+              46
+            ],
+            [
+              15,
+              46
+            ],
+            [
+              14,
+              -7
+            ],
+            [
+              33,
+              -13
+            ],
+            [
+              33,
+              -17
+            ],
+            [
+              30,
+              -65
+            ],
+            [
+              27,
+              -65
+            ],
+            [
+              7,
+              -53
+            ],
+            [
+              -11,
+              -69
+            ],
+            [
+              -15,
+              -70
+            ],
+            [
+              -29,
+              -56
+            ],
+            [
+              -34,
+              46
+            ]
+          ]
+        }
+      }
+    },
+    {
       "id": 10000199,
       "type": "interactive",
       "params": {
@@ -177,32 +235,38 @@
     {
       "id": 1001,
       "appearance_id": 100001,
-      "specialized_id": 10000003
+      "specialized_id": 10000003,
+      "description": "墙"
     },
     {
       "id": 1002,
       "appearance_id": 100002,
-      "specialized_id": 10000003
+      "specialized_id": 10000003,
+      "description": "门-inside"
     },
     {
       "id": 1003,
       "appearance_id": 100003,
-      "specialized_id": 10000003
+      "specialized_id": 10000003,
+      "description": "门-outside"
     },
     {
       "id": 1004,
       "appearance_id": 100004,
-      "specialized_id": 10000002
+      "specialized_id": 10000002,
+      "description": "血滴"
     },
     {
       "id": 1005,
       "appearance_id": 100005,
-      "specialized_id": 10000002
+      "specialized_id": 10000002,
+      "description": "一滩血"
     },
     {
       "id": 1006,
       "appearance_id": 100006,
-      "specialized_id": 10000003
+      "specialized_id": 10000021,
+      "description": "椅子"
     },
     {
       "id": 1901,

@@ -188,6 +188,7 @@ impl Card {
                 order: transform.translation.z,
                 spawn_if: self.spawn_if.clone(),
                 destroy_if: self.destroy_if.clone(),
+                description: String::new(),
             },
             prefab_id: self.instance_type.get_prefab_id(),
             runtime_specialized_param: None,

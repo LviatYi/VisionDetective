@@ -1,0 +1,11 @@
+[package]
+name = "vision_detective_tools"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "svg_polygon_points"
+path = "src/main.rs"
+
+[dependencies]
+glam = "0.30"

@@ -29,6 +29,8 @@ pub struct CardPrefab {
     pub appearance_id: u32,
 
     pub specialized_id: u32,
+
+    pub description: Option<String>,
 }
 
 impl CardParam {
@@ -132,6 +134,9 @@ pub struct CardSceneParam {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub destroy_if: Option<String>,
+
+    #[serde(default, skip_deserializing, skip_serializing_if = "String::is_empty")]
+    pub description: String,
 }
 
 /// Appearance preset for a card.
@@ -377,6 +382,7 @@ mod tests {
                 order: 3.0,
                 spawn_if: None,
                 destroy_if: None,
+                description: String::new(),
             },
             prefab_id: 2003,
             runtime_specialized_param: None,

@@ -574,6 +574,7 @@ fn prefab_preview_items(
                     order: 0.0,
                     spawn_if: None,
                     destroy_if: None,
+                    description: String::new(),
                 },
                 prefab_id: prefab.id,
                 runtime_specialized_param: None,
@@ -721,7 +722,11 @@ fn handle_toolbar_buttons(
                 state.status_message =
                     match pick_scene_export_path(file_state.current_scene_path.as_deref()) {
                         Some(path) => {
-                            let message = save_scene_to_path(&card_query, &path);
+                            let message = save_scene_to_path(
+                                &card_query,
+                                &path,
+                                &spawn_deps.card_presets_config,
+                            );
                             if message.starts_with("已导出") {
                                 history.mark_clean();
                                 state.clear_exit_confirmation();
@@ -800,6 +805,7 @@ fn handle_prefab_drag_start(
                     order: 0.0,
                     spawn_if: None,
                     destroy_if: None,
+                    description: String::new(),
                 },
                 prefab_id: preview_button.prefab_id,
                 runtime_specialized_param: None,
@@ -1464,7 +1470,8 @@ fn handle_editor_shortcuts(
         state.status_message =
             match pick_scene_export_path(file_state.current_scene_path.as_deref()) {
                 Some(path) => {
-                    let message = save_scene_to_path(&card_query, &path);
+                    let message =
+                        save_scene_to_path(&card_query, &path, &spawn_deps.card_presets_config);
                     if message.starts_with("已导出") {
                         history.mark_clean();
                         state.clear_exit_confirmation();
@@ -1481,7 +1488,8 @@ fn handle_editor_shortcuts(
             state.status_message = "保存失败：尚未选择编辑文件，请先导出或导入场景".into();
             return;
         };
-        state.status_message = save_scene_to_path(&card_query, &path);
+        state.status_message =
+            save_scene_to_path(&card_query, &path, &spawn_deps.card_presets_config);
         if state.status_message.starts_with("已导出") {
             history.mark_clean();
             state.clear_exit_confirmation();
@@ -1960,6 +1968,7 @@ fn normalize_editor_scene_param(scene_param: &CardSceneParam) -> CardSceneParam 
         order: normalize_editor_order(scene_param.order),
         spawn_if: scene_param.spawn_if.clone(),
         destroy_if: scene_param.destroy_if.clone(),
+        description: String::new(),
     }
 }
 
@@ -1974,6 +1983,7 @@ fn normalize_editor_export_scene_param(scene_param: &CardSceneParam) -> CardScen
         order: normalize_editor_order(scene_param.order),
         spawn_if: scene_param.spawn_if.clone(),
         destroy_if: scene_param.destroy_if.clone(),
+        description: scene_param.description.clone(),
     };
 
     println!("csp: {:?}", csp);
@@ -2488,6 +2498,7 @@ fn save_scene_to_path(
         Without<EditorDragPreview>,
     >,
     path: &Path,
+    card_presets_config: &CardPresetsConfig,
 ) -> String {
     let mut cards = card_query
         .iter()
@@ -2510,6 +2521,7 @@ fn save_scene_to_path(
             .into_iter()
             .map(|(_, mut card)| {
                 card.scene_param = normalize_editor_export_scene_param(&card.scene_param);
+                card.scene_param.description = make_description(&card, card_presets_config);
                 card
             })
             .collect(),
@@ -2555,9 +2567,18 @@ fn editor_card_to_scene_card(
         order: editor_local_order_from_transform(transform),
         spawn_if: card_param.scene_param.spawn_if.clone(),
         destroy_if: card_param.scene_param.destroy_if.clone(),
+        description: String::new(),
     });
     card_param.runtime_specialized_param = runtime.map(|runtime| runtime.0.clone());
     Some(card_param)
+}
+
+fn make_description(card_param: &CardParam, card_presets_config: &CardPresetsConfig) -> String {
+    let appearance = card_param.load_appearance(card_presets_config);
+    format!(
+        "title: {}, image_path: {}",
+        appearance.title, appearance.image_res_path
+    )
 }
 
 fn load_scene_from_path(
