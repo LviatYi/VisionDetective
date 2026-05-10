@@ -2606,9 +2606,15 @@ fn editor_card_to_scene_card(
 
 fn make_description(card_param: &CardParam, card_presets_config: &CardPresetsConfig) -> String {
     let appearance = card_param.load_appearance(card_presets_config);
+    let prefab = card_param.load_prefab(card_presets_config);
     format!(
-        "title: {}, image_path: {}, desc: {}",
-        appearance.title, appearance.image_res_path, card_param.scene_param.description
+        "title: {}, image_path: {}{}",
+        appearance.title,
+        appearance.image_res_path,
+        prefab
+            .and_then(|p| { p.description })
+            .map(|desc| { ", desc: ".to_string() + &desc })
+            .unwrap_or_default()
     )
 }
 
