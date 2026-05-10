@@ -11,6 +11,7 @@ use crate::game_view::main_view::cleanup_view;
 use crate::physics::obstacle::Obstacle;
 use crate::physics::vision::{build_vision_mesh, compute_visible_points};
 use crate::scene::SceneLayer;
+use crate::tools::Disable;
 use bevy::camera::Projection;
 use bevy::input::ButtonInput;
 use bevy::picking::pointer::PointerButton;
@@ -603,8 +604,8 @@ fn prefab_preview_items(
                     position: Vec2::ZERO,
                     rotation: 0.0,
                     order: 0.0,
-                    spawn_if: None,
-                    destroy_if: None,
+                    enable_if: None,
+                    disable_if: None,
                     description: String::new(),
                 },
                 prefab_id: prefab.id,
@@ -834,8 +835,8 @@ fn handle_prefab_drag_start(
                     position: Vec2::ZERO,
                     rotation: 0.0,
                     order: 0.0,
-                    spawn_if: None,
-                    destroy_if: None,
+                    enable_if: None,
+                    disable_if: None,
                     description: String::new(),
                 },
                 prefab_id: preview_button.prefab_id,
@@ -1997,14 +1998,13 @@ fn normalize_editor_scene_param(scene_param: &CardSceneParam) -> CardSceneParam 
         position: normalize_editor_position(scene_param.position),
         rotation: normalize_editor_rotation(scene_param.rotation),
         order: normalize_editor_order(scene_param.order),
-        spawn_if: scene_param.spawn_if.clone(),
-        destroy_if: scene_param.destroy_if.clone(),
+        enable_if: scene_param.enable_if.clone(),
+        disable_if: scene_param.disable_if.clone(),
         description: String::new(),
     }
 }
 
 fn normalize_editor_export_scene_param(scene_param: &CardSceneParam) -> CardSceneParam {
-    println!("scene_param: {:?}", scene_param);
     let csp = CardSceneParam {
         position: Vec2::new(
             scene_param.position.x.round(),
@@ -2012,12 +2012,11 @@ fn normalize_editor_export_scene_param(scene_param: &CardSceneParam) -> CardScen
         ),
         rotation: normalize_editor_rotation(scene_param.rotation),
         order: normalize_editor_order(scene_param.order),
-        spawn_if: scene_param.spawn_if.clone(),
-        destroy_if: scene_param.destroy_if.clone(),
+        enable_if: scene_param.enable_if.clone(),
+        disable_if: scene_param.disable_if.clone(),
         description: scene_param.description.clone(),
     };
 
-    println!("csp: {:?}", csp);
     csp
 }
 
@@ -2361,7 +2360,10 @@ pub fn spawn_editor_card(
         runtime_specialized_param: card_param.runtime_specialized_param.clone(),
     };
     let entity = spawn_card_by_card_param(commands, spawn_deps, &normalized_card_param);
-    commands.entity(entity).insert(EditorView);
+    commands
+        .entity(entity)
+        .remove::<Disable>()
+        .insert((EditorView, Visibility::Visible));
     append_editor_card_overlays(
         commands,
         entity,
@@ -2596,8 +2598,8 @@ fn editor_card_to_scene_card(
         position: transform.translation.truncate(),
         rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
         order: editor_local_order_from_transform(transform),
-        spawn_if: card_param.scene_param.spawn_if.clone(),
-        destroy_if: card_param.scene_param.destroy_if.clone(),
+        enable_if: card_param.scene_param.enable_if.clone(),
+        disable_if: card_param.scene_param.disable_if.clone(),
         description: String::new(),
     });
     card_param.runtime_specialized_param = runtime.map(|runtime| runtime.0.clone());

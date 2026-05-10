@@ -13,6 +13,7 @@ use crate::editor::{
 use crate::game_view::GameState;
 use crate::physics::obstacle::Obstacle;
 use crate::physics::vision::compute_visible_points;
+use crate::tools::Disable;
 use crate::{AppView, GameView};
 use crate::{register_card_editor_systems, register_card_specialized_param};
 use bevy::asset::RenderAssetUsages;
@@ -133,8 +134,8 @@ fn reveal_clues(
     mut commands: Commands,
     player_coin_state: Res<PlayerCoinState>,
     player_query: Query<&Transform, With<PlayerCoin>>,
-    mut clue_query: Query<(Entity, &mut ClueCard, &GlobalTransform)>,
-    obstacle_query: Query<(&Transform, &Obstacle), Without<PlayerCoin>>,
+    mut clue_query: Query<(Entity, &mut ClueCard, &GlobalTransform), Without<Disable>>,
+    obstacle_query: Query<(&Transform, &Obstacle), (Without<PlayerCoin>, Without<Disable>)>,
     mut illumination_mesh_query: Query<&mut Mesh2d, With<ClueIllumination>>,
     mut card_spawn_params: CardSpawnParams,
 ) {
@@ -256,7 +257,7 @@ fn build_visible_clue_stamp(
     config: &GameConfig,
     origin: Vec2,
     transform: &GlobalTransform,
-    obstacle_query: &Query<(&Transform, &Obstacle), Without<PlayerCoin>>,
+    obstacle_query: &Query<(&Transform, &Obstacle), (Without<PlayerCoin>, Without<Disable>)>,
 ) -> Option<GeoMultiPolygon<f32>> {
     let visible_points = compute_visible_points(config, origin, obstacle_query);
     if visible_points.len() < 3 {
@@ -456,8 +457,8 @@ fn editor_clue_target_spawn_param(
             position: clue_transform.translation.truncate() + DEFAULT_EDITOR_CLUE_TARGET_OFFSET,
             rotation: 0.0,
             order: clue_transform.translation.z + EDITOR_CLUE_TARGET_ORDER_OFFSET,
-            spawn_if: None,
-            destroy_if: None,
+            enable_if: None,
+            disable_if: None,
             description: String::new(),
         },
     )

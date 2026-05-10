@@ -10,6 +10,7 @@ pub mod physics;
 pub mod picking;
 pub mod progress;
 pub mod scene;
+pub mod tools;
 
 use crate::asset::font;
 use crate::camera_control::{CameraControlPlugin, GameCamera};

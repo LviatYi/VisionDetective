@@ -4,7 +4,10 @@ pub mod specialized;
 use crate::card::card_params::CardSceneParam;
 use crate::card::card_params::{CardParam, CardSpawnParams, CardSpecializedRegistry};
 use crate::config::{CardConfig, GameConfig};
+use crate::game_view::{AppView, GameState};
+use crate::progress::GameProgress;
 use crate::scene::SceneLayer;
+use crate::tools::Disable;
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
@@ -34,8 +37,8 @@ pub const CARD_TITLE_Z_ORDER_OFFSET: f32 = 0.03;
 pub struct Card {
     pub title: String,
     pub instance_type: CardInstanceType,
-    pub spawn_if: Option<String>,
-    pub destroy_if: Option<String>,
+    pub enable_if: Option<String>,
+    pub disable_if: Option<String>,
 }
 
 #[derive(Component, Clone, Copy)]
@@ -179,8 +182,8 @@ impl Card {
                 position: transform.translation.truncate(),
                 rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
                 order: transform.translation.z,
-                spawn_if: self.spawn_if.clone(),
-                destroy_if: self.destroy_if.clone(),
+                enable_if: self.enable_if.clone(),
+                disable_if: self.disable_if.clone(),
                 description: String::new(),
             },
             prefab_id: self.instance_type.get_prefab_id(),
@@ -192,6 +195,12 @@ impl Card {
 impl Plugin for CardPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CardSpecializedRegistry>();
+        app.add_systems(
+            Update,
+            sync_card_disable_state
+                .run_if(in_state(GameState::InGame))
+                .run_if(in_state(AppView::Game)),
+        );
         app.add_systems(
             PostUpdate,
             fit_card_title_text_width.after(Text2dUpdateSystems),
@@ -231,8 +240,8 @@ pub fn spawn_card_by_card_param(
         Card {
             title: appearance.title.clone(),
             instance_type: CardInstanceType::Prefab(card_param.prefab_id),
-            spawn_if: card_param.scene_param.spawn_if.clone(),
-            destroy_if: card_param.scene_param.destroy_if.clone(),
+            enable_if: card_param.scene_param.enable_if.clone(),
+            disable_if: card_param.scene_param.disable_if.clone(),
         },
         card_kind,
         Pickable::default(),
@@ -246,6 +255,10 @@ pub fn spawn_card_by_card_param(
 
     if let Some(specialized) = specialized {
         specialized.spawn_with(&mut entity, spawn_params);
+    }
+
+    if card_param.scene_param.enable_if.is_some() {
+        entity.insert((Disable, Visibility::Hidden));
     }
 
     entity.with_children(|parent| {
@@ -266,6 +279,43 @@ pub fn spawn_card_by_card_param(
     });
 
     entity.id()
+}
+
+fn sync_card_disable_state(
+    mut commands: Commands,
+    progress: Res<GameProgress>,
+    card_query: Query<(Entity, &Card, Option<&Disable>, Option<&Visibility>)>,
+) {
+    for (entity, card, disable, visibility) in &card_query {
+        let should_disable = card
+            .enable_if
+            .as_deref()
+            .map(|key| !progress.is_unlocked(key))
+            .unwrap_or(false)
+            || card
+                .disable_if
+                .as_deref()
+                .map(|key| progress.is_unlocked(key))
+                .unwrap_or(false);
+
+        if should_disable {
+            let mut entity_commands = commands.entity(entity);
+            if disable.is_none() {
+                entity_commands.insert(Disable);
+            }
+            if !matches!(visibility, Some(&Visibility::Hidden)) {
+                entity_commands.insert(Visibility::Hidden);
+            }
+        } else {
+            let mut entity_commands = commands.entity(entity);
+            if disable.is_some() {
+                entity_commands.remove::<Disable>();
+            }
+            if !matches!(visibility, Some(&Visibility::Visible)) {
+                entity_commands.insert(Visibility::Visible);
+            }
+        }
+    }
 }
 
 fn spawn_card_image(

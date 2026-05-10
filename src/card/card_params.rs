@@ -111,10 +111,10 @@ pub struct CardSceneParam {
     pub order: f32,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub spawn_if: Option<String>,
+    pub enable_if: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub destroy_if: Option<String>,
+    pub disable_if: Option<String>,
 
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub description: String,
@@ -388,8 +388,8 @@ mod tests {
                 position: Vec2::new(10.0, 20.0),
                 rotation: 0.25,
                 order: 3.0,
-                spawn_if: None,
-                destroy_if: None,
+                enable_if: None,
+                disable_if: None,
                 description: String::new(),
             },
             prefab_id: 2003,

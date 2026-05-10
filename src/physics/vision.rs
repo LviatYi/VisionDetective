@@ -4,6 +4,7 @@ use crate::config::GameConfig;
 use crate::game_view::GameState;
 use crate::physics::obstacle::Obstacle;
 use crate::scene::SceneLayer;
+use crate::tools::Disable;
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
@@ -45,7 +46,7 @@ pub fn setup_vision_system(
 pub fn update_vision_field_mesh(
     config: Res<GameConfig>,
     player_query: Query<&Transform, With<PlayerCoin>>,
-    obstacle_query: Query<(&Transform, &Obstacle), Without<PlayerCoin>>,
+    obstacle_query: Query<(&Transform, &Obstacle), (Without<PlayerCoin>, Without<Disable>)>,
     vision_query: Query<&Mesh2d, With<VisionFieldMesh>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {

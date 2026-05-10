@@ -334,3 +334,5 @@ $$
 ### Known Issue
 
 - `CardEditorSystemRegistration` 提供了极宽泛的注册时机，比 `CardSpecializedRegistration` 更甚。应该使用统一架构。
+- `Camera2D Orthographic` 的可视范围应该用于限制 Order 范围。
+- 区分运行时参数，而非简单合并，显然有更多好处：直接在编辑器生成时进行复制留存即可。

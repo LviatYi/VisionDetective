@@ -8,7 +8,7 @@ position = [
 ]
 rotation = 0.0
 order = 1.0
-description = "title: 墙, image_path: pic/street-wall.png, desc: "
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 
 [[cards]]
 prefab_id = 1201
@@ -20,7 +20,7 @@ position = [
 ]
 rotation = 0.0
 order = 2.0
-description = "title: 墙, image_path: pic/street-wall.png, desc: "
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 
 [[cards]]
 prefab_id = 1201
@@ -32,7 +32,7 @@ position = [
 ]
 rotation = 0.0
 order = 3.0
-description = "title: 墙, image_path: pic/street-wall.png, desc: "
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 
 [[cards]]
 prefab_id = 1201
@@ -44,7 +44,7 @@ position = [
 ]
 rotation = 0.0
 order = 7.0
-description = "title: 墙, image_path: pic/street-wall.png, desc: "
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 
 [[cards]]
 prefab_id = 1207
@@ -56,7 +56,7 @@ position = [
 ]
 rotation = 0.0
 order = 8.0
-description = "title: 沙发, image_path: pic/sofa-left.png, desc: "
+description = "title: 沙发, image_path: pic/sofa-left.png, desc: 沙发（左）"
 
 [[cards]]
 prefab_id = 1201
@@ -68,7 +68,7 @@ position = [
 ]
 rotation = 0.0
 order = 9.0
-description = "title: 墙, image_path: pic/street-wall.png, desc: "
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 
 [[cards]]
 prefab_id = 1003
@@ -80,7 +80,7 @@ position = [
 ]
 rotation = 0.0
 order = 10.0
-description = "title: 门, image_path: pic/door-outside.png, desc: "
+description = "title: 门, image_path: pic/door-outside.png, desc: 门-outside（景观）"
 
 [[cards]]
 prefab_id = 1201
@@ -92,19 +92,19 @@ position = [
 ]
 rotation = 0.0
 order = 11.0
-description = "title: 墙, image_path: pic/street-wall.png, desc: "
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 
 [[cards]]
-prefab_id = 1206
+prefab_id = 1005
 
 [cards.scene_param]
 position = [
-    417.0,
-    800.0,
+    166.0,
+    715.0,
 ]
 rotation = 1.5707963
 order = 13.0
-description = "title: 椅子, image_path: pic/chair.png, desc: "
+description = "title: 血, image_path: pic/blood-pool.png, desc: 一滩血"
 
 [[cards]]
 prefab_id = 1208
@@ -116,7 +116,7 @@ position = [
 ]
 rotation = 0.0
 order = 14.0
-description = "title: 沙发, image_path: pic/sofa-right.png, desc: "
+description = "title: 沙发, image_path: pic/sofa-right.png, desc: 沙发（右）"
 
 [[cards]]
 prefab_id = 1201
@@ -128,7 +128,7 @@ position = [
 ]
 rotation = 0.0
 order = 15.0
-description = "title: 墙, image_path: pic/street-wall.png, desc: "
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 
 [[cards]]
 prefab_id = 1203
@@ -140,7 +140,8 @@ position = [
 ]
 rotation = 0.0
 order = 16.0
-description = "title: 门, image_path: pic/door-outside.png, desc: "
+description = "title: 门, image_path: pic/door-outside.png, desc: 门-outside"
+disable_if = "first_encounter_with_the_neighbor"
 
 [[cards]]
 prefab_id = 1500
@@ -152,10 +153,46 @@ position = [
 ]
 rotation = 0.5235989
 order = 17.0
-description = "title: 对话, image_path: pic/talk-bubble.png, desc: "
+description = "title: 对话, image_path: pic/talk-bubble.png, desc: 对话：初遇邻居"
 
 [cards.runtime_specialized_param]
 type = "interactive"
 
 [cards.runtime_specialized_param.params]
 state_key = "first_encounter_with_the_neighbor"
+
+[[cards]]
+prefab_id = 1005
+
+[cards.scene_param]
+position = [
+    284.0,
+    629.0,
+]
+rotation = 2.6179936
+order = 18.0
+description = "title: 血, image_path: pic/blood-pool.png, desc: 一滩血"
+
+[[cards]]
+prefab_id = 1206
+
+[cards.scene_param]
+position = [
+    351.0,
+    742.0,
+]
+rotation = 1.5707963
+order = 19.0
+description = "title: 椅子, image_path: pic/chair.png, desc: 椅子"
+
+[[cards]]
+prefab_id = 1106
+
+[cards.scene_param]
+position = [
+    205.0,
+    666.0,
+]
+rotation = 2.094395
+order = 20.0
+description = "title: 尸体, image_path: pic/body.png, desc: 尸体（交互）"

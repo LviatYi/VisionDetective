@@ -1,7 +1,6 @@
 use crate::GameView;
 use crate::card::card_params::{CardParam, CardSpawnParams};
 use crate::card::spawn_card_by_card_param;
-use crate::game_view::GameState;
 use crate::progress::GameProgress;
 use bevy::prelude::*;
 use serde::Deserialize;
@@ -30,17 +29,14 @@ pub struct RuntimeScenePlugin;
 
 impl Plugin for RuntimeScenePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<RuntimeSceneCards>().add_systems(
-            Update,
-            sync_runtime_scene_cards.run_if(in_state(GameState::InGame)),
-        );
+        app.init_resource::<RuntimeSceneCards>();
     }
 }
 
 pub fn load_demo_scene(
     commands: &mut Commands,
     spawn_params: &mut CardSpawnParams<'_>,
-    progress: &GameProgress,
+    _progress: &GameProgress,
     runtime_cards: &mut RuntimeSceneCards,
 ) {
     runtime_cards.cards.clear();
@@ -68,36 +64,16 @@ pub fn load_demo_scene(
             entity: None,
         })
         .collect();
-    spawn_runtime_scene_cards(commands, spawn_params, progress, runtime_cards);
-}
-
-fn sync_runtime_scene_cards(
-    mut commands: Commands,
-    mut spawn_params: CardSpawnParams<'_>,
-    progress: Res<GameProgress>,
-    mut runtime_cards: ResMut<RuntimeSceneCards>,
-) {
-    if !progress.is_changed() {
-        return;
-    }
-
-    despawn_runtime_scene_cards(&mut commands, &progress, &mut runtime_cards);
-    spawn_runtime_scene_cards(
-        &mut commands,
-        &mut spawn_params,
-        &progress,
-        &mut runtime_cards,
-    );
+    spawn_runtime_scene_cards(commands, spawn_params, runtime_cards);
 }
 
 fn spawn_runtime_scene_cards(
     commands: &mut Commands,
     spawn_params: &mut CardSpawnParams<'_>,
-    progress: &GameProgress,
     runtime_cards: &mut RuntimeSceneCards,
 ) {
     for runtime_card in &mut runtime_cards.cards {
-        if runtime_card.entity.is_some() || !card_should_spawn(&runtime_card.param, progress) {
+        if runtime_card.entity.is_some() {
             continue;
         }
 
@@ -105,39 +81,6 @@ fn spawn_runtime_scene_cards(
         commands.entity(entity).insert(GameView);
         runtime_card.entity = Some(entity);
     }
-}
-
-fn despawn_runtime_scene_cards(
-    commands: &mut Commands,
-    progress: &GameProgress,
-    runtime_cards: &mut RuntimeSceneCards,
-) {
-    for runtime_card in &mut runtime_cards.cards {
-        if runtime_card.entity.is_none() || card_should_spawn(&runtime_card.param, progress) {
-            continue;
-        }
-
-        if let Some(entity) = runtime_card.entity.take() {
-            commands.entity(entity).despawn();
-        }
-    }
-}
-
-fn card_should_spawn(card: &CardParam, progress: &GameProgress) -> bool {
-    let spawn_unlocked = card
-        .scene_param
-        .spawn_if
-        .as_deref()
-        .map(|key| progress.is_unlocked(key))
-        .unwrap_or(true);
-    let destroy_unlocked = card
-        .scene_param
-        .destroy_if
-        .as_deref()
-        .map(|key| progress.is_unlocked(key))
-        .unwrap_or(false);
-
-    spawn_unlocked && !destroy_unlocked
 }
 
 fn demo_scene_path() -> PathBuf {

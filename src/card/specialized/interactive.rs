@@ -11,13 +11,14 @@ use crate::config::GameConfig;
 use crate::editor::EditorRuntimeSpecializedParam;
 use crate::game_view::{AppView, GameState};
 use crate::progress::GameProgress;
+use crate::tools::Disable;
 use crate::{register_card_editor_systems, register_card_specialized_param};
 use anyhow::Result;
 use bevy::app::{App, Plugin, Update};
 use bevy::ecs::system::EntityCommands;
 use bevy::prelude::{
     Commands, Component, DetectChanges, Entity, EntityEvent, GlobalTransform, IntoScheduleConfigs,
-    On, Query, Res, ResMut, Resource, Transform, With, in_state,
+    On, Query, Res, ResMut, Resource, Transform, With, Without, in_state,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -37,7 +38,8 @@ impl Plugin for InteractionCardPlugin {
             Update,
             (
                 update_active_interaction,
-                dispatch_interaction_events.after(update_active_interaction),
+                clear_disabled_active_interaction.after(update_active_interaction),
+                dispatch_interaction_events.after(clear_disabled_active_interaction),
             )
                 .run_if(in_state(GameState::InGame)),
         );
@@ -211,7 +213,10 @@ fn update_active_interaction(
     config: Res<GameConfig>,
     player_state: Res<PlayerCoinState>,
     player_query: Query<&Transform, With<PlayerCoin>>,
-    interaction_query: Query<(Entity, &Card, &GlobalTransform), With<Interactive>>,
+    interaction_query: Query<
+        (Entity, &Card, &GlobalTransform),
+        (With<Interactive>, Without<Disable>),
+    >,
     mut active_interaction: ResMut<ActiveInteraction>,
 ) {
     if !player_state.is_changed() && !player_state.is_stop() {
@@ -245,6 +250,21 @@ fn update_active_interaction(
 
     active_interaction.previous = active_interaction.current;
     active_interaction.current = next;
+}
+
+fn clear_disabled_active_interaction(
+    disable_query: Query<(), With<Disable>>,
+    mut active_interaction: ResMut<ActiveInteraction>,
+) {
+    let Some(current) = active_interaction.current else {
+        return;
+    };
+
+    if !disable_query.contains(current) {
+        return;
+    }
+
+    active_interaction.previous = active_interaction.current.take();
 }
 
 fn dispatch_interaction_events(

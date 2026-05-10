@@ -1,6 +1,8 @@
 use crate::card::Card;
 use crate::coin::player::PlayerCoin;
 use crate::config::GameConfig;
+use crate::game_view::AppView;
+use crate::tools::Disable;
 use bevy::picking::backend::prelude::*;
 use bevy::prelude::*;
 
@@ -17,6 +19,7 @@ impl Plugin for VisionPickingPlugin {
 
 fn update_scene_pointer_hits(
     config: Res<GameConfig>,
+    app_view: Res<State<AppView>>,
     pointers: Query<(&PointerId, &PointerLocation)>,
     camera_query: Query<(Entity, &Camera, &GlobalTransform, &Projection), With<Camera2d>>,
     card_query: Query<(
@@ -24,6 +27,7 @@ fn update_scene_pointer_hits(
         &Card,
         &GlobalTransform,
         Option<&InheritedVisibility>,
+        Option<&Disable>,
     )>,
     player_query: Query<(Entity, &GlobalTransform, Option<&InheritedVisibility>), With<PlayerCoin>>,
     mut pointer_hits_writer: MessageWriter<PointerHits>,
@@ -46,7 +50,10 @@ fn update_scene_pointer_hits(
         };
 
         let mut picks = Vec::new();
-        for (entity, card, transform, visibility) in &card_query {
+        for (entity, card, transform, visibility, disable) in &card_query {
+            if app_view.get() == &AppView::Game && disable.is_some() {
+                continue;
+            }
             if visibility.is_some_and(|visibility| !visibility.get()) {
                 continue;
             }

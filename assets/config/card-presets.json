@@ -319,6 +319,22 @@
       }
     },
     {
+      "id": 10000502,
+      "type": "interactive",
+      "params": {
+        "type": "dialogue",
+        "params": {
+          "nodes": [
+            {
+              "id": 1,
+              "source": 1,
+              "text": "看起来确实发生了命案，但似乎哪里有些不对劲..."
+            }
+          ]
+        }
+      }
+    },
+    {
       "id": 10000198,
       "type": "interactive",
       "params": {
@@ -463,8 +479,8 @@
     {
       "id": 1106,
       "appearance_id": 100009,
-      "specialized_id": 10000101,
-      "description": "尸体（线索）"
+      "specialized_id": 10000502,
+      "description": "尸体（交互）"
     },
     {
       "id": 1206,

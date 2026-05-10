@@ -2,6 +2,7 @@ use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{EPlayerCoinState, PlayerCoinState};
 use crate::config::GameConfig;
 use crate::game_view::{AppView, GameState};
+use crate::tools::Disable;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::*;
 use obstacle::Obstacle;
@@ -32,7 +33,7 @@ pub fn move_player_coin_transform(
     time: Res<Time>,
     mut player_state: ResMut<PlayerCoinState>,
     mut transform_query: Query<(&mut Transform, &mut PlayerCoin, &mut Velocity)>,
-    obstacle_query: Query<(&Transform, &Obstacle), Without<PlayerCoin>>,
+    obstacle_query: Query<(&Transform, &Obstacle), (Without<PlayerCoin>, Without<Disable>)>,
 ) {
     let Ok((mut transform, mut coin, mut velocity)) = transform_query.single_mut() else {
         return;
@@ -88,7 +89,7 @@ fn resolve_obstacle_collisions(
     config: &GameConfig,
     transform: &mut Transform,
     velocity: &mut Velocity,
-    obstacle_query: &Query<(&Transform, &Obstacle), Without<PlayerCoin>>,
+    obstacle_query: &Query<(&Transform, &Obstacle), (Without<PlayerCoin>, Without<Disable>)>,
 ) {
     let mut player_position = transform.translation.truncate();
 
