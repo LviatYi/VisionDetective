@@ -1,123 +1,155 @@
 [[cards]]
-prefab_id = 1005
+prefab_id = 1201
 
 [cards.scene_param]
 position = [
-    -315.0,
-    136.0,
+    -104.0,
+    383.0,
 ]
-rotation = 0.5235989
-order = 2.0
+rotation = 0.0
+order = 1.0
+description = "title: 墙, image_path: pic/street-wall.png"
 
 [[cards]]
-prefab_id = 1004
+prefab_id = 1201
 
 [cards.scene_param]
 position = [
-    -175.0,
-    63.0,
+    -104.0,
+    554.0,
+]
+rotation = 0.0
+order = 2.0
+description = "title: 墙, image_path: pic/street-wall.png"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+position = [
+    -104.0,
+    725.0,
 ]
 rotation = 0.0
 order = 3.0
+description = "title: 墙, image_path: pic/street-wall.png"
 
 [[cards]]
-prefab_id = 1001
+prefab_id = 1201
 
 [cards.scene_param]
 position = [
-    0.0,
-    259.0,
+    220.0,
+    383.0,
 ]
 rotation = 0.0
-order = 4.0
-
-[[cards]]
-prefab_id = 1001
-
-[cards.scene_param]
-position = [
-    44.0,
-    185.0,
-]
-rotation = 0.0
-order = 5.0
-
-[[cards]]
-prefab_id = 1002
-
-[cards.scene_param]
-position = [
-    168.0,
-    226.0,
-]
-rotation = 1.0471976
-order = 6.0
-
-[[cards]]
-prefab_id = 1002
-
-[cards.scene_param]
-position = [
-    262.0,
-    151.0,
-]
-rotation = 0.5235989
 order = 7.0
+description = "title: 墙, image_path: pic/street-wall.png"
 
 [[cards]]
-prefab_id = 1002
+prefab_id = 1207
 
 [cards.scene_param]
 position = [
-    300.0,
-    33.0,
+    392.0,
+    515.0,
 ]
 rotation = 0.0
 order = 8.0
+description = "title: 沙发, image_path: pic/sofa-left.png"
 
 [[cards]]
-prefab_id = 1002
+prefab_id = 1201
 
 [cards.scene_param]
 position = [
-    -259.0,
-    -105.0,
+    328.0,
+    383.0,
 ]
 rotation = 0.0
 order = 9.0
+description = "title: 墙, image_path: pic/street-wall.png"
 
 [[cards]]
-prefab_id = 1002
+prefab_id = 1003
 
 [cards.scene_param]
 position = [
-    -260.0,
-    -256.0,
+    4.0,
+    362.0,
 ]
 rotation = 0.0
 order = 10.0
+description = "title: 门, image_path: pic/door-outside.png"
 
 [[cards]]
-prefab_id = 1006
+prefab_id = 1201
 
 [cards.scene_param]
 position = [
-    -361.0,
-    -176.0,
+    112.0,
+    383.0,
 ]
 rotation = 0.0
 order = 11.0
+description = "title: 墙, image_path: pic/street-wall.png"
 
-[cards.runtime_specialized_param]
-type = "clue"
+[[cards]]
+prefab_id = 1904
 
-[cards.runtime_specialized_param.params]
-interaction_prefab_id = 1003
-
-[cards.runtime_specialized_param.params.interaction_target_scene_param]
-order = 20012.0
+[cards.scene_param]
 position = [
-    -138.0,
-    -248.0,
+    -203.0,
+    73.0,
 ]
-rotation = -0.0
+rotation = 0.5235989
+order = 12.0
+description = "title: 对话交互卡, image_path: "
+
+[[cards]]
+prefab_id = 1206
+
+[cards.scene_param]
+position = [
+    417.0,
+    800.0,
+]
+rotation = 1.5707963
+order = 13.0
+description = "title: 椅子, image_path: pic/chair.png"
+
+[[cards]]
+prefab_id = 1208
+
+[cards.scene_param]
+position = [
+    500.0,
+    515.0,
+]
+rotation = 0.0
+order = 14.0
+description = "title: 沙发, image_path: pic/sofa-right.png"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+position = [
+    436.0,
+    383.0,
+]
+rotation = 0.0
+order = 15.0
+description = "title: 墙, image_path: pic/street-wall.png"
+
+[[cards]]
+prefab_id = 1203
+
+[cards.scene_param]
+position = [
+    4.0,
+    362.0,
+]
+rotation = 0.0
+order = 16.0
+description = "title: 门, image_path: pic/door-outside.png"

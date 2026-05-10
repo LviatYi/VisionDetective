@@ -119,13 +119,6 @@ impl Card {
             Vec2::new(-half_x, -half_y + radius),
             Vec2::new(-half_x, half_y - radius),
         ]
-
-        // vec![
-        //     Vec2::new(-half_x * 0.5 , half_y * 0.5),
-        //     Vec2::new(half_x * 0.5 , half_y * 0.5),
-        //     Vec2::new(half_x * 0.5, -half_y ),
-        //     Vec2::new(-half_x * 0.5, -half_y * 0.5),
-        // ]
     }
 
     pub fn card_geo_polygon() -> GeoPolygon<f32> {

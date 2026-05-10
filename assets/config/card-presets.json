@@ -31,8 +31,28 @@
       "image_res_path": "pic/chair.png"
     },
     {
+      "id": 100007,
+      "title": "沙发",
+      "image_res_path": "pic/sofa-left.png"
+    },
+    {
+      "id": 100008,
+      "title": "沙发",
+      "image_res_path": "pic/sofa-right.png"
+    },
+    {
+      "id": 100009,
+      "title": "尸体",
+      "image_res_path": "pic/body.png"
+    },
+    {
+      "id": 100010,
+      "title": "对话",
+      "image_res_path": "pic/talk-bubble.png"
+    },
+    {
       "id": 100901,
-      "title": "Grass",
+      "title": "草",
       "background_color_appearance_override": "#4C8A68FF",
       "image_res_path": ""
     },
@@ -54,13 +74,12 @@
     {
       "id": 100905,
       "title": "线索卡",
-      "background_color_appearance_override": "",
       "image_res_path": ""
     }
   ],
   "specialized": [
     {
-      "id": 10000001,
+      "id": 10000199,
       "type": "interactive",
       "params": {
         "type": "log_hello_world",
@@ -68,26 +87,26 @@
       }
     },
     {
-      "id": 10000002,
+      "id": 10000001,
       "type": "scenery",
       "params": {}
     },
     {
-      "id": 10000003,
-      "type": "obstacle",
-      "params": {
-        "obstacle_def": "full"
-      }
-    },
-    {
-      "id": 10000011,
+      "id": 10000101,
       "type": "clue",
       "params": {
         "reveal_threshold": "normal"
       }
     },
     {
-      "id": 10000021,
+      "id": 10000201,
+      "type": "obstacle",
+      "params": {
+        "obstacle_def": "full"
+      }
+    },
+    {
+      "id": 10000202,
       "type": "obstacle",
       "params": {
         "obstacle_def": {
@@ -145,7 +164,131 @@
       }
     },
     {
-      "id": 10000199,
+      "id": 10000203,
+      "type": "obstacle",
+      "params": {
+        "obstacle_def": {
+          "path": [
+            [
+              44,
+              37
+            ],
+            [
+              24,
+              25
+            ],
+            [
+              -6,
+              27
+            ],
+            [
+              -16,
+              26
+            ],
+            [
+              -22,
+              21
+            ],
+            [
+              -33,
+              -6
+            ],
+            [
+              -32,
+              -31
+            ],
+            [
+              -26,
+              -57
+            ],
+            [
+              -23,
+              -57
+            ],
+            [
+              -5,
+              -46
+            ],
+            [
+              44,
+              -46
+            ],
+            [
+              44,
+              37
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": 10000204,
+      "type": "obstacle",
+      "params": {
+        "obstacle_def": {
+          "path": [
+            [
+              -44,
+              39
+            ],
+            [
+              -17,
+              25
+            ],
+            [
+              13,
+              30
+            ],
+            [
+              26,
+              27
+            ],
+            [
+              33,
+              23
+            ],
+            [
+              35,
+              12
+            ],
+            [
+              30,
+              -8
+            ],
+            [
+              24,
+              -38
+            ],
+            [
+              20,
+              -50
+            ],
+            [
+              13,
+              -65
+            ],
+            [
+              9,
+              -65
+            ],
+            [
+              6,
+              -45
+            ],
+            [
+              -44,
+              -45
+            ],
+            [
+              -44,
+              39
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": 10000198,
       "type": "interactive",
       "params": {
         "type": "dialogue",
@@ -166,7 +309,7 @@
       }
     },
     {
-      "id": 10000099,
+      "id": 10000199,
       "type": "obstacle",
       "params": {
         "obstacle_def": {
@@ -233,40 +376,82 @@
   ],
   "prefabs": [
     {
-      "id": 1001,
+      "id": 1201,
       "appearance_id": 100001,
-      "specialized_id": 10000003,
+      "specialized_id": 10000201,
       "description": "墙"
     },
     {
-      "id": 1002,
+      "id": 1202,
       "appearance_id": 100002,
-      "specialized_id": 10000003,
+      "specialized_id": 10000201,
       "description": "门-inside"
+    },
+    {
+      "id": 1203,
+      "appearance_id": 100003,
+      "specialized_id": 10000201,
+      "description": "门-outside"
     },
     {
       "id": 1003,
       "appearance_id": 100003,
-      "specialized_id": 10000003,
-      "description": "门-outside"
+      "specialized_id": 10000001,
+      "description": "门-outside（景观）"
     },
     {
       "id": 1004,
       "appearance_id": 100004,
-      "specialized_id": 10000002,
+      "specialized_id": 10000001,
       "description": "血滴"
     },
     {
       "id": 1005,
       "appearance_id": 100005,
-      "specialized_id": 10000002,
+      "specialized_id": 10000001,
       "description": "一滩血"
     },
     {
       "id": 1006,
+      "appearance_id": 100009,
+      "specialized_id": 10000001,
+      "description": "尸体"
+    },
+    {
+      "id": 1100,
+      "appearance_id": 100010,
+      "specialized_id": 10000198,
+      "description": "对话"
+    },
+    {
+      "id": 1104,
+      "appearance_id": 100004,
+      "specialized_id": 10000101,
+      "description": "血滴（线索）"
+    },
+    {
+      "id": 1106,
+      "appearance_id": 100009,
+      "specialized_id": 10000101,
+      "description": "尸体（线索）"
+    },
+    {
+      "id": 1206,
       "appearance_id": 100006,
-      "specialized_id": 10000021,
+      "specialized_id": 10000202,
       "description": "椅子"
+    },
+    {
+      "id": 1207,
+      "appearance_id": 100007,
+      "specialized_id": 10000203,
+      "description": "沙发（左）"
+    },
+    {
+      "id": 1208,
+      "appearance_id": 100008,
+      "specialized_id": 10000204,
+      "description": "沙发（右）"
     },
     {
       "id": 1901,
@@ -286,12 +471,12 @@
     {
       "id": 1904,
       "appearance_id": 100904,
-      "specialized_id": 10000199
+      "specialized_id": 10000198
     },
     {
       "id": 1905,
       "appearance_id": 100905,
-      "specialized_id": 10000011
+      "specialized_id": 10000199
     }
   ]
 }

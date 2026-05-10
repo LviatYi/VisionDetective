@@ -135,7 +135,7 @@ pub struct CardSceneParam {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub destroy_if: Option<String>,
 
-    #[serde(default, skip_deserializing, skip_serializing_if = "String::is_empty")]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub description: String,
 }
 

@@ -2576,8 +2576,8 @@ fn editor_card_to_scene_card(
 fn make_description(card_param: &CardParam, card_presets_config: &CardPresetsConfig) -> String {
     let appearance = card_param.load_appearance(card_presets_config);
     format!(
-        "title: {}, image_path: {}",
-        appearance.title, appearance.image_res_path
+        "title: {}, image_path: {}, desc: {}",
+        appearance.title, appearance.image_res_path, card_param.scene_param.description
     )
 }
 
