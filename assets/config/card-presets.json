@@ -75,6 +75,11 @@
       "id": 100905,
       "title": "线索卡",
       "image_res_path": ""
+    },
+    {
+      "id": 100906,
+      "title": "全隐蔽线索卡",
+      "image_res_path": ""
     }
   ],
   "specialized": [
@@ -96,6 +101,20 @@
       "type": "clue",
       "params": {
         "reveal_threshold": "normal"
+      }
+    },
+    {
+      "id": 10000102,
+      "type": "clue",
+      "params": {
+        "reveal_threshold": "any"
+      }
+    },
+    {
+      "id": 10000103,
+      "type": "clue",
+      "params": {
+        "reveal_threshold": "full"
       }
     },
     {
@@ -486,6 +505,12 @@
       "appearance_id": 100004,
       "specialized_id": 10000101,
       "description": "血滴（线索）"
+    },
+    {
+      "id": 1199,
+      "appearance_id": 100906,
+      "specialized_id": 10000103,
+      "description": "Test-全视线索"
     },
     {
       "id": 1106,

@@ -88,6 +88,8 @@ pub mod controller {
             matches!(self.state, EPlayerCoinState::Charging { .. })
         }
 
+        /// Returns true if the player just transitioned from ejecting to idle, which indicates they have just landed after being launched.
+        /// Returns the same value until any state change. Note its use in conjunction with `is_changed`.
         pub fn just_ejected(&self) -> bool {
             matches!(self.state, EPlayerCoinState::Idle)
                 && self

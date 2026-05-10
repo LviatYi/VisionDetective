@@ -140,7 +140,7 @@ fn reveal_clues(
     mut illumination_mesh_query: Query<&mut Mesh2d, With<ClueIllumination>>,
     mut card_spawn_params: CardSpawnParams,
 ) {
-    if !player_coin_state.just_ejected() {
+    if !player_coin_state.is_changed() || !player_coin_state.just_ejected() {
         return;
     }
     let Ok(player_transform) = player_query.single() else {
@@ -266,13 +266,7 @@ fn build_visible_clue_stamp(
     }
 
     let world_to_local = transform.to_matrix().inverse();
-    let mut local_polygon = Vec::with_capacity(visible_points.len() + 1);
-    local_polygon.push(
-        world_to_local
-            .transform_point3(origin.extend(0.0))
-            .truncate(),
-    );
-
+    let mut local_polygon = Vec::with_capacity(visible_points.len());
     for point in visible_points {
         local_polygon.push(
             world_to_local
