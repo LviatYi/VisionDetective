@@ -1984,15 +1984,6 @@ fn editor_global_z_from_order(order: f32) -> f32 {
     SceneLayer::Card.get_layer_base_z() + normalize_editor_order(order)
 }
 
-fn parse_ui_color(input: &str) -> Option<Color> {
-    let input = input.trim().trim_start_matches('#');
-    if input.is_empty() {
-        return None;
-    }
-
-    Srgba::hex(input).ok().map(Color::Srgba)
-}
-
 enum CardOrderChange {
     Step(f32),
     Set(f32),

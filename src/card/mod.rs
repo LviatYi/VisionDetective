@@ -383,11 +383,3 @@ fn normalize_asset_path(path: &str) -> Option<String> {
             .replace('\\', "/"),
     )
 }
-
-fn parse_hex_color(input: &str) -> Option<Color> {
-    let input = input.trim().trim_start_matches('#');
-    match input.is_empty() {
-        true => None,
-        false => Srgba::hex(input).ok().map(|c| Color::Srgba(c)),
-    }
-}
