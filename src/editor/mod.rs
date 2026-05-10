@@ -3,7 +3,7 @@ use crate::card::card_params::{
     CardParam, CardRuntimeSpecializedConfig, CardSceneParam, CardSpawnParams,
     CardSpecializedRegistry,
 };
-use crate::card::{CARD_SIZE, Card, spawn_card_by_card_param};
+use crate::card::{Card, spawn_card_by_card_param};
 use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
 use crate::editor::editor_view::{EditorView, setup_editor_view};
@@ -1837,7 +1837,7 @@ fn draw_card_outline(gizmos: &mut Gizmos, transform: &Transform, color: Color) {
 }
 
 fn obstacle_card_corners(transform: &Transform) -> [Vec2; 4] {
-    let half = CARD_SIZE * 0.5;
+    let half = Card::SIZE * 0.5;
     let matrix = transform.to_matrix();
     [
         matrix
@@ -1856,7 +1856,7 @@ fn obstacle_card_corners(transform: &Transform) -> [Vec2; 4] {
 }
 
 fn rotation_handle_position(transform: &Transform) -> Vec2 {
-    let half = CARD_SIZE * 0.5;
+    let half = Card::SIZE * 0.5;
     let local = Vec3::new(
         half.x + ROTATION_HANDLE_RADIUS * 1.5,
         half.y + ROTATION_HANDLE_RADIUS * 1.5,
@@ -2086,7 +2086,7 @@ fn collect_editor_snap_cards<F: bevy::ecs::query::QueryFilter>(
         })
         .map(|(_, _, _, transform)| EditorSnapCard {
             center: transform.translation.truncate(),
-            half_size: CARD_SIZE * 0.5,
+            half_size: Card::SIZE * 0.5,
         })
         .collect()
 }
@@ -2096,7 +2096,7 @@ fn snap_editor_card_position(
     snap_cards: &[EditorSnapCard],
     axis_lock: EditorAxisLock,
 ) -> Vec2 {
-    let half_size = CARD_SIZE * 0.5;
+    let half_size = Card::SIZE * 0.5;
     let x = if axis_lock != EditorAxisLock::Vertical {
         closest_editor_snap_axis(
             position.x,
@@ -2346,7 +2346,7 @@ fn append_editor_card_overlays(
             },
             TextColor(Color::srgb(0.88, 0.94, 1.0)),
             Anchor::BOTTOM_RIGHT,
-            Transform::from_xyz(CARD_SIZE.x * 0.5 - 6.0, -CARD_SIZE.y * 0.5 + 6.0, 0.36),
+            Transform::from_xyz(Card::SIZE.x * 0.5 - 6.0, -Card::SIZE.y * 0.5 + 6.0, 0.36),
             EditorCardOrderText,
             EditorView,
         ));

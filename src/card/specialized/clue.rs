@@ -1,7 +1,7 @@
 use crate::card::card_params::{
     CardParam, CardRuntimeSpecializedConfig, CardSceneParam, CardSpawnParams, CardSpecialized,
 };
-use crate::card::{CARD_SIZE, Card, CardKind, spawn_card_by_card_param};
+use crate::card::{Card, CardKind, spawn_card_by_card_param};
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::PlayerCoinState;
 use crate::config::GameConfig;
@@ -100,7 +100,7 @@ impl CardSpecialized for ClueCardParams {
                             font: spawn_params
                                 .asset_server
                                 .load(spawn_params.config.assets.default_font.clone()),
-                            font_size: CARD_SIZE.y * 0.42,
+                            font_size: Card::SIZE.y * 0.42,
                             ..default()
                         },
                         TextColor(Color::srgb(0.08, 0.08, 0.09)),
@@ -466,7 +466,7 @@ fn append_polygon_triangles(
         let base = positions.len() as u32;
         for point in [triangle.v1(), triangle.v2(), triangle.v3()] {
             positions.push([point.x, point.y, 0.0]);
-            let uv = (Vec2::new(point.x, point.y) / CARD_SIZE) + Vec2::splat(0.5);
+            let uv = (Vec2::new(point.x, point.y) / Card::SIZE) + Vec2::splat(0.5);
             uvs.push([uv.x, uv.y]);
         }
         indices.extend_from_slice(&[base, base + 1, base + 2]);
@@ -515,7 +515,7 @@ fn polygon_from_points(points: Vec<Vec2>) -> Option<GeoPolygon<f32>> {
 const GEOMETRY_EPSILON: f32 = 0.001;
 const GEOMETRY_EPSILON_SQUARED: f32 = GEOMETRY_EPSILON * GEOMETRY_EPSILON;
 const DEFAULT_EDITOR_CLUE_INTERACTION_PREFAB_ID: u32 = 1003;
-const DEFAULT_EDITOR_CLUE_TARGET_OFFSET: Vec2 = Vec2::new(0.0, -CARD_SIZE.y * 0.4);
+const DEFAULT_EDITOR_CLUE_TARGET_OFFSET: Vec2 = Vec2::new(0.0, -Card::SIZE.y * 0.4);
 const EDITOR_CLUE_TARGET_ORDER_OFFSET: f32 = 1.0;
 const CLUE_LINK_DASH_LENGTH: f32 = 18.0;
 const CLUE_LINK_GAP_LENGTH: f32 = 10.0;

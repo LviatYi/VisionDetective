@@ -1,5 +1,5 @@
-use crate::card::CardKind;
 use crate::card::card_params::{CardSpawnParams, CardSpecialized};
+use crate::card::{Card, CardKind};
 use crate::physics::obstacle::Obstacle;
 use crate::register_card_specialized_param;
 use bevy::ecs::system::EntityCommands;
@@ -30,28 +30,9 @@ impl CardSpecialized for ObstacleCardParams {
         CardKind::Obstacle
     }
 
-    fn spawn_with(&self, entity: &mut EntityCommands<'_>, _spawn_params: &mut CardSpawnParams<'_>) {
+    fn spawn_with(&self, entity: &mut EntityCommands<'_>, spawn_params: &mut CardSpawnParams<'_>) {
         entity.insert(Obstacle::new(match &self.obstacle_def {
-            CardObstacleType::Full => {
-                vec![
-                    Vec2::new(
-                        -crate::card::CARD_SIZE.x * 0.5,
-                        -crate::card::CARD_SIZE.y * 0.5,
-                    ),
-                    Vec2::new(
-                        crate::card::CARD_SIZE.x * 0.5,
-                        -crate::card::CARD_SIZE.y * 0.5,
-                    ),
-                    Vec2::new(
-                        crate::card::CARD_SIZE.x * 0.5,
-                        crate::card::CARD_SIZE.y * 0.5,
-                    ),
-                    Vec2::new(
-                        -crate::card::CARD_SIZE.x * 0.5,
-                        crate::card::CARD_SIZE.y * 0.5,
-                    ),
-                ]
-            }
+            CardObstacleType::Full => Card::card_cut_polygon(&spawn_params.config.cards),
             CardObstacleType::Path(path) => path.clone(),
             CardObstacleType::Bezier {
                 anchors,

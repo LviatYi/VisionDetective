@@ -26,13 +26,6 @@ pub enum CardKind {
     Interaction,
     Clue,
 }
-
-const STANDARD_CARD_SIZE: Vec2 = Vec2::new(53.9, 85.6);
-const IN_GAME_CARD_SIZE_SCALE: f32 = 2.0;
-pub const CARD_SIZE: Vec2 = Vec2::new(
-    STANDARD_CARD_SIZE.x * IN_GAME_CARD_SIZE_SCALE,
-    STANDARD_CARD_SIZE.y * IN_GAME_CARD_SIZE_SCALE,
-);
 pub const CARD_BACKGROUND_Z_ORDER_OFFSET: f32 = 0.01;
 pub const CARD_IMAGE_Z_ORDER_OFFSET: f32 = 0.02;
 pub const CARD_TITLE_Z_ORDER_OFFSET: f32 = 0.03;
@@ -64,8 +57,16 @@ impl CardInstanceType {
 }
 
 impl Card {
+    const STANDARD_SIZE: Vec2 = Vec2::new(53.9, 85.6);
+    const IN_GAME_SIZE_SCALE: f32 = 2.0;
+    pub const SIZE: Vec2 = Vec2::new(
+        Self::STANDARD_SIZE.x * Self::IN_GAME_SIZE_SCALE,
+        Self::STANDARD_SIZE.y * Self::IN_GAME_SIZE_SCALE,
+    );
+    pub const HALF_SIZE: Vec2 = Vec2::new(Self::SIZE.x * 0.5, Self::SIZE.y * 0.5);
+
     pub const fn card_area() -> f32 {
-        CARD_SIZE.x * CARD_SIZE.y
+        Self::SIZE.x * Self::SIZE.y
     }
 
     pub fn card_mesh() -> Mesh {
@@ -74,13 +75,16 @@ impl Card {
             RenderAssetUsages::default(),
         );
 
-        let half_size = CARD_SIZE * 0.5;
+        let Vec2 {
+            x: half_x,
+            y: half_y,
+        } = Self::HALF_SIZE;
 
         let positions = vec![
-            [-half_size.x, half_size.y, 0.0],
-            [half_size.x, half_size.y, 0.0],
-            [half_size.x, -half_size.y, 0.0],
-            [-half_size.x, -half_size.y, 0.0],
+            [-half_x, half_y, 0.0],
+            [half_x, half_y, 0.0],
+            [half_x, -half_y, 0.0],
+            [-half_x, -half_y, 0.0],
         ];
         let uvs = vec![[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];
         let indices = vec![0, 1, 2, 0, 2, 3];
@@ -93,14 +97,39 @@ impl Card {
 
     pub fn card_rounded_mesh(config: &CardConfig) -> Mesh {
         rounded_rectangle_mesh(
-            CARD_SIZE,
+            Self::SIZE,
             config.corner_radius,
             config.rounded_corner_segments,
         )
     }
 
+    pub fn card_cut_polygon(config: &CardConfig) -> Vec<Vec2> {
+        let radius = config.corner_radius;
+        let Vec2 {
+            x: half_x,
+            y: half_y,
+        } = Self::HALF_SIZE;
+        vec![
+            Vec2::new(-half_x + radius, half_y),
+            Vec2::new(half_x - radius, half_y),
+            Vec2::new(half_x, half_y - radius),
+            Vec2::new(half_x, -half_y + radius),
+            Vec2::new(half_x - radius, -half_y),
+            Vec2::new(-half_x + radius, -half_y),
+            Vec2::new(-half_x, -half_y + radius),
+            Vec2::new(-half_x, half_y - radius),
+        ]
+
+        // vec![
+        //     Vec2::new(-half_x * 0.5 , half_y * 0.5),
+        //     Vec2::new(half_x * 0.5 , half_y * 0.5),
+        //     Vec2::new(half_x * 0.5, -half_y ),
+        //     Vec2::new(-half_x * 0.5, -half_y * 0.5),
+        // ]
+    }
+
     pub fn card_geo_polygon() -> GeoPolygon<f32> {
-        let half = CARD_SIZE * 0.5;
+        let half = Self::SIZE * 0.5;
         GeoPolygon::new(
             GeoLineString::from(vec![
                 GeoCoord {
@@ -136,7 +165,7 @@ impl Card {
             .transform_point3(point.extend(0.0))
             .truncate();
 
-        let half_size = CARD_SIZE * 0.5;
+        let half_size = Self::SIZE * 0.5;
 
         let closest_x = local_point.x.clamp(-half_size.x, half_size.x);
         let closest_y = local_point.y.clamp(-half_size.y, half_size.y);
@@ -276,8 +305,8 @@ fn spawn_card_title(
     config: &GameConfig,
     title: &str,
 ) {
-    let title_position_y = (0.5 - config.cards.title_offset_y_ratio) * CARD_SIZE.y;
-    let max_title_width = CARD_SIZE.x * config.cards.title_text_width_ratio;
+    let title_position_y = (0.5 - config.cards.title_offset_y_ratio) * Card::SIZE.y;
+    let max_title_width = Card::SIZE.x * config.cards.title_text_width_ratio;
 
     parent.spawn((
         Text2d::new(title.to_string()),
