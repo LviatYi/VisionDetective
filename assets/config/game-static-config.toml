@@ -58,7 +58,7 @@ status_offset = [24.0, 20.0]
 status_color = [0.75, 0.81, 0.85]
 
 [cards]
-background_card_image_path = "pic/card-backgroundx72ppi.png"
+background_card_image_path = "pic/card-background.png"
 scenery_fill_color = "#E0E0E0"
 obstacle_fill_color = "#585F75"
 interaction_fill_color = "#FFD20D"

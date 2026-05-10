@@ -2,72 +2,65 @@
   "appearances": [
     {
       "id": 100001,
+      "title": "墙",
+      "image_res_path": "pic/street-wall.png"
+    },
+    {
+      "id": 100002,
+      "title": "门",
+      "image_res_path": "pic/door-inside.png"
+    },
+    {
+      "id": 100003,
+      "title": "门",
+      "image_res_path": "pic/door-outside.png"
+    },
+    {
+      "id": 100004,
+      "title": "血滴",
+      "image_res_path": "pic/blood-drop.png"
+    },
+    {
+      "id": 100005,
+      "title": "血",
+      "image_res_path": "pic/blood-pool.png"
+    },
+    {
+      "id": 100006,
+      "title": "椅子",
+      "image_res_path": "pic/chair.png"
+    },
+    {
+      "id": 100901,
       "title": "Grass",
       "background_color_appearance_override": "#4C8A68FF",
       "image_res_path": ""
     },
     {
-      "id": 100002,
-      "title": "Wall",
-      "image_res_path": "pic/street-wallx72ppi.png"
-    },
-    {
-      "id": 100003,
+      "id": 100902,
       "title": "交互卡模拟",
       "image_res_path": ""
     },
     {
-      "id": 100004,
+      "id": 100903,
       "title": "曲线障碍卡模拟",
-      "image_res_path": "pic/street-wallx72ppi.png"
+      "image_res_path": "pic/street-wall.png"
     },
     {
-      "id": 100005,
+      "id": 100904,
       "title": "对话交互卡",
       "image_res_path": ""
     },
     {
-      "id": 100006,
+      "id": 100905,
       "title": "线索卡",
       "background_color_appearance_override": "",
       "image_res_path": ""
-    },
-    {
-      "id": 100007,
-      "title": "血滴",
-      "image_res_path": "pic/blood-dropx72ppi.png"
-    },
-    {
-      "id": 100008,
-      "title": "血",
-      "image_res_path": "pic/blood-poolx72ppi.png"
-    },
-    {
-      "id": 100009,
-      "title": "血滴",
-      "image_res_path": "pic/door-insidex72ppi.png"
-    },
-    {
-      "id": 100010,
-      "title": "血",
-      "image_res_path": "pic/door-outsidex72ppi.png"
     }
   ],
   "specialized": [
     {
       "id": 10000001,
-      "type": "scenery",
-      "params": {}
-    },
-    {
-      "id": 10000002,
-      "type": "obstacle",
-      "params": {
-        "obstacle_def": "full"
-      }
-    },
-    {
-      "id": 10000003,
       "type": "interactive",
       "params": {
         "type": "log_hello_world",
@@ -75,7 +68,47 @@
       }
     },
     {
-      "id": 10000004,
+      "id": 10000002,
+      "type": "scenery",
+      "params": {}
+    },
+    {
+      "id": 10000003,
+      "type": "obstacle",
+      "params": {
+        "obstacle_def": "full"
+      }
+    },
+    {
+      "id": 10000011,
+      "type": "clue",
+      "params": {
+        "reveal_threshold": "normal"
+      }
+    },
+    {
+      "id": 10000199,
+      "type": "interactive",
+      "params": {
+        "type": "dialogue",
+        "params": {
+          "nodes": [
+            {
+              "id": 1,
+              "source": 1,
+              "text": "我们先从这里开始调查。"
+            },
+            {
+              "id": 2,
+              "source": 2,
+              "text": "好的。"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": 10000099,
       "type": "obstacle",
       "params": {
         "obstacle_def": {
@@ -138,46 +171,18 @@
           }
         }
       }
-    },
-    {
-      "id": 10000005,
-      "type": "interactive",
-      "params": {
-        "type": "dialogue",
-        "params": {
-          "nodes": [
-            {
-              "id": 1,
-              "source": 1,
-              "text": "我们先从这里开始调查。"
-            },
-            {
-              "id": 2,
-              "source": 2,
-              "text": "好的。"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": 10000006,
-      "type": "clue",
-      "params": {
-        "reveal_threshold": "normal"
-      }
     }
   ],
   "prefabs": [
     {
       "id": 1001,
       "appearance_id": 100001,
-      "specialized_id": 10000001
+      "specialized_id": 10000003
     },
     {
       "id": 1002,
       "appearance_id": 100002,
-      "specialized_id": 10000002
+      "specialized_id": 10000003
     },
     {
       "id": 1003,
@@ -187,17 +192,42 @@
     {
       "id": 1004,
       "appearance_id": 100004,
-      "specialized_id": 10000004
+      "specialized_id": 10000002
     },
     {
       "id": 1005,
       "appearance_id": 100005,
-      "specialized_id": 10000005
+      "specialized_id": 10000002
     },
     {
       "id": 1006,
       "appearance_id": 100006,
-      "specialized_id": 10000006
+      "specialized_id": 10000003
+    },
+    {
+      "id": 1901,
+      "appearance_id": 100901,
+      "specialized_id": 10000002
+    },
+    {
+      "id": 1902,
+      "appearance_id": 100902,
+      "specialized_id": 10000001
+    },
+    {
+      "id": 1903,
+      "appearance_id": 100903,
+      "specialized_id": 10000099
+    },
+    {
+      "id": 1904,
+      "appearance_id": 100904,
+      "specialized_id": 10000199
+    },
+    {
+      "id": 1905,
+      "appearance_id": 100905,
+      "specialized_id": 10000011
     }
   ]
 }
