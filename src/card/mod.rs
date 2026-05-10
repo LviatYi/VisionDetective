@@ -181,7 +181,7 @@ impl Card {
             scene_param: CardSceneParam {
                 position: transform.translation.truncate(),
                 rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
-                order: transform.translation.z,
+                order: transform.translation.z - SceneLayer::Card.get_layer_base_z(),
                 enable_if: self.enable_if.clone(),
                 disable_if: self.disable_if.clone(),
                 description: String::new(),

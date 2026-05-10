@@ -13,6 +13,7 @@ use crate::editor::{
 use crate::game_view::GameState;
 use crate::physics::obstacle::Obstacle;
 use crate::physics::vision::compute_visible_points;
+use crate::scene::SceneLayer;
 use crate::tools::Disable;
 use crate::{AppView, GameView};
 use crate::{register_card_editor_systems, register_card_specialized_param};
@@ -456,7 +457,8 @@ fn editor_clue_target_spawn_param(
         CardSceneParam {
             position: clue_transform.translation.truncate() + DEFAULT_EDITOR_CLUE_TARGET_OFFSET,
             rotation: 0.0,
-            order: clue_transform.translation.z + EDITOR_CLUE_TARGET_ORDER_OFFSET,
+            order: clue_transform.translation.z - SceneLayer::Card.get_layer_base_z()
+                + EDITOR_CLUE_TARGET_ORDER_OFFSET,
             enable_if: None,
             disable_if: None,
             description: String::new(),
@@ -473,9 +475,8 @@ fn update_editor_runtime_params(
         let Ok((target_card, target_transform)) = target_query.get(link.target) else {
             continue;
         };
-        commands
-            .entity(clue_entity)
-            .insert(EditorRuntimeSpecializedParam(CardRuntimeSpecializedConfig {
+        if let Ok(mut entity) = commands.get_entity(clue_entity) {
+            entity.try_insert(EditorRuntimeSpecializedParam(CardRuntimeSpecializedConfig {
                 data: CardSpecializedConfigData {
                     type_id: "clue".to_string(),
                     params: json!({
@@ -484,6 +485,7 @@ fn update_editor_runtime_params(
                     }),
                 }
             }));
+        }
     }
 }
 

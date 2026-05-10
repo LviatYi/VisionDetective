@@ -192,7 +192,7 @@ type = "clue"
 interaction_prefab_id = 1904
 
 [cards.runtime_specialized_param.params.interaction_target_scene_param]
-order = 20022.0
+order = 22.0
 position = [
     97.0,
     877.0,

@@ -314,9 +314,8 @@ fn update_editor_runtime_params(mut commands: Commands, query: Query<(Entity, &I
             continue;
         };
 
-        commands
-            .entity(entity)
-            .insert(EditorRuntimeSpecializedParam(
+        if let Ok(mut entity) = commands.get_entity(entity) {
+            entity.try_insert(EditorRuntimeSpecializedParam(
                 CardRuntimeSpecializedConfig {
                     data: CardSpecializedConfigData {
                         type_id: "interactive".to_string(),
@@ -326,6 +325,7 @@ fn update_editor_runtime_params(mut commands: Commands, query: Query<(Entity, &I
                     },
                 },
             ));
+        }
     }
 }
 
