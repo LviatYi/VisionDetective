@@ -21,18 +21,6 @@ pub struct CardParam {
     pub runtime_specialized_param: Option<CardRuntimeSpecializedConfig>,
 }
 
-/// A card prefab that binds one appearance preset to one specialized preset.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CardPrefab {
-    pub id: u32,
-
-    pub appearance_id: u32,
-
-    pub specialized_id: u32,
-
-    pub description: Option<String>,
-}
-
 impl CardParam {
     pub fn load_prefab(&self, config: &CardPresetsConfig) -> Option<CardPrefab> {
         config
@@ -68,11 +56,12 @@ impl CardParam {
             .find(|specialized| specialized.id == prefab.specialized_id)
             .cloned()
             .and_then(|base| {
-                let (type_id, params) = self.merged_specialized_params(base)?;
+                let (type_id, json) =
+                    base.merge_with_runtime(self.runtime_specialized_param.as_ref());
                 registry
                     .get(type_id.as_str())
                     .cloned()
-                    .map(|item| (item, params))
+                    .map(|item| (item, json))
             })
             .and_then(|(registration, json)| registration.deserialize(&json).ok())
     }
@@ -97,26 +86,18 @@ impl CardParam {
         })
         .unwrap_or_else(|| config.cards.default_fill_color())
     }
+}
 
-    fn merged_specialized_params(&self, base: CardSpecializedConfig) -> Option<(String, Value)> {
-        let Some(runtime) = &self.runtime_specialized_param else {
-            return Some((base.type_id, base.params));
-        };
+/// A card prefab that binds one appearance preset to one specialized preset.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardPrefab {
+    pub id: u32,
 
-        if runtime.type_id != base.type_id {
-            bevy::log::warn!(
-                "runtime specialized type {} does not match prefab specialized type {}",
-                runtime.type_id,
-                base.type_id
-            );
-            return None;
-        }
+    pub appearance_id: u32,
 
-        Some((
-            base.type_id,
-            merge_json_objects(base.params, runtime.params.clone()),
-        ))
-    }
+    pub specialized_id: u32,
+
+    pub description: Option<String>,
 }
 
 /// Scene param for card instance.
@@ -180,11 +161,8 @@ pub struct CardSpawnParams<'w> {
     pub card_specialized_registry: Res<'w, CardSpecializedRegistry>,
 }
 
-/// Serialized specialized preset entry loaded from configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CardSpecializedConfig {
-    pub id: u32,
-
+pub struct CardSpecializedConfigData {
     /// Registered specialized type name used to locate the deserializer.
     #[serde(rename = "type")]
     pub type_id: String,
@@ -194,16 +172,46 @@ pub struct CardSpecializedConfig {
     pub params: Value,
 }
 
+/// Serialized specialized preset entry loaded from configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardSpecializedConfig {
+    pub id: u32,
+
+    #[serde(flatten)]
+    pub data: CardSpecializedConfigData,
+}
+
+impl CardSpecializedConfig {
+    pub fn merge_with_runtime(
+        &self,
+        runtime: Option<&CardRuntimeSpecializedConfig>,
+    ) -> (String, Value) {
+        let Some(runtime) = runtime else {
+            return (self.data.type_id.clone(), self.data.params.clone());
+        };
+
+        if runtime.data.type_id != self.data.type_id {
+            bevy::log::warn!(
+                "runtime specialized type {} does not match prefab specialized type {}",
+                runtime.data.type_id,
+                self.data.type_id
+            );
+
+            return (self.data.type_id.clone(), self.data.params.clone());
+        }
+
+        (
+            self.data.type_id.clone(),
+            merge_json_objects(self.data.params.clone(), runtime.data.params.clone()),
+        )
+    }
+}
+
 /// Serialized specialized override attached to one scene card instance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CardRuntimeSpecializedConfig {
-    /// Registered specialized type name. Must match the card prefab specialized type.
-    #[serde(rename = "type")]
-    pub type_id: String,
-
-    /// Runtime JSON payload merged over the prefab specialized params.
-    #[serde(default)]
-    pub params: Value,
+    #[serde(flatten)]
+    pub data: CardSpecializedConfigData,
 }
 
 fn merge_json_objects(mut base: Value, runtime: Value) -> Value {
@@ -406,28 +414,30 @@ mod tests {
             scene_param: CardSceneParam::default(),
             prefab_id: 1006,
             runtime_specialized_param: Some(CardRuntimeSpecializedConfig {
-                type_id: "clue".to_string(),
-                params: serde_json::json!({
-                    "interaction_prefab_id": 1005,
-                    "interaction_target_scene_param": {
-                        "position": [105.0, -20.0],
-                        "rotation": -0.12,
-                        "order": 0.85
-                    }
-                }),
+                data: CardSpecializedConfigData {
+                    type_id: "clue".to_string(),
+                    params: serde_json::json!({
+                        "interaction_prefab_id": 1005,
+                        "interaction_target_scene_param": {
+                            "position": [105.0, -20.0],
+                            "rotation": -0.12,
+                            "order": 0.85
+                        }
+                    }),
+                },
             }),
         };
         let base = CardSpecializedConfig {
             id: 10000006,
-            type_id: "clue".to_string(),
-            params: serde_json::json!({
-                "reveal_threshold": "normal"
-            }),
+            data: CardSpecializedConfigData {
+                type_id: "clue".to_string(),
+                params: serde_json::json!({
+                    "reveal_threshold": "normal"
+                }),
+            },
         };
 
-        let (_, merged) = card_param
-            .merged_specialized_params(base)
-            .expect("matching runtime specialized params should merge");
+        let (_, merged) = base.merge_with_runtime(card_param.runtime_specialized_param.as_ref());
 
         assert_eq!(
             merged,

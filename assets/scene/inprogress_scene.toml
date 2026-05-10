@@ -143,7 +143,7 @@ order = 16.0
 description = "title: 门, image_path: pic/door-outside.png, desc: "
 
 [[cards]]
-prefab_id = 1100
+prefab_id = 1500
 
 [cards.scene_param]
 position = [
@@ -153,3 +153,9 @@ position = [
 rotation = 0.5235989
 order = 17.0
 description = "title: 对话, image_path: pic/talk-bubble.png, desc: "
+
+[cards.runtime_specialized_param]
+type = "interactive"
+
+[cards.runtime_specialized_param.params]
+state_key = "first_encounter_with_the_neighbor"

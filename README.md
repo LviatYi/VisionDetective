@@ -333,4 +333,4 @@ $$
 
 ### Known Issue
 
-- [CardObstacleType::Full] 类型障碍卡的四角应以卡牌圆角半径进行收口，以藏匿障碍边界。
+- `CardEditorSystemRegistration` 提供了极宽泛的注册时机，比 `CardSpecializedRegistration` 更甚。应该使用统一架构。

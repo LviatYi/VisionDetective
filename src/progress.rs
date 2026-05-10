@@ -12,8 +12,8 @@ pub struct GameProgress {
 }
 
 impl GameProgress {
-    pub fn unlock(&mut self, key: impl Into<String>) -> bool {
-        let key = key.into();
+    pub fn unlock(&mut self, key: impl AsRef<str>) -> bool {
+        let key = key.as_ref().to_string();
         if self.unlocked_conditions.contains(&key) {
             return false;
         }

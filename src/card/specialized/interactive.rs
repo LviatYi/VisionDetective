@@ -1,14 +1,17 @@
 mod dialogue;
 mod hello_world;
 
-use crate::card::card_params::{CardSpawnParams, CardSpecialized};
+use crate::card::card_params::{
+    CardRuntimeSpecializedConfig, CardSpawnParams, CardSpecialized, CardSpecializedConfigData,
+};
 use crate::card::{Card, CardKind};
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::PlayerCoinState;
 use crate::config::GameConfig;
-use crate::game_view::GameState;
+use crate::editor::EditorRuntimeSpecializedParam;
+use crate::game_view::{AppView, GameState};
 use crate::progress::GameProgress;
-use crate::register_card_specialized_param;
+use crate::{register_card_editor_systems, register_card_specialized_param};
 use anyhow::Result;
 use bevy::app::{App, Plugin, Update};
 use bevy::ecs::system::EntityCommands;
@@ -17,11 +20,37 @@ use bevy::prelude::{
     On, Query, Res, ResMut, Resource, Transform, With, in_state,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
+
+/// Plugin that wires the interaction-card runtime systems.
+pub struct InteractionCardPlugin;
+
+impl Plugin for InteractionCardPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<ActiveInteraction>();
+        for registration in inventory::iter::<CardInteractionRegistration> {
+            if let Some(install_systems) = registration.system_installer {
+                install_systems(app);
+            }
+        }
+        app.add_systems(
+            Update,
+            (
+                update_active_interaction,
+                dispatch_interaction_events.after(update_active_interaction),
+            )
+                .run_if(in_state(GameState::InGame)),
+        );
+    }
+}
 
 /// Marker component for cards that participate in interaction handling.
 #[derive(Component, Default)]
-pub struct Interactive;
+pub struct Interactive {
+    state_key: Option<String>,
+}
+
+//region Enter & Exit Event
 
 #[derive(EntityEvent, Component, Clone, Copy, Debug)]
 pub struct CardInteractionEntered {
@@ -34,6 +63,8 @@ pub struct CardInteractionExited {
     pub entity: Entity,
     pub prefab_id: u32,
 }
+
+//endregion
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InteractionCardParams {
@@ -63,12 +94,11 @@ impl CardSpecialized for InteractionCardParams {
             return;
         };
 
-        entity.insert(Interactive);
-        if let Some(state_key) = &self.state_key {
-            entity
-                .insert(ProgressStateKey(state_key.clone()))
-                .observe(unlock_progress_from_interaction);
-        }
+        entity
+            .insert(Interactive {
+                state_key: self.state_key.clone(),
+            })
+            .observe(unlock_progress_from_interaction);
 
         if let Err(error) = registration.insert(&self.params, entity) {
             bevy::log::warn!(
@@ -79,47 +109,30 @@ impl CardSpecialized for InteractionCardParams {
     }
 }
 
-#[derive(Component, Clone)]
-struct ProgressStateKey(String);
+//region Progress State
 
 fn unlock_progress_from_interaction(
     event: On<CardInteractionEntered>,
-    state_key_query: Query<&ProgressStateKey>,
+    query: Query<&Interactive>,
     mut progress: ResMut<GameProgress>,
 ) {
-    let Ok(state_key) = state_key_query.get(event.entity) else {
+    let Ok(interactive) = query.get(event.entity) else {
         return;
     };
 
-    progress.unlock(state_key.0.clone());
+    let Some(state_key) = interactive.state_key.as_ref() else {
+        return;
+    };
+
+    bevy::log::info!("unlock key {}", state_key);
+    progress.unlock(state_key);
 }
+//endregion
 
 #[derive(Resource, Default)]
 struct ActiveInteraction {
     current: Option<Entity>,
     previous: Option<Entity>,
-}
-
-/// Plugin that wires the interaction-card runtime systems.
-pub struct InteractionCardPlugin;
-
-impl Plugin for InteractionCardPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<ActiveInteraction>();
-        for registration in inventory::iter::<CardInteractionRegistration> {
-            if let Some(install_systems) = registration.system_installer {
-                install_systems(app);
-            }
-        }
-        app.add_systems(
-            Update,
-            (
-                update_active_interaction,
-                dispatch_interaction_events.after(update_active_interaction),
-            )
-                .run_if(in_state(GameState::InGame)),
-        );
-    }
 }
 
 /// Function signature used to insert one interaction component from raw JSON.
@@ -265,6 +278,39 @@ fn dispatch_interaction_events(
 }
 
 register_card_specialized_param!("interactive", InteractionCardParams);
+
+//region Editor
+
+fn register_editor_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (update_editor_runtime_params,).run_if(in_state(AppView::Editor)),
+    );
+}
+
+fn update_editor_runtime_params(mut commands: Commands, query: Query<(Entity, &Interactive)>) {
+    for (entity, interactive) in &query {
+        let Some(state_key) = interactive.state_key.as_ref() else {
+            continue;
+        };
+
+        commands
+            .entity(entity)
+            .insert(EditorRuntimeSpecializedParam(
+                CardRuntimeSpecializedConfig {
+                    data: CardSpecializedConfigData {
+                        type_id: "interactive".to_string(),
+                        params: json!({
+                            "state_key":state_key,
+                        }),
+                    },
+                },
+            ));
+    }
+}
+
+register_card_editor_systems!("interactive", register_editor_systems);
+//endregion
 
 #[cfg(test)]
 mod tests {

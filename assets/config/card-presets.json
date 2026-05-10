@@ -288,6 +288,37 @@
       }
     },
     {
+      "id": 10000501,
+      "type": "interactive",
+      "params": {
+        "type": "dialogue",
+        "params": {
+          "nodes": [
+            {
+              "id": 1,
+              "source": 1,
+              "text": "发生什么事了？"
+            },
+            {
+              "id": 2,
+              "source": 2,
+              "text": "啊...我听到有人喊救命...卧室死了个人..."
+            },
+            {
+              "id": 3,
+              "source": 1,
+              "text": "哦？不要慌，我可是职业侦探，我去看看"
+            },
+            {
+              "id": 4,
+              "source": 2,
+              "text": "呃...呃..."
+            }
+          ]
+        }
+      }
+    },
+    {
       "id": 10000198,
       "type": "interactive",
       "params": {
@@ -418,10 +449,10 @@
       "description": "尸体"
     },
     {
-      "id": 1100,
+      "id": 1500,
       "appearance_id": 100010,
-      "specialized_id": 10000198,
-      "description": "对话"
+      "specialized_id": 10000501,
+      "description": "对话：初遇邻居"
     },
     {
       "id": 1104,
@@ -476,7 +507,7 @@
     {
       "id": 1905,
       "appearance_id": 100905,
-      "specialized_id": 10000199
+      "specialized_id": 10000101
     }
   ]
 }

@@ -49,8 +49,35 @@ const EDITOR_BOX_SELECT_MIN_SIZE: f32 = 4.0;
 
 pub struct EditorPlugin;
 
-pub trait CardEditorSpecialized {
-    fn register_editor_systems(app: &mut App);
+pub type CardEditorSystemInstaller = fn(&mut App);
+
+pub struct CardEditorSystemRegistration {
+    pub type_id: &'static str,
+    pub system_installer: CardEditorSystemInstaller,
+}
+
+impl CardEditorSystemRegistration {
+    pub const fn new(type_id: &'static str, system_installer: CardEditorSystemInstaller) -> Self {
+        Self {
+            type_id,
+            system_installer,
+        }
+    }
+
+    fn install(&self, app: &mut App) {
+        (self.system_installer)(app);
+    }
+}
+
+inventory::collect!(CardEditorSystemRegistration);
+
+#[macro_export]
+macro_rules! register_card_editor_systems {
+    ($name:expr, $system_installer:path) => {
+        inventory::submit! {
+            $crate::editor::CardEditorSystemRegistration::new($name, $system_installer)
+        }
+    };
 }
 
 #[derive(Resource, Default)]
@@ -321,6 +348,10 @@ impl Plugin for EditorPlugin {
                     .run_if(in_state(AppView::Editor)),
             )
             .add_systems(Update, draw_editor_gizmos.run_if(in_state(AppView::Editor)));
+
+        for registration in inventory::iter::<CardEditorSystemRegistration> {
+            registration.install(app);
+        }
     }
 }
 

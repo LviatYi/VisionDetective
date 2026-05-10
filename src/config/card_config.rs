@@ -144,13 +144,13 @@ mod tests {
         assert_eq!(config.appearances[0].image_res_path, "");
 
         assert_eq!(config.specialized[0].id, 10000001);
-        assert_eq!(config.specialized[0].type_id, "scenery");
-        assert_eq!(config.specialized[0].params, serde_json::json!({}));
+        assert_eq!(config.specialized[0].data.type_id, "scenery");
+        assert_eq!(config.specialized[0].data.params, serde_json::json!({}));
 
         assert_eq!(config.specialized[2].id, 10000003);
-        assert_eq!(config.specialized[2].type_id, "interactive");
+        assert_eq!(config.specialized[2].data.type_id, "interactive");
         assert_eq!(
-            config.specialized[2].params,
+            config.specialized[2].data.params,
             serde_json::json!({
                 "type": "log_hello_world",
                 "params": {}
