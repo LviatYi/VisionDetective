@@ -126,6 +126,12 @@ pub struct CardSceneParam {
 
     #[serde(default)]
     pub order: f32,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spawn_if: Option<String>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub destroy_if: Option<String>,
 }
 
 /// Appearance preset for a card.
@@ -134,10 +140,8 @@ pub struct CardAppearanceConfig {
     pub id: u32,
     pub title: String,
     /// Optional override of the background color.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub background_color_appearance_override: String,
-    // #[serde(default)]
-    // pub image_layout_type: CardImageLayoutType,
     pub image_res_path: String,
 }
 
@@ -147,7 +151,6 @@ impl CardAppearanceConfig {
             id: 0,
             title: "Placeholder".to_string(),
             background_color_appearance_override: "".to_string(),
-            // image_layout_type: CardImageLayoutType::Normal,
             image_res_path: String::new(),
         }
     }
@@ -372,6 +375,8 @@ mod tests {
                 position: Vec2::new(10.0, 20.0),
                 rotation: 0.25,
                 order: 3.0,
+                spawn_if: None,
+                destroy_if: None,
             },
             prefab_id: 2003,
             runtime_specialized_param: None,

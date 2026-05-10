@@ -19,6 +19,7 @@ pub mod controller {
     use crate::coin::player::PlayerCoin;
     use crate::config::GameConfig;
     use crate::physics::Velocity;
+    use crate::progress::GameProgress;
     use crate::scene::SceneLayer;
     use bevy::math::{Vec2, Vec3};
     use bevy::picking::pointer::PointerButton;
@@ -108,15 +109,17 @@ pub mod controller {
     pub fn setup_player(
         mut commands: Commands,
         config: Res<GameConfig>,
+        progress: Res<GameProgress>,
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<ColorMaterial>>,
     ) {
+        let player_position = progress.last_player_stop_position.unwrap_or(Vec2::ZERO);
         commands.spawn((
             Mesh2d(meshes.add(Circle::new(config.visuals.player_radius))),
             MeshMaterial2d(materials.add(config.visuals.player_color())),
             Transform::from_translation(Vec3::new(
-                0.0,
-                0.0,
+                player_position.x,
+                player_position.y,
                 SceneLayer::PlayerCoin.get_layer_base_z() + config.visuals.player_z,
             )),
             PlayerCoin::default(),

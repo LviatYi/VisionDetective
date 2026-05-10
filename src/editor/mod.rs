@@ -572,6 +572,8 @@ fn prefab_preview_items(
                     position: Vec2::ZERO,
                     rotation: 0.0,
                     order: 0.0,
+                    spawn_if: None,
+                    destroy_if: None,
                 },
                 prefab_id: prefab.id,
                 runtime_specialized_param: None,
@@ -796,6 +798,8 @@ fn handle_prefab_drag_start(
                     position: Vec2::ZERO,
                     rotation: 0.0,
                     order: 0.0,
+                    spawn_if: None,
+                    destroy_if: None,
                 },
                 prefab_id: preview_button.prefab_id,
                 runtime_specialized_param: None,
@@ -1954,6 +1958,8 @@ fn normalize_editor_scene_param(scene_param: &CardSceneParam) -> CardSceneParam 
         position: normalize_editor_position(scene_param.position),
         rotation: normalize_editor_rotation(scene_param.rotation),
         order: normalize_editor_order(scene_param.order),
+        spawn_if: scene_param.spawn_if.clone(),
+        destroy_if: scene_param.destroy_if.clone(),
     }
 }
 
@@ -1966,6 +1972,8 @@ fn normalize_editor_export_scene_param(scene_param: &CardSceneParam) -> CardScen
         ),
         rotation: normalize_editor_rotation(scene_param.rotation),
         order: normalize_editor_order(scene_param.order),
+        spawn_if: scene_param.spawn_if.clone(),
+        destroy_if: scene_param.destroy_if.clone(),
     };
 
     println!("csp: {:?}", csp);
@@ -2545,6 +2553,8 @@ fn editor_card_to_scene_card(
         position: transform.translation.truncate(),
         rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
         order: editor_local_order_from_transform(transform),
+        spawn_if: card_param.scene_param.spawn_if.clone(),
+        destroy_if: card_param.scene_param.destroy_if.clone(),
     });
     card_param.runtime_specialized_param = runtime.map(|runtime| runtime.0.clone());
     Some(card_param)

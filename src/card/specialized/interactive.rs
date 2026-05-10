@@ -7,13 +7,14 @@ use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::PlayerCoinState;
 use crate::config::GameConfig;
 use crate::game_view::GameState;
+use crate::progress::GameProgress;
 use crate::register_card_specialized_param;
 use anyhow::Result;
 use bevy::app::{App, Plugin, Update};
 use bevy::ecs::system::EntityCommands;
 use bevy::prelude::{
     Commands, Component, DetectChanges, Entity, EntityEvent, GlobalTransform, IntoScheduleConfigs,
-    Query, Res, ResMut, Resource, Transform, With, in_state,
+    On, Query, Res, ResMut, Resource, Transform, With, in_state,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -35,7 +36,7 @@ pub struct CardInteractionExited {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CardInteractionConfig {
+pub struct InteractionCardParams {
     /// Registered interaction action type name.
     #[serde(rename = "type")]
     pub type_id: String,
@@ -43,11 +44,9 @@ pub struct CardInteractionConfig {
     /// Raw JSON payload for the interaction action.
     #[serde(default)]
     pub params: Value,
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InteractionCardParams {
-    pub interaction: CardInteractionConfig,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_key: Option<String>,
 }
 
 impl CardSpecialized for InteractionCardParams {
@@ -58,24 +57,41 @@ impl CardSpecialized for InteractionCardParams {
     fn spawn_with(&self, entity: &mut EntityCommands<'_>, _spawn_params: &mut CardSpawnParams<'_>) {
         let Some(registration) = inventory::iter::<CardInteractionRegistration>
             .into_iter()
-            .find(|registration| registration.type_id == self.interaction.type_id)
+            .find(|registration| registration.type_id == self.type_id)
         else {
-            bevy::log::warn!(
-                "unknown card interaction type: {}",
-                self.interaction.type_id
-            );
+            bevy::log::warn!("unknown card interaction type: {}", self.type_id);
             return;
         };
 
         entity.insert(Interactive);
+        if let Some(state_key) = &self.state_key {
+            entity
+                .insert(ProgressStateKey(state_key.clone()))
+                .observe(unlock_progress_from_interaction);
+        }
 
-        if let Err(error) = registration.insert(&self.interaction.params, entity) {
+        if let Err(error) = registration.insert(&self.params, entity) {
             bevy::log::warn!(
                 "failed to deserialize card interaction {}: {error}",
-                self.interaction.type_id
+                self.type_id
             );
         }
     }
+}
+
+#[derive(Component, Clone)]
+struct ProgressStateKey(String);
+
+fn unlock_progress_from_interaction(
+    event: On<CardInteractionEntered>,
+    state_key_query: Query<&ProgressStateKey>,
+    mut progress: ResMut<GameProgress>,
+) {
+    let Ok(state_key) = state_key_query.get(event.entity) else {
+        return;
+    };
+
+    progress.unlock(state_key.0.clone());
 }
 
 #[derive(Resource, Default)]
@@ -275,14 +291,12 @@ mod tests {
     #[test]
     fn interaction_card_params_parse_registered_action_shape() {
         let params = serde_json::from_value::<InteractionCardParams>(serde_json::json!({
-            "interaction": {
-                "type": "log_hello_world",
-                "params": {}
-            }
+            "type": "log_hello_world",
+            "params": {}
         }))
         .expect("interaction card params should parse");
 
-        assert_eq!(params.interaction.type_id, "log_hello_world");
-        assert_eq!(params.interaction.params, serde_json::json!({}));
+        assert_eq!(params.type_id, "log_hello_world");
+        assert_eq!(params.params, serde_json::json!({}));
     }
 }

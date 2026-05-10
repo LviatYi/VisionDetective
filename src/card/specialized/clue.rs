@@ -199,6 +199,8 @@ fn editor_clue_target_spawn_param(
             position: clue_transform.translation.truncate() + DEFAULT_EDITOR_CLUE_TARGET_OFFSET,
             rotation: 0.0,
             order: clue_transform.translation.z + EDITOR_CLUE_TARGET_ORDER_OFFSET,
+            spawn_if: None,
+            destroy_if: None,
         },
     )
 }

@@ -8,6 +8,7 @@ mod game_view;
 pub mod input;
 pub mod physics;
 pub mod picking;
+pub mod progress;
 pub mod scene;
 
 use crate::asset::font;
@@ -26,6 +27,8 @@ use crate::physics::PhysicsPlugin;
 use crate::physics::Velocity;
 use crate::physics::vision::VisionPlugin;
 use crate::picking::VisionPickingPlugin;
+use crate::progress::{GameProgress, GameProgressPlugin};
+use crate::scene::demo_level::RuntimeScenePlugin;
 use crate::scene::demo_level::load_demo_scene;
 use crate::scene::get_layered_game_scene_camera2d_bundle;
 use bevy::prelude::*;
@@ -66,6 +69,8 @@ fn main() {
             CardPlugin,
             EditorPlugin,
             CameraControlPlugin,
+            GameProgressPlugin,
+            RuntimeScenePlugin,
         ))
         .add_systems(OnEnter(GameState::Loading), setup_game_scene)
         .add_systems(
@@ -90,14 +95,24 @@ fn finish_game_loading(mut next_game_state: ResMut<NextState<GameState>>) {
     next_game_state.set(GameState::InGame);
 }
 
-fn setup_game_scene(mut commands: Commands, mut card_spawn_params: CardSpawnParams<'_>) {
+fn setup_game_scene(
+    mut commands: Commands,
+    mut card_spawn_params: CardSpawnParams<'_>,
+    progress: Res<GameProgress>,
+    mut scene_cards: ResMut<scene::demo_level::RuntimeSceneCards>,
+) {
     commands.spawn((
         get_layered_game_scene_camera2d_bundle(),
         GameView,
         GameCamera,
     ));
 
-    load_demo_scene(&mut commands, &mut card_spawn_params);
+    load_demo_scene(
+        &mut commands,
+        &mut card_spawn_params,
+        &progress,
+        &mut scene_cards,
+    );
 
     let ui_font = font::load_assets(
         &card_spawn_params.asset_server,

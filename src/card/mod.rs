@@ -41,6 +41,8 @@ pub const CARD_TITLE_Z_ORDER_OFFSET: f32 = 0.03;
 pub struct Card {
     pub title: String,
     pub instance_type: CardInstanceType,
+    pub spawn_if: Option<String>,
+    pub destroy_if: Option<String>,
 }
 
 #[derive(Component, Clone, Copy)]
@@ -155,6 +157,8 @@ impl Card {
                 position: transform.translation.truncate(),
                 rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
                 order: transform.translation.z,
+                spawn_if: self.spawn_if.clone(),
+                destroy_if: self.destroy_if.clone(),
             },
             prefab_id: self.instance_type.get_prefab_id(),
             runtime_specialized_param: None,
@@ -204,6 +208,8 @@ pub fn spawn_card_by_card_param(
         Card {
             title: appearance.title.clone(),
             instance_type: CardInstanceType::Prefab(card_param.prefab_id),
+            spawn_if: card_param.scene_param.spawn_if.clone(),
+            destroy_if: card_param.scene_param.destroy_if.clone(),
         },
         card_kind,
         Pickable::default(),

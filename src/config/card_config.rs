@@ -152,10 +152,8 @@ mod tests {
         assert_eq!(
             config.specialized[2].params,
             serde_json::json!({
-                "interaction": {
-                    "type": "log_hello_world",
-                    "params": {}
-                }
+                "type": "log_hello_world",
+                "params": {}
             })
         );
 

@@ -31,6 +31,26 @@
       "title": "线索卡",
       "background_color_appearance_override": "",
       "image_res_path": ""
+    },
+    {
+      "id": 100007,
+      "title": "血滴",
+      "image_res_path": "pic/blood-dropx72ppi.png"
+    },
+    {
+      "id": 100008,
+      "title": "血",
+      "image_res_path": "pic/blood-poolx72ppi.png"
+    },
+    {
+      "id": 100009,
+      "title": "血滴",
+      "image_res_path": "pic/door-insidex72ppi.png"
+    },
+    {
+      "id": 100010,
+      "title": "血",
+      "image_res_path": "pic/door-outsidex72ppi.png"
     }
   ],
   "specialized": [
@@ -50,10 +70,8 @@
       "id": 10000003,
       "type": "interactive",
       "params": {
-        "interaction": {
-          "type": "log_hello_world",
-          "params": {}
-        }
+        "type": "log_hello_world",
+        "params": {}
       }
     },
     {
@@ -125,22 +143,20 @@
       "id": 10000005,
       "type": "interactive",
       "params": {
-        "interaction": {
-          "type": "dialogue",
-          "params": {
-            "nodes": [
-              {
-                "id": 1,
-                "source": 1,
-                "text": "我们先从这里开始调查。"
-              },
-              {
-                "id": 2,
-                "source": 2,
-                "text": "好的。"
-              }
-            ]
-          }
+        "type": "dialogue",
+        "params": {
+          "nodes": [
+            {
+              "id": 1,
+              "source": 1,
+              "text": "我们先从这里开始调查。"
+            },
+            {
+              "id": 2,
+              "source": 2,
+              "text": "好的。"
+            }
+          ]
         }
       }
     },
