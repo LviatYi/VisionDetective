@@ -51,8 +51,8 @@ prefab_id = 1207
 
 [cards.scene_param]
 position = [
-    392.0,
-    515.0,
+    424.0,
+    580.0,
 ]
 rotation = 0.0
 order = 8.0
@@ -111,8 +111,8 @@ prefab_id = 1208
 
 [cards.scene_param]
 position = [
-    500.0,
-    515.0,
+    532.0,
+    580.0,
 ]
 rotation = 0.0
 order = 14.0
@@ -140,8 +140,8 @@ position = [
 ]
 rotation = 0.0
 order = 16.0
-description = "title: 门, image_path: pic/door-outside.png, desc: 门-outside"
 disable_if = "first_encounter_with_the_neighbor"
+description = "title: 门, image_path: pic/door-outside.png, desc: 门-outside"
 
 [[cards]]
 prefab_id = 1500
@@ -174,15 +174,41 @@ order = 18.0
 description = "title: 血, image_path: pic/blood-pool.png, desc: 一滩血"
 
 [[cards]]
+prefab_id = 1104
+
+[cards.scene_param]
+position = [
+    392.0,
+    856.0,
+]
+rotation = -1.0471976
+order = 19.0
+description = "title: 血滴, image_path: pic/blood-drop.png, desc: 血滴（线索）"
+
+[cards.runtime_specialized_param]
+type = "clue"
+
+[cards.runtime_specialized_param.params]
+interaction_prefab_id = 1904
+
+[cards.runtime_specialized_param.params.interaction_target_scene_param]
+order = 20022.0
+position = [
+    97.0,
+    877.0,
+]
+rotation = -0.0
+
+[[cards]]
 prefab_id = 1206
 
 [cards.scene_param]
 position = [
-    351.0,
-    742.0,
+    328.0,
+    801.0,
 ]
 rotation = 1.5707963
-order = 19.0
+order = 20.0
 description = "title: 椅子, image_path: pic/chair.png, desc: 椅子"
 
 [[cards]]
@@ -190,9 +216,9 @@ prefab_id = 1106
 
 [cards.scene_param]
 position = [
-    205.0,
-    666.0,
+    230.0,
+    685.0,
 ]
 rotation = 2.094395
-order = 20.0
+order = 21.0
 description = "title: 尸体, image_path: pic/body.png, desc: 尸体（交互）"

@@ -329,6 +329,11 @@
               "id": 1,
               "source": 1,
               "text": "看起来确实发生了命案，但似乎哪里有些不对劲..."
+            },
+            {
+              "id": 2,
+              "source": 1,
+              "text": "四处看看吧"
             }
           ]
         }
@@ -439,6 +444,12 @@
       "appearance_id": 100003,
       "specialized_id": 10000201,
       "description": "门-outside"
+    },
+    {
+      "id": 1002,
+      "appearance_id": 100002,
+      "specialized_id": 10000001,
+      "description": "门-inside（景观）"
     },
     {
       "id": 1003,
