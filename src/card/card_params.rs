@@ -9,6 +9,7 @@ use bevy::prelude::{AssetServer, Assets, ColorMaterial, Mesh, Res, ResMut, Resou
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+use bevy::app::Plugin;
 
 /// Runtime card instance parameters for scene loading.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -299,6 +300,16 @@ impl Default for CardSpecializedRegistry {
                 .collect(),
         }
     }
+}
+
+pub trait CardSpecializedPlugin: Plugin {
+    fn get_type_id() -> &'static str;
+}
+
+pub(super) struct CardSpecializedPluginRegistration {}
+
+pub(super) struct CardSpecializedPluginRegistry {
+    registrations: HashMap<&'static str, &'static CardSpecializedRegistration>,
 }
 
 //endregion
