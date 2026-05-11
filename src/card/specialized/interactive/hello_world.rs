@@ -20,8 +20,8 @@ impl From<HelloWorldInteractionParams> for HelloWorldInteraction {
 }
 
 fn insert_hello_world_interaction(
-    params: HelloWorldInteractionParams,
     entity: &mut EntityCommands<'_>,
+    params: HelloWorldInteractionParams,
 ) {
     entity
         .insert(HelloWorldInteraction::from(params))

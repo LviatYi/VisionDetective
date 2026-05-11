@@ -20,6 +20,8 @@ const DIALOGUE_PANEL_PADDING_Y: f32 = 22.0;
 const DIALOGUE_NAME_FONT_SIZE: f32 = 20.0;
 const DIALOGUE_TEXT_FONT_SIZE: f32 = 26.0;
 
+//region Dialogue entity
+
 /// One node in a card-driven dialogue flow.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DialogueNode {
@@ -35,10 +37,9 @@ pub struct DialogueInteractionParams {
     pub nodes: Vec<DialogueNode>,
 }
 
-/// Interaction component for dialogue cards.
-#[derive(Component)]
-pub struct DialogueInteraction {
-    pub param: DialogueInteractionParams,
+struct ActiveDialogue {
+    nodes: Vec<DialogueNode>,
+    current_index: usize,
 }
 
 #[derive(Resource, Default)]
@@ -52,32 +53,43 @@ impl DialogueState {
         active.nodes.get(active.current_index)
     }
 
-    fn next_id(&self) -> Option<usize> {
+    fn next_idx(&self) -> Option<usize> {
         let active = self.active.as_ref()?;
         (active.current_index + 1 < active.nodes.len()).then_some(active.current_index + 1)
     }
 
     fn push_dialogue(&mut self) {
-        match self.next_id() {
+        match self.next_idx() {
             None => {
                 self.active = None;
             }
-            Some(next_id) => match self.active.as_mut() {
+            Some(next_idx) => match self.active.as_mut() {
                 None => {
                     self.active = None;
                 }
                 Some(active) => {
-                    active.current_index = next_id;
+                    active.current_index = next_idx;
                 }
             },
         }
     }
 }
 
-struct ActiveDialogue {
-    nodes: Vec<DialogueNode>,
-    current_index: usize,
+//endregion
+
+/// Interaction component for dialogue cards.
+#[derive(Component)]
+pub struct DialogueInteraction {
+    pub param: DialogueInteractionParams,
 }
+
+impl From<DialogueInteractionParams> for DialogueInteraction {
+    fn from(value: DialogueInteractionParams) -> Self {
+        Self { param: value }
+    }
+}
+
+//region UI
 
 #[derive(Component)]
 struct DialogueUiRoot;
@@ -87,14 +99,9 @@ struct DialogueSpeakerText;
 
 #[derive(Component)]
 struct DialogueBodyText;
+//endregion
 
-impl From<DialogueInteractionParams> for DialogueInteraction {
-    fn from(value: DialogueInteractionParams) -> Self {
-        Self { param: value }
-    }
-}
-
-fn insert_dialogue_interaction(params: DialogueInteractionParams, entity: &mut EntityCommands<'_>) {
+fn insert_dialogue_interaction(entity: &mut EntityCommands<'_>, params: DialogueInteractionParams) {
     entity.insert(DialogueInteraction::from(params));
 }
 

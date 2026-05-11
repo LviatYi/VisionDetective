@@ -339,6 +339,7 @@ $$
 
 - [B] 问号显示调整。
 - [B] 存档机制
+- [C] 配置验证
 - [C] `Camera2D Orthographic` 的可视范围应该用于限制 Order 范围。
 - [C] 通过 TextSpan 加强文本显示功能，将对话中的重要信息标红。
 - [D] `CardEditorSystemRegistration` 提供了极宽泛的注册时机，比 `CardSpecializedRegistration` 更甚。应该使用统一架构。

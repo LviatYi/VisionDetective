@@ -104,7 +104,7 @@ impl CardSpecialized for InteractionCardParams {
             })
             .observe(unlock_progress_from_interaction);
 
-        if let Err(error) = registration.insert(&self.params, entity) {
+        if let Err(error) = registration.insert(entity, &self.params) {
             bevy::log::warn!(
                 "failed to deserialize card interaction {}: {error}",
                 self.type_id
@@ -232,7 +232,7 @@ register_card_specialized_param!("interactive", InteractionCardParams);
 //region Card Interaction Registration
 
 /// Function signature used to insert one interaction component from raw JSON.
-pub type CardInteractionComponentInserter = fn(&Value, &mut EntityCommands<'_>) -> Result<()>;
+pub type CardInteractionComponentInserter = fn(&mut EntityCommands<'_>, &Value) -> Result<()>;
 pub type CardInteractionSystemInstaller = fn(&mut App);
 
 /// Static registration entry collected through `inventory`.
@@ -255,9 +255,9 @@ impl CardInteractionRegistration {
         }
     }
 
-    fn insert(&self, json: &Value, entity: &mut EntityCommands<'_>) -> Result<()> {
+    fn insert(&self, entity: &mut EntityCommands<'_>, json: &Value) -> Result<()> {
         self.json_src_inserter
-            .map(|func| func(json, entity))
+            .map(|func| func(entity, json))
             .unwrap_or(Ok(()))
     }
 }
@@ -283,9 +283,9 @@ macro_rules! register_card_interaction {
     };
 
     (@__option_inserter $param_type:ty, $inserter:path) => {
-        Some(|value: &serde_json::Value, entity: &mut bevy::ecs::system::EntityCommands<'_>| -> anyhow::Result<()> {
+        Some(|entity: &mut bevy::ecs::system::EntityCommands<'_>, value: &serde_json::Value| -> anyhow::Result<()> {
             let params = serde_json::from_value::<$param_type>(value.clone())?;
-            $inserter(params, entity);
+            $inserter(entity, params);
             Ok(())
         })
     };
