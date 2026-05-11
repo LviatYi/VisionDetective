@@ -1,9 +1,8 @@
 use crate::AppView;
 use crate::card::card_params::{
     CardParam, CardRuntimeSpecializedConfig, CardSceneParam, CardSpawnParams,
-    CardSpecializedRegistry,
 };
-use crate::card::{Card, spawn_card_by_card_param};
+use crate::card::{Card, CardSpecializedRegistry, spawn_card_by_card_param};
 use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
 use crate::editor::editor_view::{EditorView, setup_editor_view};

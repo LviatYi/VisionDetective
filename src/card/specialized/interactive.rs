@@ -2,9 +2,10 @@ mod dialogue;
 mod hello_world;
 
 use crate::card::card_params::{
-    CardRuntimeSpecializedConfig, CardSpawnParams, CardSpecialized, CardSpecializedConfigData,
+    CardRuntimeSpecializedConfig, CardSpawnParams, CardSpecializedConfigData, CardSpecializedParam,
 };
-use crate::card::{Card, CardKind};
+use crate::card::specialized::interactive::dialogue::DialogueInteractionParams;
+use crate::card::{Card, CardKind, CardSpecializedInstaller};
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::PlayerCoinState;
 use crate::config::GameConfig;
@@ -12,23 +13,24 @@ use crate::editor::EditorRuntimeSpecializedParam;
 use crate::game_view::{AppView, GameState};
 use crate::progress::GameProgress;
 use crate::tools::Disable;
-use crate::{register_card_editor_systems, register_card_specialized_param};
+use crate::{register_card_editor_systems, register_card_specialized_installer};
 use anyhow::Result;
-use bevy::app::{App, Plugin, Update};
+use bevy::app::{App, Update};
 use bevy::ecs::system::EntityCommands;
 use bevy::prelude::{
     Commands, Component, DetectChanges, Entity, EntityEvent, GlobalTransform, IntoScheduleConfigs,
     On, Query, Res, ResMut, Resource, Transform, With, Without, in_state,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
-use crate::card::specialized::interactive::dialogue::DialogueInteractionParams;
 
-/// Plugin that wires the interaction-card runtime systems.
-pub struct InteractionCardPlugin;
+pub struct InteractiveCardSpecializedInstaller;
 
-impl Plugin for InteractionCardPlugin {
-    fn build(&self, app: &mut App) {
+impl CardSpecializedInstaller for InteractiveCardSpecializedInstaller {
+    type Param = InteractionCardParams;
+
+    const TYPE_ID: &'static str = "interactive";
+
+    fn install(app: &mut App) {
         app.init_resource::<ActiveInteraction>();
         for registration in inventory::iter::<CardInteractionRegistration> {
             if let Some(install_systems) = registration.system_installer {
@@ -47,6 +49,8 @@ impl Plugin for InteractionCardPlugin {
         );
     }
 }
+
+register_card_specialized_installer!(InteractiveCardSpecializedInstaller);
 
 /// Marker component for cards that participate in interaction handling.
 #[derive(Component, Default)]
@@ -79,13 +83,13 @@ pub struct InteractionCardParams {
 
     /// Raw JSON payload for the interaction action.
     #[serde(default)]
-    pub params: Value,
+    pub params: serde_json::Value,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state_key: Option<String>,
 }
 
-impl CardSpecialized for InteractionCardParams {
+impl CardSpecializedParam for InteractionCardParams {
     fn kind(&self) -> CardKind {
         CardKind::Interaction
     }
@@ -228,12 +232,11 @@ fn dispatch_interaction_events(
     }
 }
 
-register_card_specialized_param!("interactive", InteractionCardParams);
-
 //region Card Interaction Registration
 
 /// Function signature used to insert one interaction component with raw JSON param.
-pub type CardInteractionComponentInserter = fn(&mut EntityCommands<'_>, &Value) -> Result<()>;
+pub type CardInteractionComponentInserter =
+    fn(&mut EntityCommands<'_>, &serde_json::Value) -> Result<()>;
 pub type CardInteractionSystemInstaller = fn(&mut App);
 
 /// Static registration entry collected through `inventory`.
@@ -256,7 +259,7 @@ impl CardInteractionRegistration {
         }
     }
 
-    fn insert(&self, entity: &mut EntityCommands<'_>, json: &Value) -> Result<()> {
+    fn insert(&self, entity: &mut EntityCommands<'_>, json: &serde_json::Value) -> Result<()> {
         self.json_src_inserter
             .map(|func| func(entity, json))
             .unwrap_or(Ok(()))
@@ -333,7 +336,7 @@ fn update_editor_runtime_params(mut commands: Commands, query: Query<(Entity, &I
                 CardRuntimeSpecializedConfig {
                     data: CardSpecializedConfigData {
                         type_id: "interactive".to_string(),
-                        params: json!({
+                        params: serde_json::json!({
                             "state_key":state_key,
                         }),
                     },

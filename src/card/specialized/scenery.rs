@@ -1,14 +1,24 @@
-use crate::card::CardKind;
-use crate::card::card_params::{CardSpawnParams, CardSpecialized};
-use crate::register_card_specialized_param;
+use crate::card::card_params::{CardSpawnParams, CardSpecializedParam};
+use crate::card::{CardKind, CardSpecializedInstaller};
+use crate::register_card_specialized_installer;
 use bevy::ecs::system::EntityCommands;
 use serde::{Deserialize, Serialize};
+
+pub struct SceneryCardSpecializedInstaller;
+
+impl CardSpecializedInstaller for SceneryCardSpecializedInstaller {
+    type Param = SceneryCardParams;
+
+    const TYPE_ID: &'static str = "scenery";
+}
+
+register_card_specialized_installer!(SceneryCardSpecializedInstaller);
 
 /// Specialized parameters for scenery cards.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SceneryCardParams {}
 
-impl CardSpecialized for SceneryCardParams {
+impl CardSpecializedParam for SceneryCardParams {
     fn kind(&self) -> CardKind {
         CardKind::Scenery
     }
@@ -20,5 +30,3 @@ impl CardSpecialized for SceneryCardParams {
     ) {
     }
 }
-
-register_card_specialized_param!("scenery", SceneryCardParams);

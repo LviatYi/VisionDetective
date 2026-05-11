@@ -1,15 +1,13 @@
-use crate::card::CardKind;
+use crate::card::{CardKind, CardSpecializedRegistry};
 use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
 use anyhow::Result;
 use bevy::color::{Color, Srgba};
 use bevy::ecs::system::{EntityCommands, SystemParam};
 use bevy::math::Vec2;
-use bevy::prelude::{AssetServer, Assets, ColorMaterial, Mesh, Res, ResMut, Resource};
+use bevy::prelude::{AssetServer, Assets, ColorMaterial, Mesh, Res, ResMut};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
-use bevy::app::Plugin;
 
 /// Runtime card instance parameters for scene loading.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -48,7 +46,7 @@ impl CardParam {
         &self,
         card_presets_config: &CardPresetsConfig,
         registry: &CardSpecializedRegistry,
-    ) -> Option<Box<dyn CardSpecialized>> {
+    ) -> Option<Box<dyn CardSpecializedParam>> {
         let prefab = self.load_prefab(card_presets_config)?;
 
         card_presets_config
@@ -64,7 +62,7 @@ impl CardParam {
                     .cloned()
                     .map(|item| (item, json))
             })
-            .and_then(|(registration, json)| registration.deserialize(&json).ok())
+            .and_then(|(registration, json)| (registration.json_param_parser)(&json).ok())
     }
 
     pub fn resolve_fill_color(
@@ -144,7 +142,7 @@ impl CardAppearanceConfig {
 }
 
 /// Trait implemented by every card-kind-specific parameter payload.
-pub trait CardSpecialized: Send + Sync {
+pub trait CardSpecializedParam: Send + Sync {
     /// Returns the concrete card kind this specialized payload spawns.
     fn kind(&self) -> CardKind;
 
@@ -231,89 +229,6 @@ fn merge_json_objects(mut base: Value, runtime: Value) -> Value {
     }
 }
 
-//region Card Specialized Registry
-
-/// Function signature used to deserialize a specialized payload from raw JSON.
-pub type CardSpecializedDeserializer = fn(&Value) -> Result<Box<dyn CardSpecialized>>;
-
-/// Static registration entry collected through `inventory`.
-#[derive(Debug, Clone)]
-pub(super) struct CardSpecializedRegistration {
-    pub type_id: &'static str,
-
-    pub json_src_deserializer: CardSpecializedDeserializer,
-}
-
-impl CardSpecializedRegistration {
-    pub const fn new(
-        type_id: &'static str,
-        json_src_deserializer: CardSpecializedDeserializer,
-    ) -> Self {
-        Self {
-            type_id,
-            json_src_deserializer,
-        }
-    }
-
-    fn deserialize(&self, json: &Value) -> Result<Box<dyn CardSpecialized>> {
-        (self.json_src_deserializer)(json)
-    }
-}
-
-inventory::collect!(CardSpecializedRegistration);
-
-#[macro_export]
-macro_rules! register_card_specialized_param {
-    ($name:expr, $param_type:ty) => {
-        inventory::submit! {
-            $crate::card::card_params::CardSpecializedRegistration::new(
-                $name,
-                |value: &serde_json::Value| -> anyhow::Result<
-                    Box<dyn $crate::card::card_params::CardSpecialized>,
-                > {
-                    let params = serde_json::from_value::<$param_type>(value.clone())?;
-                    Ok(Box::new(params))
-                }
-            )
-        }
-    };
-}
-
-/// The registry of CardSpecialized providers.
-#[derive(Resource)]
-pub struct CardSpecializedRegistry {
-    registrations: HashMap<&'static str, &'static CardSpecializedRegistration>,
-}
-
-impl CardSpecializedRegistry {
-    fn get(&self, type_id: &str) -> Option<&'static CardSpecializedRegistration> {
-        self.registrations.get(type_id).copied()
-    }
-}
-
-impl Default for CardSpecializedRegistry {
-    fn default() -> Self {
-        Self {
-            registrations: inventory::iter::<CardSpecializedRegistration>
-                .into_iter()
-                .map(|registration| (registration.type_id, registration))
-                .collect(),
-        }
-    }
-}
-
-pub trait CardSpecializedPlugin: Plugin {
-    fn get_type_id() -> &'static str;
-}
-
-pub(super) struct CardSpecializedPluginRegistration {}
-
-pub(super) struct CardSpecializedPluginRegistry {
-    registrations: HashMap<&'static str, &'static CardSpecializedRegistration>,
-}
-
-//endregion
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -328,11 +243,10 @@ mod tests {
             .get("obstacle")
             .expect("obstacle specialized type should be registered");
 
-        let specialized = registration
-            .deserialize(&serde_json::json!({
-                "obstacle_def": "full"
-            }))
-            .expect("registered obstacle deserializer should parse json");
+        let specialized = (registration.json_param_parser)(&serde_json::json!({
+            "obstacle_def": "full"
+        }))
+        .expect("registered obstacle deserializer should parse json");
 
         assert_eq!(specialized.kind(), CardKind::Obstacle);
     }
@@ -362,10 +276,8 @@ mod tests {
       "id": 10000003,
       "type": "interactive",
       "params": {
-        "interaction": {
-          "type": "log_hello_world",
-          "params": {}
-        }
+        "type": "log_hello_world",
+        "params": {}
       }
     },
     {

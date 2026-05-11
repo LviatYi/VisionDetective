@@ -1,8 +1,8 @@
 use crate::card::card_params::{
-    CardParam, CardRuntimeSpecializedConfig, CardSceneParam, CardSpawnParams, CardSpecialized,
-    CardSpecializedConfigData,
+    CardParam, CardRuntimeSpecializedConfig, CardSceneParam, CardSpawnParams,
+    CardSpecializedConfigData, CardSpecializedParam,
 };
-use crate::card::{Card, CardKind, spawn_card_by_card_param};
+use crate::card::{Card, CardKind, CardSpecializedInstaller, spawn_card_by_card_param};
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::PlayerCoinState;
 use crate::config::GameConfig;
@@ -13,10 +13,10 @@ use crate::editor::{
 use crate::game_view::GameState;
 use crate::physics::obstacle::Obstacle;
 use crate::physics::vision::compute_visible_points;
+use crate::register_card_editor_systems;
 use crate::scene::SceneLayer;
 use crate::tools::Disable;
-use crate::{AppView, GameView};
-use crate::{register_card_editor_systems, register_card_specialized_param};
+use crate::{AppView, GameView, register_card_specialized_installer};
 use bevy::asset::RenderAssetUsages;
 use bevy::ecs::system::EntityCommands;
 use bevy::mesh::{Indices, PrimitiveTopology};
@@ -29,9 +29,68 @@ use geo::{
     MultiPolygon as GeoMultiPolygon, Polygon as GeoPolygon, TriangulateEarcut,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
-pub struct ClueCardPlugin;
+pub struct ClueCardSpecializedInstaller;
+
+impl CardSpecializedInstaller for ClueCardSpecializedInstaller {
+    type Param = ClueCardParams;
+
+    const TYPE_ID: &'static str = "clue";
+
+    fn install(app: &mut App) {
+        app.add_systems(Update, reveal_clues.run_if(in_state(GameState::InGame)));
+    }
+}
+
+register_card_specialized_installer!(ClueCardSpecializedInstaller);
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct ClueCardParams {
+    #[serde(default)]
+    pub reveal_threshold: ClueRevealThreshold,
+    #[serde(default)]
+    pub interaction_prefab_id: u32,
+    #[serde(default)]
+    pub interaction_target_scene_param: CardSceneParam,
+}
+
+impl CardSpecializedParam for ClueCardParams {
+    fn kind(&self) -> CardKind {
+        CardKind::Clue
+    }
+
+    fn spawn_with(&self, entity: &mut EntityCommands<'_>, spawn_params: &mut CardSpawnParams<'_>) {
+        let mut question_mark = None;
+        entity.with_children(|parent| {
+            question_mark = Some(
+                parent
+                    .spawn((
+                        Text2d::new("?"),
+                        TextFont {
+                            font: spawn_params
+                                .asset_server
+                                .load(spawn_params.config.assets.default_font.clone()),
+                            font_size: Card::SIZE.y * 0.42,
+                            ..default()
+                        },
+                        TextColor(Color::srgb(0.08, 0.08, 0.09)),
+                        Anchor::CENTER,
+                        Transform::from_xyz(0.0, 0.0, 0.42),
+                        ClueQuestionMark,
+                    ))
+                    .id(),
+            );
+        });
+
+        entity.insert(ClueCard {
+            revealed: false,
+            param: self.clone(),
+            question_mark,
+            illumination: None,
+            illuminated_regions: Vec::new(),
+        });
+    }
+}
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -76,60 +135,6 @@ struct EditorClueLink {
 
 #[derive(Component, Clone, Copy)]
 struct EditorClueTargetCard;
-
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub struct ClueCardParams {
-    #[serde(default)]
-    pub reveal_threshold: ClueRevealThreshold,
-    #[serde(default)]
-    pub interaction_prefab_id: u32,
-    #[serde(default)]
-    pub interaction_target_scene_param: CardSceneParam,
-}
-
-impl CardSpecialized for ClueCardParams {
-    fn kind(&self) -> CardKind {
-        CardKind::Clue
-    }
-
-    fn spawn_with(&self, entity: &mut EntityCommands<'_>, spawn_params: &mut CardSpawnParams<'_>) {
-        let mut question_mark = None;
-        entity.with_children(|parent| {
-            question_mark = Some(
-                parent
-                    .spawn((
-                        Text2d::new("?"),
-                        TextFont {
-                            font: spawn_params
-                                .asset_server
-                                .load(spawn_params.config.assets.default_font.clone()),
-                            font_size: Card::SIZE.y * 0.42,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.08, 0.08, 0.09)),
-                        Anchor::CENTER,
-                        Transform::from_xyz(0.0, 0.0, 0.42),
-                        ClueQuestionMark,
-                    ))
-                    .id(),
-            );
-        });
-
-        entity.insert(ClueCard {
-            revealed: false,
-            param: self.clone(),
-            question_mark,
-            illumination: None,
-            illuminated_regions: Vec::new(),
-        });
-    }
-}
-
-impl Plugin for ClueCardPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Update, reveal_clues.run_if(in_state(GameState::InGame)));
-    }
-}
 
 fn reveal_clues(
     mut commands: Commands,
@@ -380,8 +385,6 @@ const EDITOR_CLUE_TARGET_ORDER_OFFSET: f32 = 1.0;
 const CLUE_LINK_DASH_LENGTH: f32 = 18.0;
 const CLUE_LINK_GAP_LENGTH: f32 = 10.0;
 
-register_card_specialized_param!("clue", ClueCardParams);
-
 //region Editor
 
 fn register_editor_systems(app: &mut App) {
@@ -473,7 +476,7 @@ fn update_editor_runtime_params(
             entity.try_insert(EditorRuntimeSpecializedParam(CardRuntimeSpecializedConfig {
                 data: CardSpecializedConfigData {
                     type_id: "clue".to_string(),
-                    params: json!({
+                    params: serde_json::json!({
                         "interaction_prefab_id": target_card.instance_type.get_prefab_id(),
                         "interaction_target_scene_param": target_card.to_card_param(target_transform).scene_param,
                     }),

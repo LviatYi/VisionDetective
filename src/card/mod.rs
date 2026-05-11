@@ -1,8 +1,8 @@
 pub mod card_params;
 pub mod specialized;
 
-use crate::card::card_params::CardSceneParam;
-use crate::card::card_params::{CardParam, CardSpawnParams, CardSpecializedRegistry};
+use crate::card::card_params::{CardParam, CardSpawnParams};
+use crate::card::card_params::{CardSceneParam, CardSpecializedParam};
 use crate::config::{CardConfig, GameConfig};
 use crate::game_view::{AppView, GameState};
 use crate::progress::GameProgress;
@@ -16,8 +16,31 @@ use bevy::text::{Text2dUpdateSystems, TextLayoutInfo};
 use geo::orient::Direction;
 use geo::{Coord as GeoCoord, LineString as GeoLineString, Orient, Polygon as GeoPolygon};
 use serde::Deserialize;
+use serde_json::Value;
+use std::collections::HashMap;
 
 pub struct CardPlugin;
+
+impl Plugin for CardPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<CardSpecializedRegistry>();
+        app.add_systems(
+            Update,
+            sync_card_disable_state
+                .run_if(in_state(GameState::InGame))
+                .run_if(in_state(AppView::Game)),
+        );
+        app.add_systems(
+            PostUpdate,
+            fit_card_title_text_width.after(Text2dUpdateSystems),
+        );
+
+        CardSpecializedRegistry::default()
+            .registrations
+            .values()
+            .for_each(|registration| (registration.installer)(app));
+    }
+}
 
 const TITLE_TEXT_SCALE_EPSILON: f32 = 0.001;
 
@@ -39,24 +62,6 @@ pub struct Card {
     pub instance_type: CardInstanceType,
     pub enable_if: Option<String>,
     pub disable_if: Option<String>,
-}
-
-#[derive(Component, Clone, Copy)]
-struct FitCardTitleText {
-    max_width: f32,
-}
-
-#[derive(Clone, Debug)]
-pub enum CardInstanceType {
-    Prefab(u32),
-}
-
-impl CardInstanceType {
-    pub fn get_prefab_id(&self) -> u32 {
-        match self {
-            CardInstanceType::Prefab(id) => *id,
-        }
-    }
 }
 
 impl Card {
@@ -192,26 +197,87 @@ impl Card {
     }
 }
 
-impl Plugin for CardPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<CardSpecializedRegistry>();
-        app.add_systems(
-            Update,
-            sync_card_disable_state
-                .run_if(in_state(GameState::InGame))
-                .run_if(in_state(AppView::Game)),
-        );
-        app.add_systems(
-            PostUpdate,
-            fit_card_title_text_width.after(Text2dUpdateSystems),
-        );
-        app.add_plugins((
-            specialized::interactive::InteractionCardPlugin,
-            specialized::clue::ClueCardPlugin,
-        ));
+#[derive(Clone, Debug)]
+pub enum CardInstanceType {
+    Prefab(u32),
+}
+
+impl CardInstanceType {
+    pub fn get_prefab_id(&self) -> u32 {
+        match self {
+            CardInstanceType::Prefab(id) => *id,
+        }
     }
 }
 
+//region Card Specialized Installer
+
+pub type CardSpecializedParamParser = fn(&Value) -> anyhow::Result<Box<dyn CardSpecializedParam>>;
+
+pub(super) trait CardSpecializedInstaller {
+    type Param: CardSpecializedParam + serde::de::DeserializeOwned + 'static;
+
+    const TYPE_ID: &'static str;
+
+    fn parse_json_param(
+        value: &serde_json::Value,
+    ) -> anyhow::Result<Box<dyn CardSpecializedParam>> {
+        let params = serde_json::from_value::<Self::Param>(value.clone())?;
+        Ok(Box::new(params))
+    }
+
+    fn install(_app: &mut App) {}
+}
+
+#[derive(Debug)]
+pub struct CardSpecializedRegistration {
+    pub type_id: &'static str,
+    pub json_param_parser: CardSpecializedParamParser,
+    pub installer: fn(&mut App),
+}
+
+#[derive(Resource, Clone, Debug)]
+pub struct CardSpecializedRegistry {
+    registrations: HashMap<&'static str, &'static CardSpecializedRegistration>,
+}
+
+impl CardSpecializedRegistry {
+    pub fn get(&self, type_id: impl AsRef<str>) -> Option<&&'static CardSpecializedRegistration> {
+        self.registrations.get(type_id.as_ref())
+    }
+}
+
+impl Default for CardSpecializedRegistry {
+    fn default() -> Self {
+        Self {
+            registrations: inventory::iter::<CardSpecializedRegistration>
+                .into_iter()
+                .map(|registration| (registration.type_id, registration))
+                .collect(),
+        }
+    }
+}
+
+inventory::collect!(CardSpecializedRegistration);
+
+#[macro_export]
+macro_rules! register_card_specialized_installer {
+    ($installer:ty) => {
+        inventory::submit! {
+            $crate::card::CardSpecializedRegistration {
+                type_id: <$installer as $crate::card::CardSpecializedInstaller>::TYPE_ID,
+                json_param_parser: <$installer as $crate::card::CardSpecializedInstaller>::parse_json_param,
+                installer: <$installer as $crate::card::CardSpecializedInstaller>::install,
+            }
+        }
+    };
+}
+//endregion
+
+#[derive(Component, Clone, Copy)]
+struct FitCardTitleText {
+    max_width: f32,
+}
 pub fn spawn_card_by_card_param(
     commands: &mut Commands,
     spawn_params: &mut CardSpawnParams<'_>,

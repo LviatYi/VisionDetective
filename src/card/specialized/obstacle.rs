@@ -1,11 +1,21 @@
-use crate::card::card_params::{CardSpawnParams, CardSpecialized};
-use crate::card::{Card, CardKind};
+use crate::card::card_params::{CardSpawnParams, CardSpecializedParam};
+use crate::card::{Card, CardKind, CardSpecializedInstaller};
 use crate::physics::obstacle::Obstacle;
-use crate::register_card_specialized_param;
+use crate::register_card_specialized_installer;
 use bevy::ecs::system::EntityCommands;
 use bevy::math::Vec2;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+
+pub struct ObstacleCardSpecializedInstaller;
+
+impl CardSpecializedInstaller for ObstacleCardSpecializedInstaller {
+    type Param = ObstacleCardParams;
+
+    const TYPE_ID: &'static str = "obstacle";
+}
+
+register_card_specialized_installer!(ObstacleCardSpecializedInstaller);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -25,7 +35,7 @@ pub struct ObstacleCardParams {
     pub obstacle_def: CardObstacleType,
 }
 
-impl CardSpecialized for ObstacleCardParams {
+impl CardSpecializedParam for ObstacleCardParams {
     fn kind(&self) -> CardKind {
         CardKind::Obstacle
     }
@@ -74,5 +84,3 @@ fn sample_cubic_bezier(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: f32) -> Vec2 {
         + p2 * 3.0 * one_minus_t * t * t
         + p3 * t.powi(3)
 }
-
-register_card_specialized_param!("obstacle", ObstacleCardParams);
