@@ -22,6 +22,7 @@ use bevy::prelude::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use crate::card::specialized::interactive::dialogue::DialogueInteractionParams;
 
 /// Plugin that wires the interaction-card runtime systems.
 pub struct InteractionCardPlugin;
@@ -302,6 +303,14 @@ macro_rules! register_card_interaction {
         None
     };
 }
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub enum InteractiveActionTypes {
+    Dialogue(DialogueInteractionParams),
+    Log(String),
+}
+
+impl InteractiveActionTypes {}
 //endregion
 
 //region Editor
