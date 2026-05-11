@@ -38,9 +38,10 @@ impl Plugin for InteractionCardPlugin {
             Update,
             (
                 update_active_interaction,
-                clear_disabled_active_interaction.after(update_active_interaction),
-                dispatch_interaction_events.after(clear_disabled_active_interaction),
+                clear_disabled_active_interaction,
+                dispatch_interaction_events,
             )
+                .chain()
                 .run_if(in_state(GameState::InGame)),
         );
     }
@@ -49,6 +50,7 @@ impl Plugin for InteractionCardPlugin {
 /// Marker component for cards that participate in interaction handling.
 #[derive(Component, Default)]
 pub struct Interactive {
+    /// release the state_key when the user interacts
     state_key: Option<String>,
 }
 
@@ -135,78 +137,6 @@ fn unlock_progress_from_interaction(
 struct ActiveInteraction {
     current: Option<Entity>,
     previous: Option<Entity>,
-}
-
-/// Function signature used to insert one interaction component from raw JSON.
-pub type CardInteractionComponentInserter = fn(&Value, &mut EntityCommands<'_>) -> Result<()>;
-pub type CardInteractionSystemInstaller = fn(&mut App);
-
-/// Static registration entry collected through `inventory`.
-pub(super) struct CardInteractionRegistration {
-    pub type_id: &'static str,
-    pub json_src_inserter: Option<CardInteractionComponentInserter>,
-    pub system_installer: Option<CardInteractionSystemInstaller>,
-}
-
-impl CardInteractionRegistration {
-    pub const fn new(
-        type_id: &'static str,
-        json_src_inserter: Option<CardInteractionComponentInserter>,
-        system_installer: Option<CardInteractionSystemInstaller>,
-    ) -> Self {
-        Self {
-            type_id,
-            json_src_inserter,
-            system_installer,
-        }
-    }
-
-    fn insert(&self, json: &Value, entity: &mut EntityCommands<'_>) -> Result<()> {
-        self.json_src_inserter
-            .map(|func| func(json, entity))
-            .unwrap_or(Ok(()))
-    }
-}
-
-inventory::collect!(CardInteractionRegistration);
-
-#[macro_export]
-macro_rules! register_card_interaction {
-    (
-        $name:expr,
-        $param_type:ty
-        $(, inserter = $inserter:path)?
-        $(, systems = $system_installer:path)?
-        $(,)?
-    ) => {
-        inventory::submit! {
-            $crate::card::specialized::interactive::CardInteractionRegistration::new(
-                $name,
-                $crate::register_card_interaction!(@__option_inserter $param_type $(, $inserter)?),
-                $crate::register_card_interaction!(@__option $($system_installer)?),
-            )
-        }
-    };
-
-    (@__option_inserter $param_type:ty, $inserter:path) => {
-        Some(|value: &serde_json::Value, entity: &mut bevy::ecs::system::EntityCommands<'_>| -> anyhow::Result<()> {
-            let params = serde_json::from_value::<$param_type>(value.clone())?;
-            $inserter(params, entity);
-            Ok(())
-        })
-    };
-
-    (@__option_inserter $param_type:ty) => {
-        None
-    };
-
-    (@__option $system_installer:path) => {
-        Some($system_installer)
-    };
-
-    (@__option) => {
-        None
-    };
 }
 
 fn update_active_interaction(
@@ -298,6 +228,81 @@ fn dispatch_interaction_events(
 }
 
 register_card_specialized_param!("interactive", InteractionCardParams);
+
+//region Card Interaction Registration
+
+/// Function signature used to insert one interaction component from raw JSON.
+pub type CardInteractionComponentInserter = fn(&Value, &mut EntityCommands<'_>) -> Result<()>;
+pub type CardInteractionSystemInstaller = fn(&mut App);
+
+/// Static registration entry collected through `inventory`.
+pub(super) struct CardInteractionRegistration {
+    pub type_id: &'static str,
+    pub json_src_inserter: Option<CardInteractionComponentInserter>,
+    pub system_installer: Option<CardInteractionSystemInstaller>,
+}
+
+impl CardInteractionRegistration {
+    pub const fn new(
+        type_id: &'static str,
+        json_src_inserter: Option<CardInteractionComponentInserter>,
+        system_installer: Option<CardInteractionSystemInstaller>,
+    ) -> Self {
+        Self {
+            type_id,
+            json_src_inserter,
+            system_installer,
+        }
+    }
+
+    fn insert(&self, json: &Value, entity: &mut EntityCommands<'_>) -> Result<()> {
+        self.json_src_inserter
+            .map(|func| func(json, entity))
+            .unwrap_or(Ok(()))
+    }
+}
+
+inventory::collect!(CardInteractionRegistration);
+
+#[macro_export]
+macro_rules! register_card_interaction {
+    (
+        $name:expr,
+        $param_type:ty
+        $(, inserter = $inserter:path)?
+        $(, systems = $system_installer:path)?
+        $(,)?
+    ) => {
+        inventory::submit! {
+            $crate::card::specialized::interactive::CardInteractionRegistration::new(
+                $name,
+                $crate::register_card_interaction!(@__option_inserter $param_type $(, $inserter)?),
+                $crate::register_card_interaction!(@__option $($system_installer)?),
+            )
+        }
+    };
+
+    (@__option_inserter $param_type:ty, $inserter:path) => {
+        Some(|value: &serde_json::Value, entity: &mut bevy::ecs::system::EntityCommands<'_>| -> anyhow::Result<()> {
+            let params = serde_json::from_value::<$param_type>(value.clone())?;
+            $inserter(params, entity);
+            Ok(())
+        })
+    };
+
+    (@__option_inserter $param_type:ty) => {
+        None
+    };
+
+    (@__option $system_installer:path) => {
+        Some($system_installer)
+    };
+
+    (@__option) => {
+        None
+    };
+}
+//endregion
 
 //region Editor
 
