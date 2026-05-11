@@ -231,7 +231,7 @@ register_card_specialized_param!("interactive", InteractionCardParams);
 
 //region Card Interaction Registration
 
-/// Function signature used to insert one interaction component from raw JSON.
+/// Function signature used to insert one interaction component with raw JSON param.
 pub type CardInteractionComponentInserter = fn(&mut EntityCommands<'_>, &Value) -> Result<()>;
 pub type CardInteractionSystemInstaller = fn(&mut App);
 

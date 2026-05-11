@@ -150,6 +150,8 @@ fn advance_dialogue_input(
     }
 }
 
+//region UI
+
 fn sync_dialogue_ui(
     mut commands: Commands,
     asset_server: Res<bevy::prelude::AssetServer>,
@@ -264,6 +266,7 @@ fn spawn_dialogue_ui(
                 });
         });
 }
+//endregion
 
 register_card_interaction!(
     "dialogue",
