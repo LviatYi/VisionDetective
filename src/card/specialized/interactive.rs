@@ -4,7 +4,6 @@ mod hello_world;
 use crate::card::card_params::{
     CardRuntimeSpecializedConfig, CardSpawnParams, CardSpecializedConfigData, CardSpecializedParam,
 };
-use crate::card::specialized::interactive::dialogue::DialogueInteractionParams;
 use crate::card::{Card, CardKind, CardSpecializedInstaller};
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::PlayerCoinState;
@@ -306,14 +305,6 @@ macro_rules! register_card_interaction {
         None
     };
 }
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub enum InteractiveActionTypes {
-    Dialogue(DialogueInteractionParams),
-    Log(String),
-}
-
-impl InteractiveActionTypes {}
 //endregion
 
 //region Editor

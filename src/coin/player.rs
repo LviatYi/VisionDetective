@@ -35,7 +35,7 @@ pub mod controller {
     pub struct PointerMarker;
 
     #[derive(Clone, Copy, Debug, Default, PartialEq)]
-    pub enum EPlayerCoinState {
+    pub enum PlayerCoinMotionState {
         #[default]
         Idle,
         Aiming,
@@ -47,9 +47,9 @@ pub mod controller {
 
     #[derive(Resource, Default)]
     pub struct PlayerCoinState {
-        state: EPlayerCoinState,
+        state: PlayerCoinMotionState,
 
-        pub last: Option<EPlayerCoinState>,
+        pub last: Option<PlayerCoinMotionState>,
     }
 
     impl PlayerCoinState {
@@ -57,14 +57,14 @@ pub mod controller {
             self.state;
         }
 
-        pub fn set_state(&mut self, state: EPlayerCoinState) {
+        pub fn set_state(&mut self, state: PlayerCoinMotionState) {
             self.last = Some(self.state);
             self.state = state;
         }
     }
 
     impl Deref for PlayerCoinState {
-        type Target = EPlayerCoinState;
+        type Target = PlayerCoinMotionState;
 
         fn deref(&self) -> &Self::Target {
             &self.state
@@ -73,33 +73,33 @@ pub mod controller {
 
     impl PlayerCoinState {
         pub fn is_idle(&self) -> bool {
-            matches!(self.state, EPlayerCoinState::Idle)
+            matches!(self.state, PlayerCoinMotionState::Idle)
         }
 
         pub fn is_stop(&self) -> bool {
-            !matches!(self.state, EPlayerCoinState::Ejecting)
+            !matches!(self.state, PlayerCoinMotionState::Ejecting)
         }
 
         pub fn is_aiming(&self) -> bool {
-            matches!(self.state, EPlayerCoinState::Aiming)
+            matches!(self.state, PlayerCoinMotionState::Aiming)
         }
 
         pub fn is_charging(&self) -> bool {
-            matches!(self.state, EPlayerCoinState::Charging { .. })
+            matches!(self.state, PlayerCoinMotionState::Charging { .. })
         }
 
         /// Returns true if the player just transitioned from ejecting to idle, which indicates they have just landed after being launched.
         /// Returns the same value until any state change. Note its use in conjunction with `is_changed`.
         pub fn just_ejected(&self) -> bool {
-            matches!(self.state, EPlayerCoinState::Idle)
+            matches!(self.state, PlayerCoinMotionState::Idle)
                 && self
                     .last
-                    .is_some_and(|s| matches!(s, EPlayerCoinState::Ejecting))
+                .is_some_and(|s| matches!(s, PlayerCoinMotionState::Ejecting))
         }
 
         pub fn eject_vector(&self) -> Vec2 {
             match self.state {
-                EPlayerCoinState::Charging { eject_vector } => eject_vector,
+                PlayerCoinMotionState::Charging { eject_vector } => eject_vector,
                 _ => Vec2::ZERO,
             }
         }
@@ -187,12 +187,12 @@ pub mod controller {
 
         for event in over_events.read() {
             if event.hit.position.is_some() && velocity.length_squared() <= 0.0 {
-                player_state.set_state(EPlayerCoinState::Aiming);
+                player_state.set_state(PlayerCoinMotionState::Aiming);
             }
         }
         for _ in out_events.read() {
             if player_state.is_aiming() {
-                player_state.set_state(EPlayerCoinState::Idle);
+                player_state.set_state(PlayerCoinMotionState::Idle);
             }
         }
     }
@@ -205,13 +205,13 @@ pub mod controller {
         let Ok(velocity) = player_query.single() else {
             return;
         };
-        if velocity.length_squared() > 0.0 || matches!(**player_state, EPlayerCoinState::Ejecting) {
+        if velocity.length_squared() > 0.0 || matches!(**player_state, PlayerCoinMotionState::Ejecting) {
             return;
         }
 
         for event in press_events.read() {
             if event.button == PointerButton::Primary && player_query.get(event.entity).is_ok() {
-                player_state.set_state(EPlayerCoinState::Charging {
+                player_state.set_state(PlayerCoinMotionState::Charging {
                     eject_vector: Vec2::ZERO,
                 });
             }
@@ -243,7 +243,7 @@ pub mod controller {
             else {
                 continue;
             };
-            player_state.set_state(EPlayerCoinState::Charging {
+            player_state.set_state(PlayerCoinMotionState::Charging {
                 eject_vector: (player_position - cursor)
                     .clamp_length_max(config.player.max_eject_distance),
             });
@@ -291,9 +291,9 @@ pub mod controller {
             velocity.z = vertical_velocity;
             player.sim_z = 0.0;
             player.ground_contact_count = 0;
-            player_state.set_state(EPlayerCoinState::Ejecting);
+            player_state.set_state(PlayerCoinMotionState::Ejecting);
         } else {
-            player_state.set_state(EPlayerCoinState::Aiming);
+            player_state.set_state(PlayerCoinMotionState::Aiming);
         }
     }
 
