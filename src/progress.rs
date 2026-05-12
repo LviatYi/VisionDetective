@@ -1,6 +1,6 @@
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::PlayerCoinState;
-use crate::game_view::GameState;
+use crate::game_view::GameplaySet;
 use bevy::prelude::*;
 use std::collections::HashSet;
 
@@ -36,7 +36,9 @@ impl Plugin for GameProgressPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GameProgress>().add_systems(
             Update,
-            record_player_stop_position.run_if(in_state(GameState::InGame)),
+            record_player_stop_position
+                .after(crate::physics::move_player_coin_transform)
+                .in_set(GameplaySet::PlayerPhysics),
         );
     }
 }

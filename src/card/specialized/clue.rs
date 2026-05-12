@@ -10,7 +10,7 @@ use crate::editor::{
     EditorInteractionState, EditorLinkedEntities, EditorPlacedCard, EditorRuntimeSpecializedParam,
     EditorSpecializedAuxiliaryCard, spawn_editor_card,
 };
-use crate::game_view::GameState;
+use crate::game_view::GameplaySet;
 use crate::physics::obstacle::Obstacle;
 use crate::physics::vision::compute_visible_points;
 use crate::progress::GameProgress;
@@ -39,7 +39,7 @@ impl CardSpecializedInstaller for ClueCardSpecializedInstaller {
     const TYPE_ID: &'static str = "clue";
 
     fn install(app: &mut App) {
-        app.add_systems(Update, reveal_clues.run_if(in_state(GameState::InGame)));
+        app.add_systems(Update, reveal_clues.in_set(GameplaySet::CardLogic));
     }
 }
 

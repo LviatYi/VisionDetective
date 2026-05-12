@@ -3,7 +3,7 @@ use crate::coin::player::controller::{
     handle_player_pointer_drag, start_player_charge_from_pointer, track_pointer_world_position,
     update_aiming_marker, update_player_hover_state, update_player_visuals,
 };
-use crate::game_view::GameState;
+use crate::game_view::{GameState, GameplaySet};
 use crate::input::player_input_allowed;
 use bevy::prelude::*;
 
@@ -433,6 +433,7 @@ impl Plugin for PlayerPlugin {
             .add_systems(
                 Update,
                 track_pointer_world_position
+                    .in_set(GameplaySet::PlayerInput)
                     .run_if(in_state(GameState::InGame).and(player_input_allowed)),
             )
             .add_systems(
@@ -442,15 +443,19 @@ impl Plugin for PlayerPlugin {
                     start_player_charge_from_pointer,
                     handle_player_pointer_drag,
                     finish_player_charge_from_pointer,
-                    update_aiming_marker,
-                    draw_arena_and_aim,
                 )
                     .after(track_pointer_world_position)
+                    .in_set(GameplaySet::PlayerInput)
                     .run_if(in_state(GameState::InGame).and(player_input_allowed)),
             )
             .add_systems(
                 Update,
-                update_player_visuals.run_if(in_state(GameState::InGame)),
+                (
+                    update_aiming_marker,
+                    draw_arena_and_aim,
+                    update_player_visuals,
+                )
+                    .in_set(GameplaySet::Visual),
             );
     }
 }

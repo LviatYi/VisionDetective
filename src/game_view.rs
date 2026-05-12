@@ -8,12 +8,24 @@ pub struct GameViewPlugin;
 
 impl Plugin for GameViewPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppView::MainMenu), setup_main_menu)
-            .add_systems(OnExit(AppView::MainMenu), cleanup_view::<MainMenuView>)
-            .add_systems(
-                Update,
-                handle_main_menu_buttons.run_if(in_state(AppView::MainMenu)),
-            );
+        app.configure_sets(
+            Update,
+            (
+                GameplaySet::CardState,
+                GameplaySet::PlayerPhysics,
+                GameplaySet::CardLogic,
+                GameplaySet::PlayerInput,
+                GameplaySet::Visual,
+            )
+                .chain()
+                .run_if(in_state(GameState::InGame)),
+        )
+           .add_systems(OnEnter(AppView::MainMenu), setup_main_menu)
+           .add_systems(OnExit(AppView::MainMenu), cleanup_view::<MainMenuView>)
+           .add_systems(
+               Update,
+               handle_main_menu_buttons.run_if(in_state(AppView::MainMenu)),
+           );
     }
 }
 
@@ -31,6 +43,15 @@ pub enum GameState {
     #[default]
     Loading,
     InGame,
+}
+
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GameplaySet {
+    CardState,
+    PlayerPhysics,
+    CardLogic,
+    PlayerInput,
+    Visual,
 }
 
 pub mod main_view {

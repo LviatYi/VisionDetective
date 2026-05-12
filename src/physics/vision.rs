@@ -1,7 +1,7 @@
 use crate::GameView;
 use crate::coin::player::PlayerCoin;
 use crate::config::GameConfig;
-use crate::game_view::GameState;
+use crate::game_view::{GameState, GameplaySet};
 use crate::physics::obstacle::Obstacle;
 use crate::scene::SceneLayer;
 use crate::tools::Disable;
@@ -19,7 +19,7 @@ impl Plugin for VisionPlugin {
         app.add_systems(OnEnter(GameState::Loading), setup_vision_system)
             .add_systems(
                 Update,
-                (update_vision_field_mesh, draw_vision_radius).run_if(in_state(GameState::InGame)),
+                (update_vision_field_mesh, draw_vision_radius).in_set(GameplaySet::Visual),
             );
     }
 }

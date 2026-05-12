@@ -22,7 +22,7 @@ use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
 use crate::editor::EditorPlugin;
 use crate::game_view::main_view::{cleanup_view, handle_esc_to_main_menu};
-use crate::game_view::{AppView, GameState, GameViewPlugin};
+use crate::game_view::{AppView, GameState, GameViewPlugin, GameplaySet};
 use crate::input::GameplayInputBlocker;
 use crate::physics::PhysicsPlugin;
 use crate::physics::Velocity;
@@ -78,10 +78,7 @@ fn main() {
             Update,
             finish_game_loading.run_if(in_state(GameState::Loading)),
         )
-        .add_systems(
-            Update,
-            update_status_text.run_if(in_state(GameState::InGame)),
-        )
+        .add_systems(Update, update_status_text.in_set(GameplaySet::Visual))
         .add_systems(
             Update,
             handle_esc_to_main_menu

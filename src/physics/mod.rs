@@ -1,7 +1,7 @@
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinBehaviorState, PlayerCoinState};
 use crate::config::GameConfig;
-use crate::game_view::{AppView, GameState};
+use crate::game_view::{AppView, GameplaySet};
 use crate::tools::Disable;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::*;
@@ -19,7 +19,7 @@ impl Plugin for PhysicsPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            move_player_coin_transform.run_if(in_state(GameState::InGame)),
+            move_player_coin_transform.in_set(GameplaySet::PlayerPhysics),
         )
         .add_systems(
             Update,

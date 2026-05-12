@@ -4,7 +4,7 @@ pub mod specialized;
 use crate::card::card_params::{CardParam, CardSpawnParams};
 use crate::card::card_params::{CardSceneParam, CardSpecializedParam};
 use crate::config::{CardConfig, GameConfig};
-use crate::game_view::{AppView, GameState};
+use crate::game_view::{AppView, GameplaySet};
 use crate::progress::GameProgress;
 use crate::scene::SceneLayer;
 use crate::tools::Disable;
@@ -27,7 +27,7 @@ impl Plugin for CardPlugin {
         app.add_systems(
             Update,
             sync_card_disable_state
-                .run_if(in_state(GameState::InGame))
+                .in_set(GameplaySet::CardState)
                 .run_if(in_state(AppView::Game)),
         );
         app.add_systems(

@@ -1,6 +1,6 @@
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::PlayerCoinState;
-use crate::game_view::GameState;
+use crate::game_view::GameplaySet;
 use crate::input::GameplayInputBlocker;
 use crate::physics::{Velocity, move_player_coin_transform};
 use bevy::prelude::*;
@@ -28,7 +28,7 @@ impl Plugin for CameraControlPlugin {
             Update,
             update_game_camera
                 .after(move_player_coin_transform)
-                .run_if(in_state(GameState::InGame)),
+                .in_set(GameplaySet::PlayerPhysics),
         );
     }
 }

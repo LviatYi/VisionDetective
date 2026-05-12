@@ -9,7 +9,7 @@ use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::PlayerCoinState;
 use crate::config::GameConfig;
 use crate::editor::EditorRuntimeSpecializedParam;
-use crate::game_view::{AppView, GameState};
+use crate::game_view::{AppView, GameplaySet};
 use crate::progress::GameProgress;
 use crate::tools::Disable;
 use crate::{register_card_editor_systems, register_card_specialized_installer};
@@ -44,7 +44,7 @@ impl CardSpecializedInstaller for InteractiveCardSpecializedInstaller {
                 dispatch_interaction_events,
             )
                 .chain()
-                .run_if(in_state(GameState::InGame)),
+                .in_set(GameplaySet::CardLogic),
         );
     }
 }
