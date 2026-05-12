@@ -35,3 +35,29 @@ position = [
 rotation = 1.5707963
 order = 3.0
 description = "title: 椅子, image_path: pic/chair.png, desc: 椅子"
+
+[[cards]]
+prefab_id = 1104
+
+[cards.scene_param]
+position = [
+    179.0,
+    166.0,
+]
+rotation = 0.0
+order = 5.0
+description = "title: 血滴, image_path: pic/blood-drop.png, desc: 血滴（线索）"
+
+[cards.runtime_specialized_param]
+type = "clue"
+
+[cards.runtime_specialized_param.params]
+interaction_prefab_id = 1904
+
+[cards.runtime_specialized_param.params.interaction_target_scene_param]
+order = 6.0
+position = [
+    494.0,
+    226.0,
+]
+rotation = -0.0

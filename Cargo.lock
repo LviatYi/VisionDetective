@@ -15,6 +15,7 @@ dependencies = [
  "serde_json",
  "toml",
  "typetag",
+ "uuid",
 ]
 
 [[package]]

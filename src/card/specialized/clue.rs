@@ -13,6 +13,7 @@ use crate::editor::{
 use crate::game_view::GameState;
 use crate::physics::obstacle::Obstacle;
 use crate::physics::vision::compute_visible_points;
+use crate::progress::GameProgress;
 use crate::register_card_editor_systems;
 use crate::scene::SceneLayer;
 use crate::tools::Disable;
@@ -140,9 +141,10 @@ fn reveal_clues(
     mut commands: Commands,
     player_coin_state: Res<PlayerCoinState>,
     player_query: Query<&Transform, With<PlayerCoin>>,
-    mut clue_query: Query<(Entity, &mut ClueCard, &GlobalTransform), Without<Disable>>,
+    mut clue_query: Query<(Entity, &Card, &mut ClueCard, &GlobalTransform), Without<Disable>>,
     obstacle_query: Query<(&Transform, &Obstacle), (Without<PlayerCoin>, Without<Disable>)>,
     mut illumination_mesh_query: Query<&mut Mesh2d, With<ClueIllumination>>,
+    mut progress: ResMut<GameProgress>,
     mut card_spawn_params: CardSpawnParams,
 ) {
     if !player_coin_state.just_ejected_or_initialized() {
@@ -152,8 +154,15 @@ fn reveal_clues(
         return;
     };
 
-    for (entity, mut clue, global_transform) in &mut clue_query {
+    for (entity, card, mut clue, global_transform) in &mut clue_query {
         if clue.revealed {
+            continue;
+        }
+
+        if progress.revealed_clue_instances.contains(&card.instance_id) {
+            clue.revealed = true;
+            despawn_clue_visual_feedback(&mut commands, &mut clue);
+            spawn_revealed_interaction_card(&mut commands, &mut card_spawn_params, &clue);
             continue;
         }
 
@@ -172,6 +181,9 @@ fn reveal_clues(
 
         if coverage >= clue.param.reveal_threshold.get_threshold() {
             clue.revealed = true;
+            progress
+                .revealed_clue_instances
+                .insert(card.instance_id.clone());
             despawn_clue_visual_feedback(&mut commands, &mut clue);
             spawn_revealed_interaction_card(&mut commands, &mut card_spawn_params, &clue);
             continue;
@@ -452,6 +464,7 @@ fn editor_clue_target_spawn_param(
     (
         DEFAULT_EDITOR_CLUE_INTERACTION_PREFAB_ID,
         CardSceneParam {
+            instance_id: String::new(),
             position: clue_transform.translation.truncate() + DEFAULT_EDITOR_CLUE_TARGET_OFFSET,
             rotation: 0.0,
             order: clue_transform.translation.z - SceneLayer::Card.get_layer_base_z()

@@ -9,6 +9,8 @@ pub struct GameProgress {
     pub unlocked_conditions: HashSet<String>,
 
     pub last_player_stop_position: Option<Vec2>,
+
+    pub revealed_clue_instances: HashSet<String>,
 }
 
 impl GameProgress {

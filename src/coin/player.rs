@@ -1,4 +1,8 @@
-use crate::coin::player::controller::{CursorWorldPosition, PlayerCoinState, draw_arena_and_aim, finish_player_charge_from_pointer, handle_player_pointer_drag, start_player_charge_from_pointer, track_pointer_world_position, update_aiming_marker, update_player_hover_state, update_player_visuals};
+use crate::coin::player::controller::{
+    CursorWorldPosition, PlayerCoinState, draw_arena_and_aim, finish_player_charge_from_pointer,
+    handle_player_pointer_drag, start_player_charge_from_pointer, track_pointer_world_position,
+    update_aiming_marker, update_player_hover_state, update_player_visuals,
+};
 use crate::game_view::GameState;
 use crate::input::player_input_allowed;
 use bevy::prelude::*;
@@ -20,7 +24,11 @@ pub mod controller {
     use bevy::math::{Vec2, Vec3};
     use bevy::picking::pointer::PointerButton;
     use bevy::picking::prelude::{Drag, DragEnd, Move, Out, Over, Pointer, Press, Release};
-    use bevy::prelude::{Assets, Camera, Camera2d, Circle, ColorMaterial, Commands, Component, DetectChanges, Gizmos, GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, MessageReader, Pickable, Query, Res, ResMut, Resource, Transform, Visibility, With};
+    use bevy::prelude::{
+        Assets, Camera, Camera2d, Circle, ColorMaterial, Commands, Component, DetectChanges,
+        Gizmos, GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, MessageReader, Pickable, Query, Res,
+        ResMut, Resource, Transform, Visibility, With,
+    };
     use std::ops::Deref;
 
     #[derive(Component)]
@@ -105,17 +113,19 @@ pub mod controller {
 
     impl<'w> ResPlayerCoinStateExt for Res<'w, PlayerCoinState> {
         fn just_ejected(&self) -> bool {
-            self.is_changed() && matches!(self.state, PlayerCoinBehaviorState::Idle)
+            self.is_changed()
+                && matches!(self.state, PlayerCoinBehaviorState::Idle)
                 && self
-                .last
-                .is_some_and(|s| matches!(s, PlayerCoinBehaviorState::Ejecting))
+                    .last
+                    .is_some_and(|s| matches!(s, PlayerCoinBehaviorState::Ejecting))
         }
 
         fn just_initialized(&self) -> bool {
-            self.is_changed() && matches!(self.state, PlayerCoinBehaviorState::Idle)
+            self.is_changed()
+                && matches!(self.state, PlayerCoinBehaviorState::Idle)
                 && self
-                .last
-                .is_some_and(|s| matches!(s, PlayerCoinBehaviorState::Initialized))
+                    .last
+                    .is_some_and(|s| matches!(s, PlayerCoinBehaviorState::Initialized))
         }
     }
 
@@ -226,7 +236,9 @@ pub mod controller {
         let Ok(velocity) = player_query.single() else {
             return;
         };
-        if velocity.length_squared() > 0.0 || matches!(**player_state, PlayerCoinBehaviorState::Ejecting) {
+        if velocity.length_squared() > 0.0
+            || matches!(**player_state, PlayerCoinBehaviorState::Ejecting)
+        {
             return;
         }
 
@@ -410,7 +422,14 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CursorWorldPosition>()
             .init_resource::<PlayerCoinState>()
-            .add_systems(OnEnter(GameState::Loading), (controller::reset_player_coin_state, controller::setup_player).chain())
+            .add_systems(
+                OnEnter(GameState::Loading),
+                (
+                    controller::reset_player_coin_state,
+                    controller::setup_player,
+                )
+                    .chain(),
+            )
             .add_systems(
                 Update,
                 track_pointer_world_position

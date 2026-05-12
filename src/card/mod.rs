@@ -58,6 +58,7 @@ pub const CARD_TITLE_Z_ORDER_OFFSET: f32 = 0.03;
 
 #[derive(Component, Clone, Debug)]
 pub struct Card {
+    pub instance_id: String,
     pub title: String,
     pub instance_type: CardInstanceType,
     pub enable_if: Option<String>,
@@ -184,6 +185,7 @@ impl Card {
     pub fn to_card_param(&self, transform: &Transform) -> CardParam {
         CardParam {
             scene_param: CardSceneParam {
+                instance_id: self.instance_id.clone(),
                 position: transform.translation.truncate(),
                 rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
                 order: transform.translation.z - SceneLayer::Card.get_layer_base_z(),
@@ -284,6 +286,7 @@ pub fn spawn_card_by_card_param(
     card_param: &CardParam,
 ) -> Entity {
     let appearance = card_param.load_appearance(&spawn_params.card_presets_config);
+    let instance_id = card_param.resolved_instance_id(&appearance.title);
     let specialized = card_param.load_specialized_config(
         &spawn_params.card_presets_config,
         &spawn_params.card_specialized_registry,
@@ -304,6 +307,7 @@ pub fn spawn_card_by_card_param(
         Transform::from_translation(card_param.scene_param.position.extend(z_order))
             .with_rotation(Quat::from_rotation_z(card_param.scene_param.rotation)),
         Card {
+            instance_id,
             title: appearance.title.clone(),
             instance_type: CardInstanceType::Prefab(card_param.prefab_id),
             enable_if: card_param.scene_param.enable_if.clone(),

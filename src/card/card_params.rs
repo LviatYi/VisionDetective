@@ -8,6 +8,7 @@ use bevy::math::Vec2;
 use bevy::prelude::{AssetServer, Assets, ColorMaterial, Mesh, Res, ResMut};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use uuid::Uuid;
 
 /// Runtime card instance parameters for scene loading.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -21,6 +22,14 @@ pub struct CardParam {
 }
 
 impl CardParam {
+    pub fn resolved_instance_id(&self, title: &str) -> String {
+        if self.scene_param.instance_id.is_empty() {
+            make_card_instance_id(self.prefab_id, title)
+        } else {
+            self.scene_param.instance_id.clone()
+        }
+    }
+
     pub fn load_prefab(&self, config: &CardPresetsConfig) -> Option<CardPrefab> {
         config
             .prefabs
@@ -102,6 +111,9 @@ pub struct CardPrefab {
 /// Scene param for card instance.
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct CardSceneParam {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub instance_id: String,
+
     pub position: Vec2,
 
     pub rotation: f32,
@@ -117,6 +129,10 @@ pub struct CardSceneParam {
 
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub description: String,
+}
+
+pub fn make_card_instance_id(prefab_id: u32, title: &str) -> String {
+    format!("{prefab_id}-{title}-{}", Uuid::new_v4())
 }
 
 /// Appearance preset for a card.
@@ -308,6 +324,7 @@ mod tests {
 
         let card_param = CardParam {
             scene_param: CardSceneParam {
+                instance_id: String::new(),
                 position: Vec2::new(10.0, 20.0),
                 rotation: 0.25,
                 order: 3.0,

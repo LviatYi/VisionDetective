@@ -600,6 +600,7 @@ fn prefab_preview_items(
         .map(|prefab| {
             let card_param = CardParam {
                 scene_param: CardSceneParam {
+                    instance_id: String::new(),
                     position: Vec2::ZERO,
                     rotation: 0.0,
                     order: 0.0,
@@ -831,6 +832,7 @@ fn handle_prefab_drag_start(
             &mut spawn_deps,
             &CardParam {
                 scene_param: CardSceneParam {
+                    instance_id: String::new(),
                     position: Vec2::ZERO,
                     rotation: 0.0,
                     order: 0.0,
@@ -1994,6 +1996,7 @@ fn normalize_editor_rotation(rotation: f32) -> f32 {
 
 fn normalize_editor_scene_param(scene_param: &CardSceneParam) -> CardSceneParam {
     CardSceneParam {
+        instance_id: scene_param.instance_id.clone(),
         position: normalize_editor_position(scene_param.position),
         rotation: normalize_editor_rotation(scene_param.rotation),
         order: normalize_editor_order(scene_param.order),
@@ -2005,6 +2008,7 @@ fn normalize_editor_scene_param(scene_param: &CardSceneParam) -> CardSceneParam 
 
 fn normalize_editor_export_scene_param(scene_param: &CardSceneParam) -> CardSceneParam {
     let csp = CardSceneParam {
+        instance_id: scene_param.instance_id.clone(),
         position: Vec2::new(
             scene_param.position.x.round(),
             scene_param.position.y.round(),
@@ -2594,6 +2598,7 @@ fn editor_card_to_scene_card(
 
     let mut card_param = card.to_card_param(transform);
     card_param.scene_param = normalize_editor_scene_param(&CardSceneParam {
+        instance_id: card_param.scene_param.instance_id.clone(),
         position: transform.translation.truncate(),
         rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
         order: editor_local_order_from_transform(transform),
