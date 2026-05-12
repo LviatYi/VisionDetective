@@ -2633,7 +2633,7 @@ fn editor_card_to_scene_card(
         return None;
     }
 
-    let mut card_param = card.to_card_param(transform);
+    let mut card_param = card.to_card_param(transform, runtime);
     card_param.scene_param = normalize_editor_scene_param(&CardSceneParam {
         instance_id: card_param.scene_param.instance_id.clone(),
         position: transform.translation.truncate(),
@@ -2643,7 +2643,6 @@ fn editor_card_to_scene_card(
         disable_if: card_param.scene_param.disable_if.clone(),
         description: String::new(),
     });
-    card_param.runtime_specialized_param = runtime.map(|runtime| runtime.0.clone());
     Some(card_param)
 }
 

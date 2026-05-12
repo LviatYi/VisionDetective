@@ -48,14 +48,26 @@ impl CardSpecializedInstaller for ClueCardSpecializedInstaller {
 
 register_card_specialized_installer!(ClueCardSpecializedInstaller);
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClueCardParams {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "ClueRevealThreshold::is_default")]
     pub reveal_threshold: ClueRevealThreshold,
-    #[serde(default)]
-    pub interaction_prefab_id: u32,
-    #[serde(default)]
-    pub interaction_target_scene_param: CardSceneParam,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_card_param: Option<CardParam>,
+}
+
+impl Default for ClueCardParams {
+    fn default() -> Self {
+        Self {
+            reveal_threshold: Default::default(),
+            target_card_param: Some(CardParam {
+                scene_param: Default::default(),
+                prefab_id: DEFAULT_EDITOR_CLUE_TARGET_PREFAB_ID,
+                runtime_specialized_param: None,
+            }),
+        }
+    }
 }
 
 impl CardSpecializedParam for ClueCardParams {
@@ -106,6 +118,10 @@ pub enum ClueRevealThreshold {
 }
 
 impl ClueRevealThreshold {
+    fn is_default(&self) -> bool {
+        matches!(self, ClueRevealThreshold::Normal)
+    }
+
     pub fn get_threshold(&self) -> f32 {
         match self {
             ClueRevealThreshold::Any => 0.01,
@@ -154,7 +170,7 @@ fn restore_reveal_clues(
         }
 
         despawn_clue_visual_feedback(&mut commands, &mut clue);
-        spawn_revealed_interaction_card(&mut commands, &mut card_spawn_params, &clue);
+        spawn_revealed_card(&mut commands, &mut card_spawn_params, &clue);
         continue;
     }
 }
@@ -206,7 +222,7 @@ fn reveal_clues(
                 .revealed_clue_instances
                 .insert(card.instance_id.clone());
             despawn_clue_visual_feedback(&mut commands, &mut clue);
-            spawn_revealed_interaction_card(&mut commands, &mut card_spawn_params, &clue);
+            spawn_revealed_card(&mut commands, &mut card_spawn_params, &clue);
             continue;
         }
 
@@ -223,24 +239,16 @@ fn reveal_clues(
     }
 }
 
-fn spawn_revealed_interaction_card(
+fn spawn_revealed_card(
     commands: &mut Commands,
     spawn_params: &mut CardSpawnParams<'_>,
     clue: &ClueCard,
 ) {
-    if clue.param.interaction_prefab_id == 0 {
+    let Some(target_card_param) = clue.param.target_card_param.as_ref() else {
         return;
-    }
+    };
 
-    let entity = spawn_card_by_card_param(
-        commands,
-        spawn_params,
-        &CardParam {
-            scene_param: clue.param.interaction_target_scene_param.clone(),
-            prefab_id: clue.param.interaction_prefab_id,
-            runtime_specialized_param: None,
-        },
-    );
+    let entity = spawn_card_by_card_param(commands, spawn_params, target_card_param);
     commands.entity(entity).insert(GameView);
 }
 
@@ -412,7 +420,7 @@ fn polygon_from_points(points: Vec<Vec2>) -> Option<GeoPolygon<f32>> {
 
 const GEOMETRY_EPSILON: f32 = 0.001;
 const GEOMETRY_EPSILON_SQUARED: f32 = GEOMETRY_EPSILON * GEOMETRY_EPSILON;
-const DEFAULT_EDITOR_CLUE_INTERACTION_PREFAB_ID: u32 = 1904;
+const DEFAULT_EDITOR_CLUE_TARGET_PREFAB_ID: u32 = 1904;
 const DEFAULT_EDITOR_CLUE_TARGET_OFFSET: Vec2 = Vec2::new(0.0, -Card::SIZE.y * 0.4);
 const EDITOR_CLUE_TARGET_ORDER_OFFSET: f32 = 1.0;
 const CLUE_LINK_DASH_LENGTH: f32 = 18.0;
@@ -439,17 +447,8 @@ fn spawn_editor_clue_targets(
     clue_query: Query<(Entity, &ClueCard, &Transform), Added<EditorPlacedCard>>,
 ) {
     for (clue_entity, clue, clue_transform) in &clue_query {
-        let (target_prefab_id, target_scene_param) =
-            editor_clue_target_spawn_param(clue, clue_transform);
-        let target_entity = spawn_editor_card(
-            &mut commands,
-            &mut spawn_params,
-            &CardParam {
-                scene_param: target_scene_param,
-                prefab_id: target_prefab_id,
-                runtime_specialized_param: None,
-            },
-        );
+        let target_card_param = editor_clue_target_spawn_param(clue, clue_transform);
+        let target_entity = spawn_editor_card(&mut commands, &mut spawn_params, &target_card_param);
 
         commands.entity(clue_entity).insert((
             EditorClueLink {
@@ -467,55 +466,64 @@ fn spawn_editor_clue_targets(
             },
         ));
         editor_state.select_entity(target_entity);
-        editor_state.set_status_message(format!("已创建线索目标交互卡 #{}", target_prefab_id));
+        editor_state.set_status_message(format!(
+            "已创建线索目标交互卡 #{}",
+            target_card_param.prefab_id
+        ));
     }
 }
 
-fn editor_clue_target_spawn_param(
-    clue: &ClueCard,
-    clue_transform: &Transform,
-) -> (u32, CardSceneParam) {
-    if clue.param.interaction_prefab_id != 0 {
-        return (
-            clue.param.interaction_prefab_id,
-            clue.param.interaction_target_scene_param.clone(),
-        );
-    }
-
-    (
-        DEFAULT_EDITOR_CLUE_INTERACTION_PREFAB_ID,
-        CardSceneParam {
-            instance_id: String::new(),
-            position: clue_transform.translation.truncate() + DEFAULT_EDITOR_CLUE_TARGET_OFFSET,
-            rotation: 0.0,
-            order: clue_transform.translation.z - SceneLayer::Card.get_layer_base_z()
-                + EDITOR_CLUE_TARGET_ORDER_OFFSET,
-            enable_if: None,
-            disable_if: None,
-            description: String::new(),
+fn editor_clue_target_spawn_param(clue: &ClueCard, clue_transform: &Transform) -> CardParam {
+    match clue.param.target_card_param.as_ref() {
+        None => CardParam {
+            scene_param: CardSceneParam {
+                instance_id: String::new(),
+                position: clue_transform.translation.truncate() + DEFAULT_EDITOR_CLUE_TARGET_OFFSET,
+                rotation: 0.0,
+                order: clue_transform.translation.z - SceneLayer::Card.get_layer_base_z()
+                    + EDITOR_CLUE_TARGET_ORDER_OFFSET,
+                enable_if: None,
+                disable_if: None,
+                description: String::new(),
+            },
+            prefab_id: 0,
+            runtime_specialized_param: None,
         },
-    )
+        Some(card_param) => card_param.clone(),
+    }
 }
 
 fn update_editor_runtime_params(
     mut commands: Commands,
     clue_query: Query<(Entity, &EditorClueLink), With<ClueCard>>,
-    target_query: Query<(&Card, &Transform), With<EditorClueTargetCard>>,
+    target_query: Query<
+        (&Card, &Transform, Option<&EditorRuntimeSpecializedParam>),
+        With<EditorClueTargetCard>,
+    >,
 ) {
     for (clue_entity, link) in &clue_query {
-        let Ok((target_card, target_transform)) = target_query.get(link.target) else {
+        let Ok((target_card, target_transform, runtime)) = target_query.get(link.target) else {
             continue;
         };
+        let params = match serde_json::to_value(ClueCardParams {
+            reveal_threshold: Default::default(),
+            target_card_param: Some(target_card.to_card_param(target_transform, runtime)),
+        }) {
+            Ok(params) => params,
+            Err(error) => {
+                warn!("failed to serialize clue runtime params: {error}");
+                continue;
+            }
+        };
         if let Ok(mut entity) = commands.get_entity(clue_entity) {
-            entity.try_insert(EditorRuntimeSpecializedParam(CardRuntimeSpecializedConfig {
-                data: CardSpecializedConfigData {
-                    type_id: "clue".to_string(),
-                    params: serde_json::json!({
-                        "interaction_prefab_id": target_card.instance_type.get_prefab_id(),
-                        "interaction_target_scene_param": target_card.to_card_param(target_transform).scene_param,
-                    }),
-                }
-            }));
+            entity.try_insert(EditorRuntimeSpecializedParam(
+                CardRuntimeSpecializedConfig {
+                    data: CardSpecializedConfigData {
+                        type_id: "clue".to_string(),
+                        params,
+                    },
+                },
+            ));
         }
     }
 }
@@ -595,22 +603,27 @@ mod tests {
     fn clue_card_params_parse_runtime_interaction_target() {
         let params = serde_json::from_value::<ClueCardParams>(serde_json::json!({
             "reveal_threshold": "normal",
-            "interaction_prefab_id": 1005,
-            "interaction_target_scene_param": {
-                "position": [105.0, -20.0],
-                "rotation": -0.12,
-                "order": 0.85
+            "target_card_param": {
+                "scene_param": {
+                    "position": [105.0, -20.0],
+                    "rotation": -0.12,
+                    "order": 0.85
+                },
+                "prefab_id": 1005
             }
         }))
         .expect("clue params should parse runtime interaction target");
 
         assert_eq!(params.reveal_threshold, ClueRevealThreshold::Normal);
-        assert_eq!(params.interaction_prefab_id, 1005);
+        let target_card_param = params
+            .target_card_param
+            .expect("target card param should parse");
+        assert_eq!(target_card_param.prefab_id, 1005);
         assert_eq!(
-            params.interaction_target_scene_param.position,
+            target_card_param.scene_param.position,
             Vec2::new(105.0, -20.0)
         );
-        assert_eq!(params.interaction_target_scene_param.rotation, -0.12);
-        assert_eq!(params.interaction_target_scene_param.order, 0.85);
+        assert_eq!(target_card_param.scene_param.rotation, -0.12);
+        assert_eq!(target_card_param.scene_param.order, 0.85);
     }
 }

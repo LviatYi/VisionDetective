@@ -11,7 +11,7 @@ use serde_json::Value;
 use uuid::Uuid;
 
 /// Runtime card instance parameters for scene loading.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CardParam {
     pub scene_param: CardSceneParam,
 

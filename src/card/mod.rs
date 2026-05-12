@@ -4,6 +4,7 @@ pub mod specialized;
 use crate::card::card_params::{CardParam, CardSpawnParams};
 use crate::card::card_params::{CardSceneParam, CardSpecializedParam};
 use crate::config::{CardConfig, GameConfig};
+use crate::editor::EditorRuntimeSpecializedParam;
 use crate::progress::GameProgress;
 use crate::scene::SceneLayer;
 use crate::tools::Disable;
@@ -181,7 +182,11 @@ impl Card {
         self.intersect_circle(transform, point, 0.0)
     }
 
-    pub fn to_card_param(&self, transform: &Transform) -> CardParam {
+    pub fn to_card_param(
+        &self,
+        transform: &Transform,
+        runtime: Option<&EditorRuntimeSpecializedParam>,
+    ) -> CardParam {
         CardParam {
             scene_param: CardSceneParam {
                 instance_id: self.instance_id.clone(),
@@ -193,7 +198,7 @@ impl Card {
                 description: String::new(),
             },
             prefab_id: self.instance_type.get_prefab_id(),
-            runtime_specialized_param: None,
+            runtime_specialized_param: runtime.cloned().map(|runtime| runtime.0),
         }
     }
 }

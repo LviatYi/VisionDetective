@@ -190,11 +190,16 @@ description = "title: 血滴, image_path: pic/blood-drop.png, desc: 血滴（线
 [cards.runtime_specialized_param]
 type = "clue"
 
-[cards.runtime_specialized_param.params]
-interaction_prefab_id = 1904
+[cards.runtime_specialized_param.params.target_card_param]
+prefab_id = 1904
+
+[cards.runtime_specialized_param.params.target_card_param.runtime_specialized_param]
+type = "interactive"
+
+[cards.runtime_specialized_param.params.target_card_param.runtime_specialized_param.params]
 state_key = "first_discover_blood_drop_on_the_ground"
 
-[cards.runtime_specialized_param.params.interaction_target_scene_param]
+[cards.runtime_specialized_param.params.target_card_param.scene_param]
 instance_id = "1904-对话交互卡-80049e1a-e53e-4cf4-96b0-a481ab2f1949"
 order = 22.0
 position = [
