@@ -1,4 +1,4 @@
-use crate::GameView;
+use crate::{GameStatus, GameView};
 use crate::card::specialized::interactive::CardInteractionEntered;
 use crate::config::GameConfig;
 use crate::register_card_interaction;
@@ -112,7 +112,7 @@ pub(super) fn register_dialogue_systems(app: &mut App) {
         Update,
         (advance_dialogue_input, sync_dialogue_ui)
             .chain()
-            .run_if(in_state(crate::game_view::GameState::InGame)),
+            .run_if(in_state(GameStatus::InGame)),
     );
 }
 

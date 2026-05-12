@@ -22,11 +22,14 @@ pub struct CardParam {
 }
 
 impl CardParam {
-    pub fn resolved_instance_id(&self, title: &str) -> String {
+    /// Resolves the final instance ID for this card, generating a new one if the prefab does not specify an instance ID.
+    ///
+    /// return (_, true) if the instance ID is from prefab, (_, false) if the instance ID is new generated. 
+    pub fn resolved_instance_id(&self, title: &str) -> (String, bool) {
         if self.scene_param.instance_id.is_empty() {
-            make_card_instance_id(self.prefab_id, title)
+            (make_card_instance_id(self.prefab_id, title), false)
         } else {
-            self.scene_param.instance_id.clone()
+            (self.scene_param.instance_id.clone(), true)
         }
     }
 

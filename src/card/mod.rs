@@ -4,7 +4,6 @@ pub mod specialized;
 use crate::card::card_params::{CardParam, CardSpawnParams};
 use crate::card::card_params::{CardSceneParam, CardSpecializedParam};
 use crate::config::{CardConfig, GameConfig};
-use crate::game_view::{AppView, GameplaySet};
 use crate::progress::GameProgress;
 use crate::scene::SceneLayer;
 use crate::tools::Disable;
@@ -16,8 +15,8 @@ use bevy::text::{Text2dUpdateSystems, TextLayoutInfo};
 use geo::orient::Direction;
 use geo::{Coord as GeoCoord, LineString as GeoLineString, Orient, Polygon as GeoPolygon};
 use serde::Deserialize;
-use serde_json::Value;
 use std::collections::HashMap;
+use crate::{AppStatus, GameplaySet};
 
 pub struct CardPlugin;
 
@@ -28,7 +27,7 @@ impl Plugin for CardPlugin {
             Update,
             sync_card_disable_state
                 .in_set(GameplaySet::CardState)
-                .run_if(in_state(AppView::Game)),
+                .run_if(in_state(AppStatus::Game)),
         );
         app.add_systems(
             PostUpdate,
@@ -214,7 +213,7 @@ impl CardInstanceType {
 
 //region Card Specialized Installer
 
-pub type CardSpecializedParamParser = fn(&Value) -> anyhow::Result<Box<dyn CardSpecializedParam>>;
+pub type CardSpecializedParamParser = fn(&serde_json::Value) -> anyhow::Result<Box<dyn CardSpecializedParam>>;
 
 pub(super) trait CardSpecializedInstaller {
     type Param: CardSpecializedParam + serde::de::DeserializeOwned + 'static;
@@ -286,7 +285,10 @@ pub fn spawn_card_by_card_param(
     card_param: &CardParam,
 ) -> Entity {
     let appearance = card_param.load_appearance(&spawn_params.card_presets_config);
-    let instance_id = card_param.resolved_instance_id(&appearance.title);
+    let (instance_id, instance_id_from_param) = card_param.resolved_instance_id(&appearance.title);
+    if !instance_id_from_param {
+        warn!("Card instance_id is not provided for card '{}' from scene param. Consider re-exporting the scene.", appearance.title);
+    }
     let specialized = card_param.load_specialized_config(
         &spawn_params.card_presets_config,
         &spawn_params.card_specialized_registry,

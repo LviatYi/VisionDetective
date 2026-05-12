@@ -3,9 +3,9 @@ use crate::coin::player::controller::{
     handle_player_pointer_drag, start_player_charge_from_pointer, track_pointer_world_position,
     update_aiming_marker, update_player_hover_state, update_player_visuals,
 };
-use crate::game_view::{GameState, GameplaySet};
 use crate::input::player_input_allowed;
 use bevy::prelude::*;
+use crate::{GameLoadingSet, GameStatus, GameplaySet};
 
 #[derive(Component, Default)]
 pub struct PlayerCoin {
@@ -423,18 +423,18 @@ impl Plugin for PlayerPlugin {
         app.init_resource::<CursorWorldPosition>()
             .init_resource::<PlayerCoinState>()
             .add_systems(
-                OnEnter(GameState::Loading),
+                OnEnter(GameStatus::Loading),
                 (
                     controller::reset_player_coin_state,
                     controller::setup_player,
                 )
-                    .chain(),
+                    .chain().in_set(GameLoadingSet::BuildScene),
             )
             .add_systems(
                 Update,
                 track_pointer_world_position
                     .in_set(GameplaySet::PlayerInput)
-                    .run_if(in_state(GameState::InGame).and(player_input_allowed)),
+                    .run_if(in_state(GameStatus::InGame).and(player_input_allowed)),
             )
             .add_systems(
                 Update,
@@ -446,7 +446,7 @@ impl Plugin for PlayerPlugin {
                 )
                     .after(track_pointer_world_position)
                     .in_set(GameplaySet::PlayerInput)
-                    .run_if(in_state(GameState::InGame).and(player_input_allowed)),
+                    .run_if(in_state(GameStatus::InGame).and(player_input_allowed)),
             )
             .add_systems(
                 Update,

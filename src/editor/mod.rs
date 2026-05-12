@@ -1,4 +1,4 @@
-use crate::AppView;
+use crate::AppStatus;
 use crate::card::card_params::{
     CardParam, CardRuntimeSpecializedConfig, CardSceneParam, CardSpawnParams,
 };
@@ -307,7 +307,7 @@ impl Plugin for EditorPlugin {
             .init_resource::<EditorUndoHistory>()
             .init_resource::<EditorFileState>()
             .add_systems(
-                OnEnter(AppView::Editor),
+                OnEnter(AppStatus::Editor),
                 (
                     reset_editor_state,
                     reset_editor_history,
@@ -319,10 +319,10 @@ impl Plugin for EditorPlugin {
                 )
                     .chain(),
             )
-            .add_systems(OnExit(AppView::Editor), cleanup_view::<EditorView>)
+            .add_systems(OnExit(AppStatus::Editor), cleanup_view::<EditorView>)
             .add_systems(
                 Update,
-                track_editor_pointer_world_position.run_if(in_state(AppView::Editor)),
+                track_editor_pointer_world_position.run_if(in_state(AppStatus::Editor)),
             )
             .add_systems(
                 Update,
@@ -345,9 +345,9 @@ impl Plugin for EditorPlugin {
                     update_editor_status_text,
                 )
                     .after(track_editor_pointer_world_position)
-                    .run_if(in_state(AppView::Editor)),
+                    .run_if(in_state(AppStatus::Editor)),
             )
-            .add_systems(Update, draw_editor_gizmos.run_if(in_state(AppView::Editor)));
+            .add_systems(Update, draw_editor_gizmos.run_if(in_state(AppStatus::Editor)));
 
         for registration in inventory::iter::<CardEditorSystemRegistration> {
             registration.install(app);

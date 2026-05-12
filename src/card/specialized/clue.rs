@@ -10,14 +10,13 @@ use crate::editor::{
     EditorInteractionState, EditorLinkedEntities, EditorPlacedCard, EditorRuntimeSpecializedParam,
     EditorSpecializedAuxiliaryCard, spawn_editor_card,
 };
-use crate::game_view::GameplaySet;
 use crate::physics::obstacle::Obstacle;
 use crate::physics::vision::compute_visible_points;
 use crate::progress::GameProgress;
-use crate::register_card_editor_systems;
+use crate::{register_card_editor_systems, GameLoadingSet, GameStatus, GameplaySet};
 use crate::scene::SceneLayer;
 use crate::tools::Disable;
-use crate::{AppView, GameView, register_card_specialized_installer};
+use crate::{AppStatus, GameView, register_card_specialized_installer};
 use bevy::asset::RenderAssetUsages;
 use bevy::ecs::system::EntityCommands;
 use bevy::mesh::{Indices, PrimitiveTopology};
@@ -39,6 +38,7 @@ impl CardSpecializedInstaller for ClueCardSpecializedInstaller {
     const TYPE_ID: &'static str = "clue";
 
     fn install(app: &mut App) {
+        app.add_systems(OnEnter(GameStatus::Loading), restore_reveal_clues.in_set(GameLoadingSet::Restore));
         app.add_systems(Update, reveal_clues.in_set(GameplaySet::CardLogic));
     }
 }
@@ -84,7 +84,6 @@ impl CardSpecializedParam for ClueCardParams {
         });
 
         entity.insert(ClueCard {
-            revealed: false,
             param: self.clone(),
             question_mark,
             illumination: None,
@@ -116,7 +115,6 @@ impl ClueRevealThreshold {
 
 #[derive(Component, Debug, Clone)]
 pub struct ClueCard {
-    pub revealed: bool,
     pub param: ClueCardParams,
     question_mark: Option<Entity>,
     illumination: Option<Entity>,
@@ -137,6 +135,23 @@ struct EditorClueLink {
 #[derive(Component, Clone, Copy)]
 struct EditorClueTargetCard;
 
+fn restore_reveal_clues(
+    mut commands: Commands,
+    progress: ResMut<GameProgress>,
+    mut clue_query: Query<(&Card, &mut ClueCard,), Without<Disable>>,
+    mut card_spawn_params: CardSpawnParams) {
+    for (card, mut clue) in &mut clue_query {
+        let revealed = progress.revealed_clue_instances.get(&card.instance_id).is_some();
+        if !revealed {
+            continue;
+        }
+
+        despawn_clue_visual_feedback(&mut commands, &mut clue);
+        spawn_revealed_interaction_card(&mut commands, &mut card_spawn_params, &clue);
+        continue;
+    }
+}
+
 fn reveal_clues(
     mut commands: Commands,
     player_coin_state: Res<PlayerCoinState>,
@@ -155,14 +170,8 @@ fn reveal_clues(
     };
 
     for (entity, card, mut clue, global_transform) in &mut clue_query {
-        if clue.revealed {
-            continue;
-        }
-
-        if progress.revealed_clue_instances.contains(&card.instance_id) {
-            clue.revealed = true;
-            despawn_clue_visual_feedback(&mut commands, &mut clue);
-            spawn_revealed_interaction_card(&mut commands, &mut card_spawn_params, &clue);
+        let revealed = progress.revealed_clue_instances.get(&card.instance_id).is_some();
+        if revealed {
             continue;
         }
 
@@ -180,7 +189,7 @@ fn reveal_clues(
         let coverage = illuminated_area / Card::card_area();
 
         if coverage >= clue.param.reveal_threshold.get_threshold() {
-            clue.revealed = true;
+            progress.revealed_clue_instances.insert(card.instance_id.clone());
             progress
                 .revealed_clue_instances
                 .insert(card.instance_id.clone());
@@ -407,7 +416,7 @@ fn register_editor_systems(app: &mut App) {
             update_editor_runtime_params,
             draw_editor_clue_links,
         )
-            .run_if(in_state(AppView::Editor)),
+            .run_if(in_state(AppStatus::Editor)),
     );
 }
 

@@ -1,11 +1,11 @@
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinBehaviorState, PlayerCoinState};
 use crate::config::GameConfig;
-use crate::game_view::{AppView, GameplaySet};
 use crate::tools::Disable;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::*;
 use obstacle::Obstacle;
+use crate::{AppStatus, GameplaySet};
 
 pub mod obstacle;
 pub mod vision;
@@ -23,7 +23,7 @@ impl Plugin for PhysicsPlugin {
         )
         .add_systems(
             Update,
-            obstacle::draw_obstacle_paths.run_if(in_state(AppView::Editor)),
+            obstacle::draw_obstacle_paths.run_if(in_state(AppStatus::Editor)),
         );
     }
 }

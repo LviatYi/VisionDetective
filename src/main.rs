@@ -22,7 +22,7 @@ use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
 use crate::editor::EditorPlugin;
 use crate::game_view::main_view::{cleanup_view, handle_esc_to_main_menu};
-use crate::game_view::{AppView, GameState, GameViewPlugin, GameplaySet};
+use crate::game_view::{GameViewPlugin};
 use crate::input::GameplayInputBlocker;
 use crate::physics::PhysicsPlugin;
 use crate::physics::Velocity;
@@ -35,11 +35,36 @@ use crate::scene::get_layered_game_scene_camera2d_bundle;
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 
-#[derive(Component)]
-pub struct GameView;
+#[derive(States, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AppStatus {
+    #[default]
+    MainMenu,
+    Game,
+    Editor,
+}
 
-#[derive(Component)]
-struct StatusText;
+#[derive(SubStates, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[source(AppStatus = AppStatus::Game)]
+pub enum GameStatus {
+    #[default]
+    Loading,
+    InGame,
+}
+
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GameplaySet {
+    CardState,
+    PlayerPhysics,
+    CardLogic,
+    PlayerInput,
+    Visual,
+}
+
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GameLoadingSet {
+    BuildScene,
+    Restore,
+}
 
 fn main() {
     let config = GameConfig::load();
@@ -59,8 +84,27 @@ fn main() {
             }),
             ..default()
         }))
-        .init_state::<AppView>()
-        .add_sub_state::<GameState>()
+        .init_state::<AppStatus>()
+        .add_sub_state::<GameStatus>()
+        .configure_sets(
+            OnEnter(GameStatus::Loading),
+            (
+                GameLoadingSet::BuildScene,
+                GameLoadingSet::Restore,
+            ).chain().run_if(in_state(GameStatus::Loading)),
+        )
+        .configure_sets(
+            Update,
+            (
+                GameplaySet::CardState,
+                GameplaySet::PlayerPhysics,
+                GameplaySet::CardLogic,
+                GameplaySet::PlayerInput,
+                GameplaySet::Visual,
+            )
+                .chain()
+                .run_if(in_state(GameStatus::InGame)),
+        )
         .add_plugins((
             GameViewPlugin,
             PlayerPlugin,
@@ -73,24 +117,30 @@ fn main() {
             GameProgressPlugin,
             RuntimeScenePlugin,
         ))
-        .add_systems(OnEnter(GameState::Loading), setup_game_scene)
+        .add_systems(OnEnter(GameStatus::Loading), setup_game_scene.in_set(GameLoadingSet::BuildScene))
         .add_systems(
             Update,
-            finish_game_loading.run_if(in_state(GameState::Loading)),
+            finish_game_loading.run_if(in_state(GameStatus::Loading)),
         )
         .add_systems(Update, update_status_text.in_set(GameplaySet::Visual))
         .add_systems(
             Update,
             handle_esc_to_main_menu
                 .after(editor::cancel_prefab_drag_with_escape)
-                .run_if(in_state(AppView::Game).or(in_state(AppView::Editor))),
+                .run_if(in_state(AppStatus::Game).or(in_state(AppStatus::Editor))),
         )
-        .add_systems(OnExit(AppView::Game), cleanup_view::<GameView>)
+        .add_systems(OnExit(AppStatus::Game), cleanup_view::<GameView>)
         .run();
 }
 
-fn finish_game_loading(mut next_game_state: ResMut<NextState<GameState>>) {
-    next_game_state.set(GameState::InGame);
+#[derive(Component)]
+pub struct GameView;
+
+#[derive(Component)]
+struct StatusText;
+
+fn finish_game_loading(mut next_game_state: ResMut<NextState<GameStatus>>) {
+    next_game_state.set(GameStatus::InGame);
 }
 
 fn setup_game_scene(

@@ -9,10 +9,9 @@ use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::PlayerCoinState;
 use crate::config::GameConfig;
 use crate::editor::EditorRuntimeSpecializedParam;
-use crate::game_view::{AppView, GameplaySet};
 use crate::progress::GameProgress;
 use crate::tools::Disable;
-use crate::{register_card_editor_systems, register_card_specialized_installer};
+use crate::{register_card_editor_systems, register_card_specialized_installer, AppStatus, GameplaySet};
 use anyhow::Result;
 use bevy::app::{App, Update};
 use bevy::ecs::system::EntityCommands;
@@ -312,7 +311,7 @@ macro_rules! register_card_interaction {
 fn register_editor_systems(app: &mut App) {
     app.add_systems(
         Update,
-        (update_editor_runtime_params,).run_if(in_state(AppView::Editor)),
+        (update_editor_runtime_params,).run_if(in_state(AppStatus::Editor)),
     );
 }
 

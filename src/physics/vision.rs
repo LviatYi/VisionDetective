@@ -1,7 +1,6 @@
-use crate::GameView;
+use crate::{GameStatus, GameView, GameplaySet};
 use crate::coin::player::PlayerCoin;
 use crate::config::GameConfig;
-use crate::game_view::{GameState, GameplaySet};
 use crate::physics::obstacle::Obstacle;
 use crate::scene::SceneLayer;
 use crate::tools::Disable;
@@ -16,7 +15,7 @@ pub struct VisionFieldMesh;
 
 impl Plugin for VisionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Loading), setup_vision_system)
+        app.add_systems(OnEnter(GameStatus::Loading), setup_vision_system)
             .add_systems(
                 Update,
                 (update_vision_field_mesh, draw_vision_radius).in_set(GameplaySet::Visual),

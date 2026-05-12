@@ -3,61 +3,25 @@ use crate::game_view::main_view::{
 };
 use bevy::app::{App, Plugin, Update};
 use bevy::prelude::*;
+use crate::{AppStatus};
 
 pub struct GameViewPlugin;
 
 impl Plugin for GameViewPlugin {
     fn build(&self, app: &mut App) {
-        app.configure_sets(
-            Update,
-            (
-                GameplaySet::CardState,
-                GameplaySet::PlayerPhysics,
-                GameplaySet::CardLogic,
-                GameplaySet::PlayerInput,
-                GameplaySet::Visual,
-            )
-                .chain()
-                .run_if(in_state(GameState::InGame)),
-        )
-           .add_systems(OnEnter(AppView::MainMenu), setup_main_menu)
-           .add_systems(OnExit(AppView::MainMenu), cleanup_view::<MainMenuView>)
+        app
+            .add_systems(OnEnter(AppStatus::MainMenu), setup_main_menu)
+            .add_systems(OnExit(AppStatus::MainMenu), cleanup_view::<MainMenuView>)
            .add_systems(
                Update,
-               handle_main_menu_buttons.run_if(in_state(AppView::MainMenu)),
+               handle_main_menu_buttons.run_if(in_state(AppStatus::MainMenu)),
            );
     }
-}
-
-#[derive(States, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum AppView {
-    #[default]
-    MainMenu,
-    Game,
-    Editor,
-}
-
-#[derive(SubStates, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[source(AppView = AppView::Game)]
-pub enum GameState {
-    #[default]
-    Loading,
-    InGame,
-}
-
-#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum GameplaySet {
-    CardState,
-    PlayerPhysics,
-    CardLogic,
-    PlayerInput,
-    Visual,
 }
 
 pub mod main_view {
     use crate::asset::font;
     use crate::config::GameConfig;
-    use crate::game_view::AppView;
     use bevy::asset::{AssetServer, Handle};
     use bevy::camera::Camera2d;
     use bevy::color::Color;
@@ -69,13 +33,14 @@ pub mod main_view {
         FlexDirection, Font, JustifyContent, KeyCode, MessageReader, NextState, Node, Pickable,
         Query, Res, ResMut, State, Text, TextColor, TextFont, UiRect, With, default, percent, px,
     };
+    use crate::AppStatus;
 
     #[derive(Component)]
     pub struct MainMenuView;
 
     #[derive(Component)]
     pub(super) struct MainMenuButton {
-        target: AppView,
+        target: AppStatus,
     }
 
     pub(super) fn setup_main_menu(
@@ -133,8 +98,8 @@ pub mod main_view {
                             TextColor(Color::srgb(0.78, 0.82, 0.88)),
                         ));
 
-                        spawn_main_menu_button(panel, &ui_font, "进入游戏", AppView::Game);
-                        spawn_main_menu_button(panel, &ui_font, "进入编辑器", AppView::Editor);
+                        spawn_main_menu_button(panel, &ui_font, "进入游戏", AppStatus::Game);
+                        spawn_main_menu_button(panel, &ui_font, "进入编辑器", AppStatus::Editor);
                         panel.spawn((
                             Text::new("按 Esc 可从游戏或编辑器返回主页面"),
                             TextFont {
@@ -152,7 +117,7 @@ pub mod main_view {
         parent: &mut ChildSpawnerCommands,
         font: &Handle<Font>,
         label: &str,
-        target: AppView,
+        target: AppStatus,
     ) {
         parent
             .spawn((
@@ -185,7 +150,7 @@ pub mod main_view {
     pub(super) fn handle_main_menu_buttons(
         mut press_events: MessageReader<Pointer<Press>>,
         button_query: Query<&MainMenuButton>,
-        mut next_screen: ResMut<NextState<AppView>>,
+        mut next_screen: ResMut<NextState<AppStatus>>,
     ) {
         for event in press_events.read() {
             if event.button != PointerButton::Primary {
@@ -200,10 +165,10 @@ pub mod main_view {
 
     pub fn handle_esc_to_main_menu(
         keyboard_input: Res<ButtonInput<KeyCode>>,
-        current_view: Res<State<AppView>>,
+        current_view: Res<State<AppStatus>>,
         mut editor_state: Option<ResMut<crate::editor::EditorInteractionState>>,
         editor_history: Option<Res<crate::editor::EditorUndoHistory>>,
-        mut next_screen: ResMut<NextState<AppView>>,
+        mut next_screen: ResMut<NextState<AppStatus>>,
     ) {
         if editor_state
             .as_ref()
@@ -221,7 +186,7 @@ pub mod main_view {
         }
 
         if keyboard_input.just_pressed(KeyCode::Escape) {
-            if *current_view.get() == AppView::Editor
+            if *current_view.get() == AppStatus::Editor
                 && let Some(state) = editor_state.as_mut()
                 && !state.request_exit_to_main_menu(
                     editor_history
@@ -232,7 +197,7 @@ pub mod main_view {
             {
                 return;
             }
-            next_screen.set(AppView::MainMenu);
+            next_screen.set(AppStatus::MainMenu);
         }
     }
 
