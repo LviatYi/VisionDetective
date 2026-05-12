@@ -1,25 +1,25 @@
+use crate::AppStatus;
 use crate::game_view::main_view::{
     MainMenuView, cleanup_view, handle_main_menu_buttons, setup_main_menu,
 };
 use bevy::app::{App, Plugin, Update};
 use bevy::prelude::*;
-use crate::{AppStatus};
 
 pub struct GameViewPlugin;
 
 impl Plugin for GameViewPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_systems(OnEnter(AppStatus::MainMenu), setup_main_menu)
+        app.add_systems(OnEnter(AppStatus::MainMenu), setup_main_menu)
             .add_systems(OnExit(AppStatus::MainMenu), cleanup_view::<MainMenuView>)
-           .add_systems(
-               Update,
-               handle_main_menu_buttons.run_if(in_state(AppStatus::MainMenu)),
-           );
+            .add_systems(
+                Update,
+                handle_main_menu_buttons.run_if(in_state(AppStatus::MainMenu)),
+            );
     }
 }
 
 pub mod main_view {
+    use crate::AppStatus;
     use crate::asset::font;
     use crate::config::GameConfig;
     use bevy::asset::{AssetServer, Handle};
@@ -33,7 +33,6 @@ pub mod main_view {
         FlexDirection, Font, JustifyContent, KeyCode, MessageReader, NextState, Node, Pickable,
         Query, Res, ResMut, State, Text, TextColor, TextFont, UiRect, With, default, percent, px,
     };
-    use crate::AppStatus;
 
     #[derive(Component)]
     pub struct MainMenuView;

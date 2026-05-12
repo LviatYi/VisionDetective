@@ -1,7 +1,7 @@
-use crate::{GameStatus, GameView};
 use crate::card::specialized::interactive::CardInteractionEntered;
 use crate::config::GameConfig;
 use crate::register_card_interaction;
+use crate::{GameStatus, GameView};
 use bevy::app::{App, Update};
 use bevy::ecs::system::EntityCommands;
 use bevy::input::ButtonInput;

@@ -7,6 +7,7 @@ use crate::config::{CardConfig, GameConfig};
 use crate::progress::GameProgress;
 use crate::scene::SceneLayer;
 use crate::tools::Disable;
+use crate::{AppStatus, GameplaySet};
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
@@ -16,7 +17,6 @@ use geo::orient::Direction;
 use geo::{Coord as GeoCoord, LineString as GeoLineString, Orient, Polygon as GeoPolygon};
 use serde::Deserialize;
 use std::collections::HashMap;
-use crate::{AppStatus, GameplaySet};
 
 pub struct CardPlugin;
 
@@ -213,7 +213,8 @@ impl CardInstanceType {
 
 //region Card Specialized Installer
 
-pub type CardSpecializedParamParser = fn(&serde_json::Value) -> anyhow::Result<Box<dyn CardSpecializedParam>>;
+pub type CardSpecializedParamParser =
+    fn(&serde_json::Value) -> anyhow::Result<Box<dyn CardSpecializedParam>>;
 
 pub(super) trait CardSpecializedInstaller {
     type Param: CardSpecializedParam + serde::de::DeserializeOwned + 'static;
@@ -287,7 +288,10 @@ pub fn spawn_card_by_card_param(
     let appearance = card_param.load_appearance(&spawn_params.card_presets_config);
     let (instance_id, instance_id_from_param) = card_param.resolved_instance_id(&appearance.title);
     if !instance_id_from_param {
-        warn!("Card instance_id is not provided for card '{}' from scene param. Consider re-exporting the scene.", appearance.title);
+        warn!(
+            "Card instance_id is not provided for card '{}' from scene param. Consider re-exporting the scene.",
+            appearance.title
+        );
     }
     let specialized = card_param.load_specialized_config(
         &spawn_params.card_presets_config,

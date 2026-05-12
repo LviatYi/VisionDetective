@@ -2,10 +2,10 @@ use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinBehaviorState, PlayerCoinState};
 use crate::config::GameConfig;
 use crate::tools::Disable;
+use crate::{AppStatus, GameplaySet};
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::*;
 use obstacle::Obstacle;
-use crate::{AppStatus, GameplaySet};
 
 pub mod obstacle;
 pub mod vision;

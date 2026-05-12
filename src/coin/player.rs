@@ -4,8 +4,8 @@ use crate::coin::player::controller::{
     update_aiming_marker, update_player_hover_state, update_player_visuals,
 };
 use crate::input::player_input_allowed;
-use bevy::prelude::*;
 use crate::{GameLoadingSet, GameStatus, GameplaySet};
+use bevy::prelude::*;
 
 #[derive(Component, Default)]
 pub struct PlayerCoin {
@@ -428,7 +428,8 @@ impl Plugin for PlayerPlugin {
                     controller::reset_player_coin_state,
                     controller::setup_player,
                 )
-                    .chain().in_set(GameLoadingSet::BuildScene),
+                    .chain()
+                    .in_set(GameLoadingSet::BuildScene),
             )
             .add_systems(
                 Update,

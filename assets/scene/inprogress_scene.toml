@@ -2,6 +2,7 @@
 prefab_id = 1201
 
 [cards.scene_param]
+instance_id = "1201-墙-b02bfe6d-e7ba-4710-919a-52d033af3b17"
 position = [
     -104.0,
     383.0,
@@ -14,6 +15,7 @@ description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 prefab_id = 1201
 
 [cards.scene_param]
+instance_id = "1201-墙-9b25db72-60d7-4136-8227-2b7e65c2dec5"
 position = [
     -104.0,
     554.0,
@@ -26,6 +28,7 @@ description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 prefab_id = 1201
 
 [cards.scene_param]
+instance_id = "1201-墙-a4125af3-e684-4831-88ed-6633728ee775"
 position = [
     -104.0,
     725.0,
@@ -38,6 +41,7 @@ description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 prefab_id = 1201
 
 [cards.scene_param]
+instance_id = "1201-墙-e3e5b25e-a470-4998-8b4c-41613218641e"
 position = [
     220.0,
     383.0,
@@ -50,6 +54,7 @@ description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 prefab_id = 1207
 
 [cards.scene_param]
+instance_id = "1207-沙发-3db35ec9-4e63-42b1-96ef-869d72451f1c"
 position = [
     424.0,
     580.0,
@@ -62,6 +67,7 @@ description = "title: 沙发, image_path: pic/sofa-left.png, desc: 沙发（左�
 prefab_id = 1201
 
 [cards.scene_param]
+instance_id = "1201-墙-07aae32d-0940-4633-a8fa-f75cc1103210"
 position = [
     328.0,
     383.0,
@@ -74,6 +80,7 @@ description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 prefab_id = 1003
 
 [cards.scene_param]
+instance_id = "1003-门-9e822447-0278-4fec-816f-b6085f03e6c8"
 position = [
     4.0,
     362.0,
@@ -86,6 +93,7 @@ description = "title: 门, image_path: pic/door-outside.png, desc: 门-outside�
 prefab_id = 1201
 
 [cards.scene_param]
+instance_id = "1201-墙-2ebe5eb9-cef4-4e96-80fe-3b45f773d7fc"
 position = [
     112.0,
     383.0,
@@ -98,6 +106,7 @@ description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 prefab_id = 1005
 
 [cards.scene_param]
+instance_id = "1005-血-b05dc14c-cb71-43db-8d1a-290d8cead221"
 position = [
     166.0,
     715.0,
@@ -110,6 +119,7 @@ description = "title: 血, image_path: pic/blood-pool.png, desc: 一滩血"
 prefab_id = 1208
 
 [cards.scene_param]
+instance_id = "1208-沙发-00915117-2f16-496a-a443-4fcc37d60185"
 position = [
     532.0,
     580.0,
@@ -122,6 +132,7 @@ description = "title: 沙发, image_path: pic/sofa-right.png, desc: 沙发（右
 prefab_id = 1201
 
 [cards.scene_param]
+instance_id = "1201-墙-5f39cc74-5886-4789-bdb0-ceedba7b6ef0"
 position = [
     436.0,
     383.0,
@@ -134,6 +145,7 @@ description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 prefab_id = 1203
 
 [cards.scene_param]
+instance_id = "1203-门-e553d011-3d18-4cdc-9fb4-c5da9857de6c"
 position = [
     4.0,
     362.0,
@@ -147,6 +159,7 @@ description = "title: 门, image_path: pic/door-outside.png, desc: 门-outside"
 prefab_id = 1500
 
 [cards.scene_param]
+instance_id = "1500-对话-4801e38d-71da-49e2-a4a3-87fbdb4a51f9"
 position = [
     -195.0,
     85.0,
@@ -165,6 +178,7 @@ state_key = "first_encounter_with_the_neighbor"
 prefab_id = 1005
 
 [cards.scene_param]
+instance_id = "1005-血-40fbd426-79ae-4d8f-aeeb-3d964b3f7e83"
 position = [
     284.0,
     629.0,
@@ -177,6 +191,7 @@ description = "title: 血, image_path: pic/blood-pool.png, desc: 一滩血"
 prefab_id = 1104
 
 [cards.scene_param]
+instance_id = "1104-血滴-ea6abc96-6592-4d11-b167-52da09de06be"
 position = [
     392.0,
     856.0,
@@ -192,10 +207,11 @@ type = "clue"
 interaction_prefab_id = 1904
 
 [cards.runtime_specialized_param.params.interaction_target_scene_param]
+instance_id = "1904-对话交互卡-80049e1a-e53e-4cf4-96b0-a481ab2f1949"
 order = 22.0
 position = [
-    97.0,
-    877.0,
+    598.0,
+    908.0,
 ]
 rotation = -0.0
 
@@ -203,6 +219,7 @@ rotation = -0.0
 prefab_id = 1206
 
 [cards.scene_param]
+instance_id = "1206-椅子-4954af29-cbca-487a-9f8e-ef570f6ad26d"
 position = [
     328.0,
     801.0,
@@ -215,6 +232,7 @@ description = "title: 椅子, image_path: pic/chair.png, desc: 椅子"
 prefab_id = 1106
 
 [cards.scene_param]
+instance_id = "1106-尸体-35a5c01e-9c3c-4c3b-9dc6-40fe2d91603d"
 position = [
     230.0,
     685.0,
@@ -222,3 +240,120 @@ position = [
 rotation = 2.094395
 order = 21.0
 description = "title: 尸体, image_path: pic/body.png, desc: 尸体（交互）"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-d55d941a-504a-4cf9-9d55-aa5c7c44d238"
+position = [
+    544.0,
+    383.0,
+]
+rotation = 0.0
+order = 23.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-52f01d37-dcaa-4974-98e2-d40dcd0f6b95"
+position = [
+    652.0,
+    383.0,
+]
+rotation = 0.0
+order = 24.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-7d0cbbc2-dc9b-4fb8-958d-e652957c2afd"
+position = [
+    760.0,
+    383.0,
+]
+rotation = 0.0
+order = 25.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-11f6f0d0-d2cd-4c79-aaf7-d449e1cc164e"
+position = [
+    868.0,
+    383.0,
+]
+rotation = 0.0
+order = 26.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-da12ab26-3637-41ce-9a98-0037b3bb60bf"
+position = [
+    868.0,
+    554.0,
+]
+rotation = 0.0
+order = 27.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-8f2da1ae-7436-4b4b-aae0-aac8bbf9a543"
+position = [
+    -104.0,
+    896.0,
+]
+rotation = 0.0
+order = 28.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-4b43a840-7057-4db3-847d-beb23255f071"
+position = [
+    -104.0,
+    1067.0,
+]
+rotation = 0.0
+order = 29.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-67ea9381-7a8f-4a8b-8cfe-ac235a68691a"
+position = [
+    868.0,
+    725.0,
+]
+rotation = 0.0
+order = 30.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-3dff43c2-e4c3-4db2-a012-23dd6863ae6a"
+position = [
+    868.0,
+    896.0,
+]
+rotation = 0.0
+order = 31.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"

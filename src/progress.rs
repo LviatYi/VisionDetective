@@ -1,8 +1,8 @@
+use crate::GameplaySet;
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::PlayerCoinState;
 use bevy::prelude::*;
 use std::collections::HashSet;
-use crate::GameplaySet;
 
 #[derive(Resource, Default)]
 pub struct GameProgress {

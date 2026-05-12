@@ -1,9 +1,9 @@
+use crate::GameplaySet;
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::PlayerCoinState;
 use crate::input::GameplayInputBlocker;
 use crate::physics::{Velocity, move_player_coin_transform};
 use bevy::prelude::*;
-use crate::GameplaySet;
 
 pub struct CameraControlPlugin;
 

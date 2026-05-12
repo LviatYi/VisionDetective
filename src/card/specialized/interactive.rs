@@ -11,7 +11,9 @@ use crate::config::GameConfig;
 use crate::editor::EditorRuntimeSpecializedParam;
 use crate::progress::GameProgress;
 use crate::tools::Disable;
-use crate::{register_card_editor_systems, register_card_specialized_installer, AppStatus, GameplaySet};
+use crate::{
+    AppStatus, GameplaySet, register_card_editor_systems, register_card_specialized_installer,
+};
 use anyhow::Result;
 use bevy::app::{App, Update};
 use bevy::ecs::system::EntityCommands;

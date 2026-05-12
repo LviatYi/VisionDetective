@@ -13,10 +13,10 @@ use crate::editor::{
 use crate::physics::obstacle::Obstacle;
 use crate::physics::vision::compute_visible_points;
 use crate::progress::GameProgress;
-use crate::{register_card_editor_systems, GameLoadingSet, GameStatus, GameplaySet};
 use crate::scene::SceneLayer;
 use crate::tools::Disable;
 use crate::{AppStatus, GameView, register_card_specialized_installer};
+use crate::{GameLoadingSet, GameStatus, GameplaySet, register_card_editor_systems};
 use bevy::asset::RenderAssetUsages;
 use bevy::ecs::system::EntityCommands;
 use bevy::mesh::{Indices, PrimitiveTopology};
@@ -38,7 +38,10 @@ impl CardSpecializedInstaller for ClueCardSpecializedInstaller {
     const TYPE_ID: &'static str = "clue";
 
     fn install(app: &mut App) {
-        app.add_systems(OnEnter(GameStatus::Loading), restore_reveal_clues.in_set(GameLoadingSet::Restore));
+        app.add_systems(
+            OnEnter(GameStatus::Loading),
+            restore_reveal_clues.in_set(GameLoadingSet::Restore),
+        );
         app.add_systems(Update, reveal_clues.in_set(GameplaySet::CardLogic));
     }
 }
@@ -138,10 +141,14 @@ struct EditorClueTargetCard;
 fn restore_reveal_clues(
     mut commands: Commands,
     progress: ResMut<GameProgress>,
-    mut clue_query: Query<(&Card, &mut ClueCard,), Without<Disable>>,
-    mut card_spawn_params: CardSpawnParams) {
+    mut clue_query: Query<(&Card, &mut ClueCard), Without<Disable>>,
+    mut card_spawn_params: CardSpawnParams,
+) {
     for (card, mut clue) in &mut clue_query {
-        let revealed = progress.revealed_clue_instances.get(&card.instance_id).is_some();
+        let revealed = progress
+            .revealed_clue_instances
+            .get(&card.instance_id)
+            .is_some();
         if !revealed {
             continue;
         }
@@ -170,7 +177,10 @@ fn reveal_clues(
     };
 
     for (entity, card, mut clue, global_transform) in &mut clue_query {
-        let revealed = progress.revealed_clue_instances.get(&card.instance_id).is_some();
+        let revealed = progress
+            .revealed_clue_instances
+            .get(&card.instance_id)
+            .is_some();
         if revealed {
             continue;
         }
@@ -189,7 +199,9 @@ fn reveal_clues(
         let coverage = illuminated_area / Card::card_area();
 
         if coverage >= clue.param.reveal_threshold.get_threshold() {
-            progress.revealed_clue_instances.insert(card.instance_id.clone());
+            progress
+                .revealed_clue_instances
+                .insert(card.instance_id.clone());
             progress
                 .revealed_clue_instances
                 .insert(card.instance_id.clone());

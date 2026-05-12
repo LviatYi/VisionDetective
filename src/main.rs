@@ -21,8 +21,8 @@ use crate::coin::player::controller::{PlayerCoinBehaviorState, PlayerCoinState};
 use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
 use crate::editor::EditorPlugin;
+use crate::game_view::GameViewPlugin;
 use crate::game_view::main_view::{cleanup_view, handle_esc_to_main_menu};
-use crate::game_view::{GameViewPlugin};
 use crate::input::GameplayInputBlocker;
 use crate::physics::PhysicsPlugin;
 use crate::physics::Velocity;
@@ -88,10 +88,9 @@ fn main() {
         .add_sub_state::<GameStatus>()
         .configure_sets(
             OnEnter(GameStatus::Loading),
-            (
-                GameLoadingSet::BuildScene,
-                GameLoadingSet::Restore,
-            ).chain().run_if(in_state(GameStatus::Loading)),
+            (GameLoadingSet::BuildScene, GameLoadingSet::Restore)
+                .chain()
+                .run_if(in_state(GameStatus::Loading)),
         )
         .configure_sets(
             Update,
@@ -117,7 +116,10 @@ fn main() {
             GameProgressPlugin,
             RuntimeScenePlugin,
         ))
-        .add_systems(OnEnter(GameStatus::Loading), setup_game_scene.in_set(GameLoadingSet::BuildScene))
+        .add_systems(
+            OnEnter(GameStatus::Loading),
+            setup_game_scene.in_set(GameLoadingSet::BuildScene),
+        )
         .add_systems(
             Update,
             finish_game_loading.run_if(in_state(GameStatus::Loading)),

@@ -1,9 +1,9 @@
-use crate::{GameStatus, GameView, GameplaySet};
 use crate::coin::player::PlayerCoin;
 use crate::config::GameConfig;
 use crate::physics::obstacle::Obstacle;
 use crate::scene::SceneLayer;
 use crate::tools::Disable;
+use crate::{GameStatus, GameView, GameplaySet};
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
