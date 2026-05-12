@@ -1,5 +1,5 @@
 use crate::coin::player::PlayerCoin;
-use crate::coin::player::controller::{PlayerCoinMotionState, PlayerCoinState};
+use crate::coin::player::controller::{PlayerCoinBehaviorState, PlayerCoinState};
 use crate::config::GameConfig;
 use crate::game_view::{AppView, GameState};
 use crate::tools::Disable;
@@ -71,8 +71,8 @@ pub fn move_player_coin_transform(
         if planar_speed < config.physics.stop_speed {
             velocity.x = 0.0;
             velocity.y = 0.0;
-            if matches!(**player_state, PlayerCoinMotionState::Ejecting) {
-                player_state.set_state(PlayerCoinMotionState::Idle);
+            if matches!(**player_state, PlayerCoinBehaviorState::Ejecting) {
+                player_state.set_state(PlayerCoinBehaviorState::Idle);
             }
         } else {
             let friction_delta = config.physics.sliding_friction * dt;

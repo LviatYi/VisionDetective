@@ -17,7 +17,7 @@ use crate::camera_control::{CameraControlPlugin, GameCamera};
 use crate::card::CardPlugin;
 use crate::card::card_params::CardSpawnParams;
 use crate::coin::player::PlayerPlugin;
-use crate::coin::player::controller::{PlayerCoinMotionState, PlayerCoinState};
+use crate::coin::player::controller::{PlayerCoinBehaviorState, PlayerCoinState};
 use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
 use crate::editor::EditorPlugin;
@@ -170,7 +170,7 @@ fn update_status_text(
         return;
     };
 
-    let status = if let PlayerCoinMotionState::Charging { eject_vector } = **player_state {
+    let status = if let PlayerCoinBehaviorState::Charging { eject_vector } = **player_state {
         let charge_ratio = eject_vector.length() / config.player.max_eject_distance;
         format!(
             "蓄力中 | 拉距 {:.0}px | 预计平面速度 {:.0}",

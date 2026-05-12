@@ -1,8 +1,4 @@
-use crate::coin::player::controller::{
-    CursorWorldPosition, PlayerCoinState, draw_arena_and_aim, finish_player_charge_from_pointer,
-    handle_player_pointer_drag, start_player_charge_from_pointer, track_pointer_world_position,
-    update_aiming_marker, update_player_hover_state, update_player_visuals,
-};
+use crate::coin::player::controller::{CursorWorldPosition, PlayerCoinState, draw_arena_and_aim, finish_player_charge_from_pointer, handle_player_pointer_drag, start_player_charge_from_pointer, track_pointer_world_position, update_aiming_marker, update_player_hover_state, update_player_visuals};
 use crate::game_view::GameState;
 use crate::input::player_input_allowed;
 use bevy::prelude::*;
@@ -24,19 +20,16 @@ pub mod controller {
     use bevy::math::{Vec2, Vec3};
     use bevy::picking::pointer::PointerButton;
     use bevy::picking::prelude::{Drag, DragEnd, Move, Out, Over, Pointer, Press, Release};
-    use bevy::prelude::{
-        Assets, Camera, Camera2d, Circle, ColorMaterial, Commands, Component, Gizmos,
-        GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, MessageReader, Pickable, Query, Res, ResMut,
-        Resource, Transform, Visibility, With,
-    };
+    use bevy::prelude::{Assets, Camera, Camera2d, Circle, ColorMaterial, Commands, Component, DetectChanges, Gizmos, GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, MessageReader, Pickable, Query, Res, ResMut, Resource, Transform, Visibility, With};
     use std::ops::Deref;
 
     #[derive(Component)]
     pub struct PointerMarker;
 
     #[derive(Clone, Copy, Debug, Default, PartialEq)]
-    pub enum PlayerCoinMotionState {
+    pub enum PlayerCoinBehaviorState {
         #[default]
+        Initialized,
         Idle,
         Aiming,
         Charging {
@@ -47,9 +40,9 @@ pub mod controller {
 
     #[derive(Resource, Default)]
     pub struct PlayerCoinState {
-        state: PlayerCoinMotionState,
+        state: PlayerCoinBehaviorState,
 
-        pub last: Option<PlayerCoinMotionState>,
+        pub last: Option<PlayerCoinBehaviorState>,
     }
 
     impl PlayerCoinState {
@@ -57,14 +50,18 @@ pub mod controller {
             self.state;
         }
 
-        pub fn set_state(&mut self, state: PlayerCoinMotionState) {
+        pub fn set_state(&mut self, state: PlayerCoinBehaviorState) {
             self.last = Some(self.state);
             self.state = state;
+        }
+
+        pub fn reset(&mut self) {
+            self.set_state(PlayerCoinBehaviorState::Initialized);
         }
     }
 
     impl Deref for PlayerCoinState {
-        type Target = PlayerCoinMotionState;
+        type Target = PlayerCoinBehaviorState;
 
         fn deref(&self) -> &Self::Target {
             &self.state
@@ -73,40 +70,61 @@ pub mod controller {
 
     impl PlayerCoinState {
         pub fn is_idle(&self) -> bool {
-            matches!(self.state, PlayerCoinMotionState::Idle)
+            matches!(self.state, PlayerCoinBehaviorState::Idle)
         }
 
         pub fn is_stop(&self) -> bool {
-            !matches!(self.state, PlayerCoinMotionState::Ejecting)
+            !matches!(self.state, PlayerCoinBehaviorState::Ejecting)
         }
 
         pub fn is_aiming(&self) -> bool {
-            matches!(self.state, PlayerCoinMotionState::Aiming)
+            matches!(self.state, PlayerCoinBehaviorState::Aiming)
         }
 
         pub fn is_charging(&self) -> bool {
-            matches!(self.state, PlayerCoinMotionState::Charging { .. })
-        }
-
-        /// Returns true if the player just transitioned from ejecting to idle, which indicates they have just landed after being launched.
-        /// Returns the same value until any state change. Note its use in conjunction with `is_changed`.
-        pub fn just_ejected(&self) -> bool {
-            matches!(self.state, PlayerCoinMotionState::Idle)
-                && self
-                    .last
-                .is_some_and(|s| matches!(s, PlayerCoinMotionState::Ejecting))
+            matches!(self.state, PlayerCoinBehaviorState::Charging { .. })
         }
 
         pub fn eject_vector(&self) -> Vec2 {
             match self.state {
-                PlayerCoinMotionState::Charging { eject_vector } => eject_vector,
+                PlayerCoinBehaviorState::Charging { eject_vector } => eject_vector,
                 _ => Vec2::ZERO,
             }
         }
     }
 
+    pub trait ResPlayerCoinStateExt {
+        fn just_ejected(&self) -> bool;
+
+        fn just_initialized(&self) -> bool;
+
+        fn just_ejected_or_initialized(&self) -> bool {
+            self.just_ejected() || self.just_initialized()
+        }
+    }
+
+    impl<'w> ResPlayerCoinStateExt for Res<'w, PlayerCoinState> {
+        fn just_ejected(&self) -> bool {
+            self.is_changed() && matches!(self.state, PlayerCoinBehaviorState::Idle)
+                && self
+                .last
+                .is_some_and(|s| matches!(s, PlayerCoinBehaviorState::Ejecting))
+        }
+
+        fn just_initialized(&self) -> bool {
+            self.is_changed() && matches!(self.state, PlayerCoinBehaviorState::Idle)
+                && self
+                .last
+                .is_some_and(|s| matches!(s, PlayerCoinBehaviorState::Initialized))
+        }
+    }
+
     #[derive(Resource, Default)]
     pub struct CursorWorldPosition(pub Option<Vec2>);
+
+    pub fn reset_player_coin_state(mut player_coin_state: ResMut<PlayerCoinState>) {
+        player_coin_state.reset();
+    }
 
     pub fn setup_player(
         mut commands: Commands,
@@ -114,6 +132,7 @@ pub mod controller {
         progress: Res<GameProgress>,
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<ColorMaterial>>,
+        mut player_coin_state: ResMut<PlayerCoinState>,
     ) {
         let player_position = progress.last_player_stop_position.unwrap_or(Vec2::ZERO);
         commands.spawn((
@@ -138,6 +157,8 @@ pub mod controller {
             PointerMarker,
             crate::GameView,
         ));
+
+        player_coin_state.set_state(PlayerCoinBehaviorState::Idle);
     }
 
     pub fn track_pointer_world_position(
@@ -187,12 +208,12 @@ pub mod controller {
 
         for event in over_events.read() {
             if event.hit.position.is_some() && velocity.length_squared() <= 0.0 {
-                player_state.set_state(PlayerCoinMotionState::Aiming);
+                player_state.set_state(PlayerCoinBehaviorState::Aiming);
             }
         }
         for _ in out_events.read() {
             if player_state.is_aiming() {
-                player_state.set_state(PlayerCoinMotionState::Idle);
+                player_state.set_state(PlayerCoinBehaviorState::Idle);
             }
         }
     }
@@ -205,13 +226,13 @@ pub mod controller {
         let Ok(velocity) = player_query.single() else {
             return;
         };
-        if velocity.length_squared() > 0.0 || matches!(**player_state, PlayerCoinMotionState::Ejecting) {
+        if velocity.length_squared() > 0.0 || matches!(**player_state, PlayerCoinBehaviorState::Ejecting) {
             return;
         }
 
         for event in press_events.read() {
             if event.button == PointerButton::Primary && player_query.get(event.entity).is_ok() {
-                player_state.set_state(PlayerCoinMotionState::Charging {
+                player_state.set_state(PlayerCoinBehaviorState::Charging {
                     eject_vector: Vec2::ZERO,
                 });
             }
@@ -243,7 +264,7 @@ pub mod controller {
             else {
                 continue;
             };
-            player_state.set_state(PlayerCoinMotionState::Charging {
+            player_state.set_state(PlayerCoinBehaviorState::Charging {
                 eject_vector: (player_position - cursor)
                     .clamp_length_max(config.player.max_eject_distance),
             });
@@ -291,9 +312,9 @@ pub mod controller {
             velocity.z = vertical_velocity;
             player.sim_z = 0.0;
             player.ground_contact_count = 0;
-            player_state.set_state(PlayerCoinMotionState::Ejecting);
+            player_state.set_state(PlayerCoinBehaviorState::Ejecting);
         } else {
-            player_state.set_state(PlayerCoinMotionState::Aiming);
+            player_state.set_state(PlayerCoinBehaviorState::Aiming);
         }
     }
 
@@ -389,7 +410,7 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CursorWorldPosition>()
             .init_resource::<PlayerCoinState>()
-            .add_systems(OnEnter(GameState::Loading), controller::setup_player)
+            .add_systems(OnEnter(GameState::Loading), (controller::reset_player_coin_state, controller::setup_player).chain())
             .add_systems(
                 Update,
                 track_pointer_world_position

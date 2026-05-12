@@ -4,7 +4,7 @@ use crate::card::card_params::{
 };
 use crate::card::{Card, CardKind, CardSpecializedInstaller, spawn_card_by_card_param};
 use crate::coin::player::PlayerCoin;
-use crate::coin::player::controller::PlayerCoinState;
+use crate::coin::player::controller::{PlayerCoinState, ResPlayerCoinStateExt};
 use crate::config::GameConfig;
 use crate::editor::{
     EditorInteractionState, EditorLinkedEntities, EditorPlacedCard, EditorRuntimeSpecializedParam,
@@ -145,7 +145,7 @@ fn reveal_clues(
     mut illumination_mesh_query: Query<&mut Mesh2d, With<ClueIllumination>>,
     mut card_spawn_params: CardSpawnParams,
 ) {
-    if !player_coin_state.is_changed() || !player_coin_state.just_ejected() {
+    if !player_coin_state.just_ejected_or_initialized() {
         return;
     }
     let Ok(player_transform) = player_query.single() else {
