@@ -1,3 +1,4 @@
+use crate::card::Card;
 use crate::coin::player::PlayerCoin;
 use crate::config::GameConfig;
 use crate::physics::obstacle::Obstacle;
@@ -59,7 +60,15 @@ pub fn update_vision_field_mesh(
     };
 
     let player_position = player_transform.translation.truncate();
-    let visible_points = compute_visible_points(&config, player_position, &obstacle_query);
+    let max_obstacle_distance = config.vision.radius + Card::SIZE.length();
+    let max_obstacle_distance_squared = max_obstacle_distance * max_obstacle_distance;
+    let obstacle_paths = collect_nearby_obstacle_paths(
+        player_position,
+        max_obstacle_distance_squared,
+        &obstacle_query,
+    );
+    let visible_points =
+        compute_visible_points_from_world_paths(&config, player_position, &obstacle_paths);
     *mesh = build_vision_mesh(&config, player_position, &visible_points);
 }
 
@@ -88,6 +97,33 @@ pub fn compute_visible_points<F: bevy::ecs::query::QueryFilter>(
     origin: Vec2,
     obstacle_query: &Query<(&Transform, &Obstacle), F>,
 ) -> Vec<Vec2> {
+    let obstacle_paths = obstacle_query
+        .iter()
+        .map(|(transform, obstacle)| obstacle.world_path(transform))
+        .collect::<Vec<_>>();
+    compute_visible_points_from_world_paths(config, origin, &obstacle_paths)
+}
+
+fn collect_nearby_obstacle_paths<F: bevy::ecs::query::QueryFilter>(
+    origin: Vec2,
+    max_distance_squared: f32,
+    obstacle_query: &Query<(&Transform, &Obstacle), F>,
+) -> Vec<Vec<Vec2>> {
+    obstacle_query
+        .iter()
+        .filter_map(|(transform, obstacle)| {
+            let obstacle_position = transform.translation.truncate();
+            (obstacle_position.distance_squared(origin) <= max_distance_squared)
+                .then(|| obstacle.world_path(transform))
+        })
+        .collect()
+}
+
+fn compute_visible_points_from_world_paths(
+    config: &GameConfig,
+    origin: Vec2,
+    obstacle_paths: &[Vec<Vec2>],
+) -> Vec<Vec2> {
     let mut rays_radius = Vec::with_capacity(config.vision.ray_count * 2);
 
     for index in 0..config.vision.ray_count {
@@ -95,9 +131,8 @@ pub fn compute_visible_points<F: bevy::ecs::query::QueryFilter>(
         rays_radius.push(normalize_angle(angle));
     }
 
-    for (transform, obstacle) in obstacle_query.iter() {
-        let world_path = obstacle.world_path(transform);
-        for &point in &world_path {
+    for world_path in obstacle_paths {
+        for &point in world_path {
             let angle = normalize_angle((point.y - origin.y).atan2(point.x - origin.x));
             rays_radius.push(normalize_angle(angle - config.vision.vertex_epsilon));
             rays_radius.push(normalize_angle(angle + config.vision.vertex_epsilon));
@@ -118,21 +153,20 @@ pub fn compute_visible_points<F: bevy::ecs::query::QueryFilter>(
 
     rays_radius
         .into_iter()
-        .map(|angle| cast_visibility_ray(&config, origin, angle, obstacle_query))
+        .map(|angle| cast_visibility_ray(&config, origin, angle, obstacle_paths))
         .collect()
 }
 
-fn cast_visibility_ray<F: bevy::ecs::query::QueryFilter>(
+fn cast_visibility_ray(
     config: &GameConfig,
     origin: Vec2,
     angle: f32,
-    obstacle_query: &Query<(&Transform, &Obstacle), F>,
+    obstacle_paths: &[Vec<Vec2>],
 ) -> Vec2 {
     let direction = Vec2::from_angle(angle);
     let mut closest_distance = config.vision.radius;
 
-    for (transform, obstacle) in obstacle_query.iter() {
-        let world_path = obstacle.world_path(transform);
+    for world_path in obstacle_paths {
         if world_path.len() < 2 {
             continue;
         }
