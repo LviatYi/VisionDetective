@@ -347,7 +347,10 @@ impl Plugin for EditorPlugin {
                     .after(track_editor_pointer_world_position)
                     .run_if(in_state(AppStatus::Editor)),
             )
-            .add_systems(Update, draw_editor_gizmos.run_if(in_state(AppStatus::Editor)));
+            .add_systems(
+                Update,
+                draw_editor_gizmos.run_if(in_state(AppStatus::Editor)),
+            );
 
         for registration in inventory::iter::<CardEditorSystemRegistration> {
             registration.install(app);
@@ -812,6 +815,17 @@ fn handle_prefab_drag_start(
     mut commands: Commands,
     mut press_events: MessageReader<Pointer<Press>>,
     preview_query: Query<&PrefabPreviewButton>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    card_query: Query<
+        (
+            Entity,
+            &Card,
+            &Transform,
+            Option<&EditorRuntimeSpecializedParam>,
+            Option<&EditorSpecializedAuxiliaryCard>,
+        ),
+        Without<EditorDragPreview>,
+    >,
     mut spawn_deps: CardSpawnParams<'_>,
     mut state: ResMut<EditorInteractionState>,
 ) {
@@ -827,13 +841,17 @@ fn handle_prefab_drag_start(
             commands.entity(entity).despawn();
         }
 
+        let start_position = cursor_world_position(&camera_query, event.pointer_location.position)
+            .map(normalize_editor_position)
+            .unwrap_or(Vec2::ZERO);
+        let before_scene = collect_editor_scene_snapshot(&card_query);
         let entity = spawn_editor_card(
             &mut commands,
             &mut spawn_deps,
             &CardParam {
                 scene_param: CardSceneParam {
                     instance_id: String::new(),
-                    position: Vec2::ZERO,
+                    position: start_position,
                     rotation: 0.0,
                     order: 0.0,
                     enable_if: None,
@@ -850,7 +868,17 @@ fn handle_prefab_drag_start(
 
         state.dragging_prefab = Some(preview_button.prefab_id);
         state.drag_preview_entity = Some(entity);
-        state.moving_entity = None;
+        state.moving_entity = Some(MovingEntityState {
+            pointer_offset: Vec2::ZERO,
+            start_position,
+            axis_lock: EditorAxisLock::None,
+            moving_entities: vec![MovingEntityMember {
+                entity,
+                start_position,
+            }],
+            before_scene,
+            changed: false,
+        });
         state.rotating_entity = None;
         state.box_selection = None;
         state.status_message = format!("正在拖拽预制体 #{}", preview_button.prefab_id);
@@ -947,8 +975,20 @@ fn update_drag_preview_card(
         return;
     };
 
-    transform.translation.x = world_position.x;
-    transform.translation.y = world_position.y;
+    let is_moving_preview = state
+        .moving_entity
+        .as_ref()
+        .map(|moving| {
+            moving
+                .moving_entities
+                .iter()
+                .any(|moving_entity| moving_entity.entity == preview_entity)
+        })
+        .unwrap_or(false);
+    if !is_moving_preview {
+        transform.translation.x = world_position.x;
+        transform.translation.y = world_position.y;
+    }
     transform.translation.z = editor_global_z_from_order(DRAG_PREVIEW_ORDER);
     transform.rotation = Quat::IDENTITY;
     *visibility = Visibility::Visible;
@@ -967,6 +1007,7 @@ pub(crate) fn cancel_prefab_drag_with_escape(
         commands.entity(entity).despawn();
     }
     state.dragging_prefab = None;
+    state.moving_entity = None;
     state.escape_consumed = true;
     state.status_message = "已取消拖拽预制体".into();
 }
@@ -975,7 +1016,6 @@ fn handle_prefab_drop(
     mut commands: Commands,
     mut release_events: MessageReader<Pointer<Release>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    pointer_world: Res<EditorPointerWorldPosition>,
     mut preview_query: Query<&mut Transform, With<EditorDragPreview>>,
     card_query: Query<
         (
@@ -1013,20 +1053,13 @@ fn handle_prefab_drop(
         if let Some(entity) = preview_entity {
             commands.entity(entity).despawn();
         }
+        state.moving_entity = None;
         state.status_message = "已取消放置：请在主场景区域松开鼠标".into();
         return;
     }
 
-    let Some(world_position) = pointer_world.0 else {
-        if let Some(entity) = preview_entity {
-            commands.entity(entity).despawn();
-        }
-        state.status_message = "放置卡牌失败：无法映射到场景坐标".into();
-        return;
-    };
-    let world_position = normalize_editor_position(world_position);
-
     let Some(entity) = preview_entity else {
+        state.moving_entity = None;
         state.status_message = "放置卡牌失败：拖拽预览不存在".into();
         return;
     };
@@ -1034,18 +1067,22 @@ fn handle_prefab_drop(
     let before_scene = collect_editor_scene_snapshot(&card_query);
     let placed_order =
         next_card_order_from_transforms(card_query.iter().map(|(_, _, transform, _, _)| transform));
-    if let Ok(mut transform) = preview_query.get_mut(entity) {
-        transform.translation.x = world_position.x;
-        transform.translation.y = world_position.y;
+    let world_position = if let Ok(mut transform) = preview_query.get_mut(entity) {
         transform.translation.z = editor_global_z_from_order(placed_order);
         transform.rotation = Quat::IDENTITY;
-    }
+        transform.translation.truncate()
+    } else {
+        state.moving_entity = None;
+        state.status_message = "放置卡牌失败：拖拽预览不存在".into();
+        return;
+    };
 
     commands
         .entity(entity)
         .remove::<EditorDragPreview>()
         .insert((Visibility::Visible, EditorPlacedCard));
 
+    state.moving_entity = None;
     state.set_selection(vec![entity]);
     record_editor_undo(&mut history, before_scene);
     state.clear_exit_confirmation();
@@ -1383,7 +1420,7 @@ fn handle_scene_editing(
     let released = release_events
         .read()
         .any(|event| event.button == PointerButton::Primary);
-    if released {
+    if released && state.dragging_prefab.is_none() {
         if let Some(moving) = state.moving_entity.take() {
             if moving.changed {
                 record_editor_undo(&mut history, moving.before_scene);
