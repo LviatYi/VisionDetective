@@ -79,4 +79,37 @@ impl Area {
             .map(|point| transform.transform_point(point.extend(0.0)).truncate())
             .collect()
     }
+
+    pub fn contains_world_point(&self, transform: &Transform, point: Vec2) -> bool {
+        let world_path = self.world_path(transform);
+        point_in_polygon(point, &world_path)
+    }
+}
+
+fn point_in_polygon(point: Vec2, polygon: &[Vec2]) -> bool {
+    if polygon.len() < 3 {
+        return false;
+    }
+
+    let mut inside = false;
+    let mut previous = polygon.len() - 1;
+
+    for current in 0..polygon.len() {
+        let current_point = polygon[current];
+        let previous_point = polygon[previous];
+
+        let intersects = (current_point.y > point.y) != (previous_point.y > point.y)
+            && point.x
+                < (previous_point.x - current_point.x) * (point.y - current_point.y)
+                    / (previous_point.y - current_point.y)
+                    + current_point.x;
+
+        if intersects {
+            inside = !inside;
+        }
+
+        previous = current;
+    }
+
+    inside
 }
