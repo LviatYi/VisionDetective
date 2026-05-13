@@ -58,11 +58,8 @@ impl WindowConfig {
 pub struct VisualConfig {
     pub player_radius: f32,
     pub player_color: [f32; 3],
-    pub player_z: f32,
     pub pointer_radius: f32,
     pub pointer_color: [f32; 3],
-    pub pointer_z: f32,
-    pub marker_z: f32,
 }
 
 impl VisualConfig {

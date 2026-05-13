@@ -7,6 +7,7 @@ pub enum SceneLayer {
     Card,
     PlayerVision,
     PlayerCoin,
+    GizmoAimingMarker,
     Coin,
 }
 
@@ -16,6 +17,7 @@ impl SceneLayer {
             SceneLayer::Card => 10000,
             SceneLayer::PlayerVision => 30000,
             SceneLayer::PlayerCoin => 30001,
+            SceneLayer::GizmoAimingMarker => 30002,
             SceneLayer::Coin => 30100,
         } as f32)
     }

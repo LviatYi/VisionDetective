@@ -28,7 +28,7 @@ impl CardSpecializedInstaller for TrapCardSpecializedInstaller {
             Update,
             handle_player_trap_collision
                 .after(crate::physics::move_player_coin_transform)
-                .in_set(GameplaySet::PlayerPhysics),
+                .in_set(GameplaySet::Death),
         );
     }
 }

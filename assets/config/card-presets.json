@@ -51,6 +51,21 @@
       "image_res_path": "pic/talk-bubble.png"
     },
     {
+      "id": 100011,
+      "title": "桌子",
+      "image_res_path": "pic/table-left.png"
+    },
+    {
+      "id": 100012,
+      "title": "桌子",
+      "image_res_path": "pic/table-right.png"
+    },
+    {
+      "id": 100013,
+      "title": "坍塌",
+      "image_res_path": "pic/collapse.png"
+    },
+    {
       "id": 100901,
       "title": "草",
       "background_color_appearance_override": "#4C8A68FF",
@@ -307,6 +322,162 @@
       }
     },
     {
+      "id": 10000205,
+      "type": "obstacle",
+      "params": {
+        "shape_def": {
+          "path": [
+            [
+              -32,
+              1
+            ],
+            [
+              -32,
+              11
+            ],
+            [
+              -37,
+              13
+            ],
+            [
+              -37,
+              17
+            ],
+            [
+              44,
+              23
+            ],
+            [
+              44,
+              -34
+            ],
+            [
+              -2,
+              -40
+            ],
+            [
+              0,
+              -50
+            ],
+            [
+              -2,
+              -66
+            ],
+            [
+              -7,
+              -66
+            ],
+            [
+              -9,
+              -64
+            ],
+            [
+              -10,
+              -59
+            ],
+            [
+              -24,
+              -49
+            ],
+            [
+              -29,
+              -49
+            ],
+            [
+              -31,
+              -41
+            ],
+            [
+              -31,
+              -33
+            ],
+            [
+              -29,
+              -27
+            ],
+            [
+              -30,
+              -4
+            ],
+            [
+              -32,
+              1
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": 10000206,
+      "type": "obstacle",
+      "params": {
+        "shape_def": {
+          "path": [
+            [
+              -44,
+              24
+            ],
+            [
+              -6,
+              27
+            ],
+            [
+              31,
+              17
+            ],
+            [
+              31,
+              13
+            ],
+            [
+              25,
+              13
+            ],
+            [
+              25,
+              1
+            ],
+            [
+              23,
+              -49
+            ],
+            [
+              19,
+              -50
+            ],
+            [
+              16,
+              -48
+            ],
+            [
+              -6,
+              -35
+            ],
+            [
+              -10,
+              -36
+            ],
+            [
+              -12,
+              -35
+            ],
+            [
+              -12,
+              -30
+            ],
+            [
+              -44,
+              -34
+            ],
+            [
+              -44,
+              24
+            ]
+          ]
+        }
+      }
+    },
+    {
       "id": 10000501,
       "type": "interactive",
       "params": {
@@ -356,6 +527,13 @@
             }
           ]
         }
+      }
+    },
+    {
+      "id": 10000701,
+      "type": "trap",
+      "params": {
+        "shape_def": "full"
       }
     },
     {
@@ -535,6 +713,24 @@
       "appearance_id": 100008,
       "specialized_id": 10000204,
       "description": "沙发（右）"
+    },
+    {
+      "id": 1209,
+      "appearance_id": 100011,
+      "specialized_id": 10000205,
+      "description": "沙发（左）"
+    },
+    {
+      "id": 1210,
+      "appearance_id": 100012,
+      "specialized_id": 10000206,
+      "description": "沙发（右）"
+    },
+    {
+      "id": 1701,
+      "appearance_id": 100013,
+      "specialized_id": 10000701,
+      "description": "坍塌（陷阱）"
     },
     {
       "id": 1901,

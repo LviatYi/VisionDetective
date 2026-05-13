@@ -53,11 +53,13 @@ pub enum GameStatus {
 
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GameplaySet {
+    Respawn,
     CardState,
     PlayerPhysics,
     CardLogic,
     PlayerInput,
     Visual,
+    Death,
 }
 
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]

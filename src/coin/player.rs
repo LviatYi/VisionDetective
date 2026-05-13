@@ -23,8 +23,8 @@ pub mod controller {
     use bevy::picking::prelude::{Drag, DragEnd, Move, Out, Over, Pointer, Press, Release};
     use bevy::prelude::{
         Assets, Camera, Camera2d, Circle, ColorMaterial, Commands, Component, DetectChanges,
-        Gizmos, GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, MessageReader, Pickable, Query, Ref,
-        Res, ResMut, Resource, Transform, Visibility, With,
+        Entity, Gizmos, GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, MessageReader, Pickable,
+        Query, Ref, Res, ResMut, Resource, Transform, Visibility, With,
     };
     use std::collections::HashSet;
     use std::ops::{Deref, DerefMut};
@@ -213,10 +213,13 @@ pub mod controller {
     }
 
     pub fn handle_death(
-        mut player_query: Query<(&mut PlayerCoinState, &mut Transform), With<PlayerCoin>>,
+        mut player_query: Query<
+            (&mut PlayerCoinState, &mut Transform, &mut Velocity),
+            With<PlayerCoin>,
+        >,
         game_progress: Res<GameProgress>,
     ) {
-        for (mut player_state, mut player_transform) in player_query.iter_mut() {
+        for (mut player_state, mut player_transform, mut velocity) in player_query.iter_mut() {
             if !player_state.is_death() {
                 continue;
             }
@@ -225,7 +228,8 @@ pub mod controller {
             player_transform.translation = game_progress
                 .last_player_stop_position
                 .unwrap_or_else(Vec2::default)
-                .extend(0.0);
+                .extend(SceneLayer::PlayerCoin.get_layer_base_z());
+            *velocity = Velocity::default();
         }
     }
 
@@ -246,7 +250,7 @@ pub mod controller {
             Transform::from_translation(Vec3::new(
                 player_position.x,
                 player_position.y,
-                SceneLayer::PlayerCoin.get_layer_base_z() + config.visuals.player_z,
+                SceneLayer::PlayerCoin.get_layer_base_z(),
             )),
             PlayerCoin::default(),
             Velocity::default(),
@@ -258,7 +262,11 @@ pub mod controller {
         commands.spawn((
             Mesh2d(meshes.add(Circle::new(config.visuals.pointer_radius))),
             MeshMaterial2d(materials.add(config.visuals.pointer_color())),
-            Transform::from_translation(Vec3::new(0.0, 0.0, config.visuals.pointer_z)),
+            Transform::from_translation(Vec3::new(
+                0.0,
+                0.0,
+                SceneLayer::GizmoAimingMarker.get_layer_base_z(),
+            )),
             Visibility::Hidden,
             PointerMarker,
             crate::GameView,
@@ -300,20 +308,23 @@ pub mod controller {
     pub fn update_player_hover_state(
         mut over_events: MessageReader<Pointer<Over>>,
         mut out_events: MessageReader<Pointer<Out>>,
-        mut player_query: Query<(&mut PlayerCoinState, &Velocity), With<PlayerCoin>>,
+        mut player_query: Query<(Entity, &mut PlayerCoinState, &Velocity), With<PlayerCoin>>,
     ) {
-        for (mut player_state, velocity) in player_query.iter_mut() {
-            if !player_state.is_idle() && !player_state.is_aiming() {
+        for (player_entity, mut player_state, velocity) in player_query.iter_mut() {
+            if !matches!(
+                player_state.state(),
+                PlayerCoinBehaviorStatus::Idle | PlayerCoinBehaviorStatus::Aiming
+            ) {
                 continue;
             }
 
             for event in over_events.read() {
-                if event.hit.position.is_some() && velocity.length_squared() <= 0.0 {
+                if event.entity.eq(&player_entity) && player_state.is_idle() {
                     player_state.set_state(PlayerCoinBehaviorStatus::Aiming);
                 }
             }
-            for _ in out_events.read() {
-                if player_state.is_aiming() {
+            for event in out_events.read() {
+                if event.entity.eq(&player_entity) && player_state.is_aiming() {
                     player_state.set_state(PlayerCoinBehaviorStatus::Idle);
                 }
             }
@@ -331,7 +342,10 @@ pub mod controller {
 
             match player_query.get_mut(event.entity) {
                 Ok((mut player_state, velocity)) => {
-                    if player_state.is_moving() || velocity.length_squared() > 0.0 {
+                    if !matches!(
+                        player_state.state(),
+                        PlayerCoinBehaviorStatus::Idle | PlayerCoinBehaviorStatus::Aiming
+                    ) {
                         continue;
                     }
 
@@ -448,7 +462,6 @@ pub mod controller {
     }
 
     pub fn update_aiming_marker(
-        config: Res<GameConfig>,
         cursor_world: Res<CursorWorldPosition>,
         player_query: Query<&PlayerCoinState, With<PlayerCoin>>,
         mut marker_query: Query<(&mut Transform, &mut Visibility), With<PointerMarker>>,
@@ -460,7 +473,8 @@ pub mod controller {
         for player_state in player_query.iter() {
             if player_state.is_aiming() || player_state.is_charging() {
                 if let Some(cursor) = cursor_world.0 {
-                    transform.translation = cursor.extend(config.visuals.marker_z);
+                    transform.translation =
+                        cursor.extend(SceneLayer::GizmoAimingMarker.get_layer_base_z());
                     *visibility = Visibility::Visible;
                     return;
                 }
@@ -527,7 +541,6 @@ impl Plugin for PlayerPlugin {
                 (
                     controller::setup_player,
                     controller::set_player_coin_state_idle,
-                    controller::handle_death,
                 )
                     .chain()
                     .in_set(GameLoadingSet::BuildScene),
@@ -558,6 +571,12 @@ impl Plugin for PlayerPlugin {
                     update_player_visuals,
                 )
                     .in_set(GameplaySet::Visual),
+            )
+            .add_systems(
+                Update,
+                controller::handle_death
+                    .in_set(GameplaySet::Respawn)
+                    .run_if(in_state(GameStatus::InGame)),
             );
     }
 }
