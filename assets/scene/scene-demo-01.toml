@@ -4,9 +4,37 @@ prefab_id = 1701
 [cards.scene_param]
 instance_id = "1701-坍塌-91febfe1-1a75-45a3-b9cd-a3add09bba1e"
 position = [
-    189.0,
-    128.0,
+    -204.0,
+    139.0,
 ]
 rotation = 0.0
 order = 1.0
 description = "title: 坍塌, image_path: pic/collapse.png, desc: 坍塌（陷阱）"
+
+[[cards]]
+prefab_id = 1104
+
+[cards.scene_param]
+instance_id = "1104-血滴-aa8d21da-4b70-48cd-a443-8e1661c70420"
+position = [
+    321.0,
+    242.0,
+]
+rotation = 0.0
+order = 2.0
+description = "title: 血滴, image_path: pic/blood-drop.png, desc: 血滴（线索）"
+
+[cards.runtime_specialized_param]
+type = "clue"
+
+[cards.runtime_specialized_param.params.target_card_param]
+prefab_id = 1904
+
+[cards.runtime_specialized_param.params.target_card_param.scene_param]
+instance_id = "1904-对话交互卡-83640365-93ce-4cea-800f-c62b2b74eb95"
+order = 3.0
+position = [
+    189.0,
+    71.0,
+]
+rotation = -0.0

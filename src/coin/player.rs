@@ -308,9 +308,9 @@ pub mod controller {
     pub fn update_player_hover_state(
         mut over_events: MessageReader<Pointer<Over>>,
         mut out_events: MessageReader<Pointer<Out>>,
-        mut player_query: Query<(Entity, &mut PlayerCoinState, &Velocity), With<PlayerCoin>>,
+        mut player_query: Query<(Entity, &mut PlayerCoinState), With<PlayerCoin>>,
     ) {
-        for (player_entity, mut player_state, velocity) in player_query.iter_mut() {
+        for (player_entity, mut player_state) in player_query.iter_mut() {
             if !matches!(
                 player_state.state(),
                 PlayerCoinBehaviorStatus::Idle | PlayerCoinBehaviorStatus::Aiming
@@ -333,7 +333,7 @@ pub mod controller {
 
     pub fn start_player_charge_from_pointer(
         mut press_events: MessageReader<Pointer<Press>>,
-        mut player_query: Query<(&mut PlayerCoinState, &Velocity), With<PlayerCoin>>,
+        mut player_query: Query<&mut PlayerCoinState, With<PlayerCoin>>,
     ) {
         for event in press_events.read() {
             if event.button != PointerButton::Primary {
@@ -341,7 +341,7 @@ pub mod controller {
             }
 
             match player_query.get_mut(event.entity) {
-                Ok((mut player_state, velocity)) => {
+                Ok((mut player_state)) => {
                     if !matches!(
                         player_state.state(),
                         PlayerCoinBehaviorStatus::Idle | PlayerCoinBehaviorStatus::Aiming

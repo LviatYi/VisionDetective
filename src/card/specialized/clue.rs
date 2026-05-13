@@ -493,7 +493,7 @@ fn editor_clue_target_spawn_param(clue: &ClueCard, clue_transform: &Transform) -
                 disable_if: None,
                 description: String::new(),
             },
-            prefab_id: 0,
+            prefab_id: DEFAULT_EDITOR_CLUE_TARGET_PREFAB_ID,
             runtime_specialized_param: None,
         },
         Some(card_param) => card_param.clone(),
