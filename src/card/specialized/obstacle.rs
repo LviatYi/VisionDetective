@@ -8,6 +8,8 @@ use bevy::math::Vec2;
 use bevy::prelude::{Component, Deref, Gizmos, Query, Res, Transform};
 use serde::{Deserialize, Serialize};
 
+//region Installer
+
 pub struct ObstacleCardSpecializedInstaller;
 
 impl CardSpecializedInstaller for ObstacleCardSpecializedInstaller {
@@ -17,6 +19,10 @@ impl CardSpecializedInstaller for ObstacleCardSpecializedInstaller {
 }
 
 register_card_specialized_installer!(ObstacleCardSpecializedInstaller);
+
+//endregion
+
+//region Card Specialized Param
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ObstacleCardParams {
@@ -35,6 +41,10 @@ impl CardSpecializedParam for ObstacleCardParams {
     }
 }
 
+//endregion
+
+//region Component
+
 #[derive(Component, Clone, Deref)]
 pub struct Obstacle {
     pub area: Area,
@@ -47,6 +57,10 @@ impl Obstacle {
         }
     }
 }
+
+//endregion
+
+//region Gizmos
 
 pub fn draw_obstacle_paths(
     config: Res<GameConfig>,
@@ -71,3 +85,5 @@ pub fn draw_obstacle_paths(
         }
     }
 }
+
+//endregion

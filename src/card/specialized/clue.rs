@@ -30,6 +30,8 @@ use geo::{
 };
 use serde::{Deserialize, Serialize};
 
+//region Installer
+
 pub struct ClueCardSpecializedInstaller;
 
 impl CardSpecializedInstaller for ClueCardSpecializedInstaller {
@@ -47,6 +49,10 @@ impl CardSpecializedInstaller for ClueCardSpecializedInstaller {
 }
 
 register_card_specialized_installer!(ClueCardSpecializedInstaller);
+
+//endregion
+
+//region Card Specialized Param
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClueCardParams {
@@ -132,6 +138,10 @@ impl ClueRevealThreshold {
     }
 }
 
+//endregion
+
+//region Component
+
 #[derive(Component, Debug, Clone)]
 pub struct ClueCard {
     pub param: ClueCardParams,
@@ -146,13 +156,7 @@ struct ClueQuestionMark;
 #[derive(Component)]
 struct ClueIllumination;
 
-#[derive(Component, Clone, Copy)]
-struct EditorClueLink {
-    target: Entity,
-}
-
-#[derive(Component, Clone, Copy)]
-struct EditorClueTargetCard;
+//endregion
 
 fn restore_reveal_clues(
     mut commands: Commands,
@@ -422,6 +426,14 @@ const CLUE_LINK_DASH_LENGTH: f32 = 18.0;
 const CLUE_LINK_GAP_LENGTH: f32 = 10.0;
 
 //region Editor
+
+#[derive(Component, Clone, Copy)]
+struct EditorClueLink {
+    target: Entity,
+}
+
+#[derive(Component, Clone, Copy)]
+struct EditorClueTargetCard;
 
 fn register_editor_systems(app: &mut App) {
     app.add_systems(

@@ -23,6 +23,8 @@ use bevy::prelude::{
 };
 use serde::{Deserialize, Serialize};
 
+//region Installer
+
 pub struct InteractiveCardSpecializedInstaller;
 
 impl CardSpecializedInstaller for InteractiveCardSpecializedInstaller {
@@ -52,28 +54,9 @@ impl CardSpecializedInstaller for InteractiveCardSpecializedInstaller {
 
 register_card_specialized_installer!(InteractiveCardSpecializedInstaller);
 
-/// Marker component for cards that participate in interaction handling.
-#[derive(Component, Default)]
-pub struct Interactive {
-    /// release the state_key when the user interacts
-    state_key: Option<String>,
-}
-
-//region Enter & Exit Event
-
-#[derive(EntityEvent, Component, Clone, Copy, Debug)]
-pub struct CardInteractionEntered {
-    pub entity: Entity,
-    pub prefab_id: u32,
-}
-
-#[derive(EntityEvent, Component, Clone, Copy, Debug)]
-pub struct CardInteractionExited {
-    pub entity: Entity,
-    pub prefab_id: u32,
-}
-
 //endregion
+
+//region Card Specialized Param
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InteractionCardParams {
@@ -118,6 +101,41 @@ impl CardSpecializedParam for InteractionCardParams {
     }
 }
 
+//endregion
+
+//region Component
+
+#[derive(Resource, Default)]
+struct ActiveInteraction {
+    current: Option<Entity>,
+    previous: Option<Entity>,
+}
+
+/// Marker component for cards that participate in interaction handling.
+#[derive(Component, Default)]
+pub struct Interactive {
+    /// release the state_key when the user interacts
+    state_key: Option<String>,
+}
+
+//endregion
+
+//region Enter & Exit Event
+
+#[derive(EntityEvent, Component, Clone, Copy, Debug)]
+pub struct CardInteractionEntered {
+    pub entity: Entity,
+    pub prefab_id: u32,
+}
+
+#[derive(EntityEvent, Component, Clone, Copy, Debug)]
+pub struct CardInteractionExited {
+    pub entity: Entity,
+    pub prefab_id: u32,
+}
+
+//endregion
+
 //region Progress State
 
 fn unlock_progress_from_interaction(
@@ -137,12 +155,6 @@ fn unlock_progress_from_interaction(
     progress.unlock(state_key);
 }
 //endregion
-
-#[derive(Resource, Default)]
-struct ActiveInteraction {
-    current: Option<Entity>,
-    previous: Option<Entity>,
-}
 
 fn update_active_interaction(
     config: Res<GameConfig>,

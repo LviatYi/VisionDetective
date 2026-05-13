@@ -4,6 +4,8 @@ use crate::register_card_specialized_installer;
 use bevy::ecs::system::EntityCommands;
 use serde::{Deserialize, Serialize};
 
+//region Installer
+
 pub struct SceneryCardSpecializedInstaller;
 
 impl CardSpecializedInstaller for SceneryCardSpecializedInstaller {
@@ -13,6 +15,10 @@ impl CardSpecializedInstaller for SceneryCardSpecializedInstaller {
 }
 
 register_card_specialized_installer!(SceneryCardSpecializedInstaller);
+
+//endregion
+
+//region Card Specialized Param
 
 /// Specialized parameters for scenery cards.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -30,3 +36,5 @@ impl CardSpecializedParam for SceneryCardParams {
     ) {
     }
 }
+
+//endregion
