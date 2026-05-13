@@ -53,13 +53,14 @@ pub enum GameStatus {
 
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GameplaySet {
-    Respawn,
-    CardState,
+    PlayerRespawn,
+    SceneModifiedCardLogic,
     PlayerPhysics,
-    CardLogic,
+    InteractiveCardLogic,
     PlayerInput,
     Visual,
-    Death,
+    PlayerDeath,
+    InteractiveCardCheck,
 }
 
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -97,13 +98,28 @@ fn main() {
         .configure_sets(
             Update,
             (
-                GameplaySet::CardState,
+                GameplaySet::PlayerRespawn,
                 GameplaySet::PlayerPhysics,
-                GameplaySet::CardLogic,
+                GameplaySet::SceneModifiedCardLogic,
+                GameplaySet::InteractiveCardLogic,
                 GameplaySet::PlayerInput,
                 GameplaySet::Visual,
+                GameplaySet::PlayerDeath,
             )
                 .chain()
+                .run_if(in_state(GameStatus::InGame)),
+        )
+        .add_systems(
+            Update,
+            ApplyDeferred
+                .after(GameplaySet::SceneModifiedCardLogic)
+                .before(GameplaySet::InteractiveCardLogic),
+        )
+        .configure_sets(
+            PostUpdate,
+            (GameplaySet::InteractiveCardCheck,)
+                .chain()
+                .after(TransformSystems::Propagate)
                 .run_if(in_state(GameStatus::InGame)),
         )
         .add_plugins((

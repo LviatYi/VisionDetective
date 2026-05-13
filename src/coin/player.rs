@@ -575,7 +575,7 @@ impl Plugin for PlayerPlugin {
             .add_systems(
                 Update,
                 controller::handle_death
-                    .in_set(GameplaySet::Respawn)
+                    .in_set(GameplaySet::PlayerRespawn)
                     .run_if(in_state(GameStatus::InGame)),
             );
     }

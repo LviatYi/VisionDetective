@@ -44,7 +44,10 @@ impl CardSpecializedInstaller for ClueCardSpecializedInstaller {
             OnEnter(GameStatus::Loading),
             restore_reveal_clues.in_set(GameLoadingSet::Restore),
         );
-        app.add_systems(Update, reveal_clues.in_set(GameplaySet::CardLogic));
+        app.add_systems(
+            Update,
+            reveal_clues.in_set(GameplaySet::SceneModifiedCardLogic),
+        );
     }
 }
 

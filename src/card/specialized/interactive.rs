@@ -15,12 +15,13 @@ use crate::{
     AppStatus, GameplaySet, register_card_editor_systems, register_card_specialized_installer,
 };
 use anyhow::Result;
-use bevy::app::{App, Update};
+use bevy::app::{App, PostUpdate, Update};
 use bevy::ecs::system::EntityCommands;
 use bevy::prelude::{
     Commands, Component, DetectChanges, Entity, EntityEvent, GlobalTransform, IntoScheduleConfigs,
     On, Query, Ref, Res, ResMut, Resource, Transform, With, Without, in_state,
 };
+use bevy::transform::TransformSystems;
 use serde::{Deserialize, Serialize};
 
 //region Installer
@@ -41,13 +42,16 @@ impl CardSpecializedInstaller for InteractiveCardSpecializedInstaller {
         }
         app.add_systems(
             Update,
-            (
-                update_active_interaction,
-                clear_disabled_active_interaction,
-                dispatch_interaction_events,
-            )
+            (dispatch_interaction_events,)
                 .chain()
-                .in_set(GameplaySet::CardLogic),
+                .in_set(GameplaySet::InteractiveCardLogic),
+        );
+
+        app.add_systems(
+            PostUpdate,
+            (update_active_interaction, clear_disabled_active_interaction)
+                .chain()
+                .in_set(GameplaySet::InteractiveCardCheck),
         );
     }
 }

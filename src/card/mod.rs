@@ -27,7 +27,7 @@ impl Plugin for CardPlugin {
         app.add_systems(
             Update,
             sync_card_disable_state
-                .in_set(GameplaySet::CardState)
+                .in_set(GameplaySet::SceneModifiedCardLogic)
                 .run_if(in_state(AppStatus::Game)),
         );
         app.add_systems(
