@@ -17,7 +17,7 @@ use crate::camera_control::{CameraControlPlugin, GameCamera};
 use crate::card::CardPlugin;
 use crate::card::card_params::CardSpawnParams;
 use crate::coin::player::PlayerPlugin;
-use crate::coin::player::controller::{PlayerCoinBehaviorState, PlayerCoinState};
+use crate::coin::player::controller::{PlayerCoinBehaviorStatus, PlayerCoinState};
 use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
 use crate::editor::EditorPlugin;
@@ -208,40 +208,38 @@ fn setup_game_scene(
 
 fn update_status_text(
     config: Res<GameConfig>,
-    player_state: Res<PlayerCoinState>,
-    player_query: Query<&Velocity, With<coin::player::PlayerCoin>>,
+    player_query: Query<(Ref<PlayerCoinState>, &Velocity), With<coin::player::PlayerCoin>>,
     mut text_query: Query<&mut Text, With<StatusText>>,
 ) {
-    let Ok(velocity) = player_query.single() else {
-        return;
-    };
     let Ok(mut text) = text_query.single_mut() else {
         return;
     };
 
-    let status = if let PlayerCoinBehaviorState::Charging { eject_vector } = **player_state {
-        let charge_ratio = eject_vector.length() / config.player.max_eject_distance;
-        format!(
-            "蓄力中 | 拉距 {:.0}px | 预计平面速度 {:.0}",
-            eject_vector.length(),
-            charge_ratio * config.player.max_planar_speed
-        )
-    } else if player_state.is_aiming() {
-        format!(
-            "待发射 | 当前速度 x:{:.0} y:{:.0} z:{:.0}",
-            velocity.x, velocity.y, velocity.z
-        )
-    } else if player_state.is_idle() {
-        format!(
-            "静止 | 当前速度 x:{:.0} y:{:.0} z:{:.0}",
-            velocity.x, velocity.y, velocity.z
-        )
-    } else {
-        format!(
-            "弹起中 | 当前速度 x:{:.0} y:{:.0} z:{:.0}",
-            velocity.x, velocity.y, velocity.z
-        )
-    };
+    for (player_state, velocity) in player_query.iter() {
+        let status = if let PlayerCoinBehaviorStatus::Charging { eject_vector } = **player_state {
+            let charge_ratio = eject_vector.length() / config.player.max_eject_distance;
+            format!(
+                "蓄力中 | 拉距 {:.0}px | 预计平面速度 {:.0}",
+                eject_vector.length(),
+                charge_ratio * config.player.max_planar_speed
+            )
+        } else if player_state.is_aiming() {
+            format!(
+                "待发射 | 当前速度 x:{:.0} y:{:.0} z:{:.0}",
+                velocity.x, velocity.y, velocity.z
+            )
+        } else if player_state.is_idle() {
+            format!(
+                "静止 | 当前速度 x:{:.0} y:{:.0} z:{:.0}",
+                velocity.x, velocity.y, velocity.z
+            )
+        } else {
+            format!(
+                "弹起中 | 当前速度 x:{:.0} y:{:.0} z:{:.0}",
+                velocity.x, velocity.y, velocity.z
+            )
+        };
 
-    **text = status;
+        **text = status;
+    }
 }

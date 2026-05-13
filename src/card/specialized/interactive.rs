@@ -6,7 +6,7 @@ use crate::card::card_params::{
 };
 use crate::card::{Card, CardKind, CardSpecializedInstaller};
 use crate::coin::player::PlayerCoin;
-use crate::coin::player::controller::PlayerCoinState;
+use crate::coin::player::controller::{PlayerCoinState, RefPlayerCoinStateExt};
 use crate::config::GameConfig;
 use crate::editor::EditorRuntimeSpecializedParam;
 use crate::progress::GameProgress;
@@ -19,7 +19,7 @@ use bevy::app::{App, Update};
 use bevy::ecs::system::EntityCommands;
 use bevy::prelude::{
     Commands, Component, DetectChanges, Entity, EntityEvent, GlobalTransform, IntoScheduleConfigs,
-    On, Query, Res, ResMut, Resource, Transform, With, Without, in_state,
+    On, Query, Ref, Res, ResMut, Resource, Transform, With, Without, in_state,
 };
 use serde::{Deserialize, Serialize};
 
@@ -146,45 +146,48 @@ struct ActiveInteraction {
 
 fn update_active_interaction(
     config: Res<GameConfig>,
-    player_state: Res<PlayerCoinState>,
-    player_query: Query<&Transform, With<PlayerCoin>>,
+    player_query: Query<(Ref<PlayerCoinState>, &Transform), With<PlayerCoin>>,
     interaction_query: Query<
         (Entity, &Card, &GlobalTransform),
         (With<Interactive>, Without<Disable>),
     >,
     mut active_interaction: ResMut<ActiveInteraction>,
 ) {
-    if !player_state.is_changed() && !player_state.is_stop() {
-        return;
+    let mut any_player_in_query = false;
+    for (player_state, player_transform) in player_query {
+        any_player_in_query = true;
+        if !player_state.just_eject_finished_or_initialized() {
+            return;
+        }
+
+        let player_position = player_transform.translation.truncate();
+        let player_radius = config.visuals.player_radius;
+
+        let next = interaction_query
+            .iter()
+            .filter(|(_, card, transform)| {
+                card.intersect_circle(transform, player_position, player_radius)
+            })
+            .min_by(|(entity_a, _, transform_a), (entity_b, _, transform_b)| {
+                let order_a = transform_a.translation().z;
+                let order_b = transform_b.translation().z;
+
+                order_a
+                    .partial_cmp(&order_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .reverse()
+                    .then_with(|| entity_a.index().cmp(&entity_b.index()))
+            })
+            .map(|(entity, _, _)| entity);
+
+        active_interaction.previous = active_interaction.current;
+        active_interaction.current = next;
     }
 
-    let Ok(player_transform) = player_query.single() else {
+    if !any_player_in_query {
         active_interaction.previous = active_interaction.current.take();
         return;
     };
-
-    let player_position = player_transform.translation.truncate();
-    let player_radius = config.visuals.player_radius;
-
-    let next = interaction_query
-        .iter()
-        .filter(|(_, card, transform)| {
-            card.intersect_circle(transform, player_position, player_radius)
-        })
-        .min_by(|(entity_a, _, transform_a), (entity_b, _, transform_b)| {
-            let order_a = transform_a.translation().z;
-            let order_b = transform_b.translation().z;
-
-            order_a
-                .partial_cmp(&order_b)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .reverse()
-                .then_with(|| entity_a.index().cmp(&entity_b.index()))
-        })
-        .map(|(entity, _, _)| entity);
-
-    active_interaction.previous = active_interaction.current;
-    active_interaction.current = next;
 }
 
 fn clear_disabled_active_interaction(

@@ -1,5 +1,5 @@
 use crate::coin::player::controller::{
-    CursorWorldPosition, PlayerCoinState, draw_arena_and_aim, finish_player_charge_from_pointer,
+    CursorWorldPosition, draw_arena_and_aim, finish_player_charge_from_pointer,
     handle_player_pointer_drag, start_player_charge_from_pointer, track_pointer_world_position,
     update_aiming_marker, update_player_hover_state, update_player_visuals,
 };
@@ -8,10 +8,7 @@ use crate::{GameLoadingSet, GameStatus, GameplaySet};
 use bevy::prelude::*;
 
 #[derive(Component, Default)]
-pub struct PlayerCoin {
-    pub sim_z: f32,
-    pub ground_contact_count: u8,
-}
+pub struct PlayerCoin;
 
 pub struct PlayerPlugin;
 
@@ -26,16 +23,14 @@ pub mod controller {
     use bevy::picking::prelude::{Drag, DragEnd, Move, Out, Over, Pointer, Press, Release};
     use bevy::prelude::{
         Assets, Camera, Camera2d, Circle, ColorMaterial, Commands, Component, DetectChanges,
-        Gizmos, GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, MessageReader, Pickable, Query, Res,
-        ResMut, Resource, Transform, Visibility, With,
+        Gizmos, GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, MessageReader, Pickable, Query, Ref,
+        Res, ResMut, Resource, Transform, Visibility, With,
     };
-    use std::ops::Deref;
-
-    #[derive(Component)]
-    pub struct PointerMarker;
+    use std::collections::HashSet;
+    use std::ops::{Deref, DerefMut};
 
     #[derive(Clone, Copy, Debug, Default, PartialEq)]
-    pub enum PlayerCoinBehaviorState {
+    pub enum PlayerCoinBehaviorStatus {
         #[default]
         Initialized,
         Idle,
@@ -43,98 +38,174 @@ pub mod controller {
         Charging {
             eject_vector: Vec2,
         },
-        Ejecting,
+        Upspring {
+            contact_count: u8,
+            sim_z: f32,
+        },
+        Contact {
+            contact_count: u8,
+            save_velocity: Vec3,
+        },
+        Slide,
+        Death,
     }
 
-    #[derive(Resource, Default)]
-    pub struct PlayerCoinState {
-        state: PlayerCoinBehaviorState,
+    impl PlayerCoinBehaviorStatus {
+        pub fn new_upspring() -> Self {
+            Self::Upspring {
+                contact_count: 0,
+                sim_z: 0.0,
+            }
+        }
 
-        pub last: Option<PlayerCoinBehaviorState>,
+        pub fn is_initialized(&self) -> bool {
+            matches!(self, PlayerCoinBehaviorStatus::Initialized)
+        }
+
+        pub fn is_idle(&self) -> bool {
+            matches!(self, PlayerCoinBehaviorStatus::Idle)
+        }
+
+        pub fn is_moving(&self) -> bool {
+            matches!(
+                self,
+                PlayerCoinBehaviorStatus::Upspring { .. }
+                    | PlayerCoinBehaviorStatus::Contact { .. }
+                    | PlayerCoinBehaviorStatus::Slide
+            )
+        }
+
+        pub fn is_stop(&self) -> bool {
+            !self.is_moving() && !matches!(self, PlayerCoinBehaviorStatus::Death)
+        }
+
+        pub fn is_aiming(&self) -> bool {
+            matches!(self, PlayerCoinBehaviorStatus::Aiming)
+        }
+
+        pub fn is_charging(&self) -> bool {
+            matches!(self, PlayerCoinBehaviorStatus::Charging { .. })
+        }
+
+        pub fn is_airborne(&self) -> bool {
+            matches!(self, PlayerCoinBehaviorStatus::Upspring { .. })
+        }
+
+        pub fn eject_vector(&self) -> Vec2 {
+            match self {
+                PlayerCoinBehaviorStatus::Charging { eject_vector } => *eject_vector,
+                _ => Vec2::ZERO,
+            }
+        }
+
+        pub fn contact_count(&self) -> u8 {
+            match self {
+                PlayerCoinBehaviorStatus::Upspring { contact_count, .. }
+                | PlayerCoinBehaviorStatus::Contact { contact_count, .. } => *contact_count,
+                _ => 0,
+            }
+        }
+
+        pub fn set_contact_count(&mut self, count: u8) -> bool {
+            match self {
+                PlayerCoinBehaviorStatus::Upspring { contact_count, .. }
+                | PlayerCoinBehaviorStatus::Contact { contact_count, .. } => {
+                    *contact_count = count;
+                    true
+                }
+                _ => false,
+            }
+        }
+
+        pub fn sim_z(&self) -> f32 {
+            match self {
+                PlayerCoinBehaviorStatus::Upspring { sim_z, .. } => *sim_z,
+                _ => 0.0,
+            }
+        }
+
+        pub fn set_sim_z(&mut self, in_sim_z: f32) -> bool {
+            match self {
+                PlayerCoinBehaviorStatus::Upspring { sim_z, .. } => {
+                    *sim_z = in_sim_z;
+                    true
+                }
+                _ => false,
+            }
+        }
+    }
+
+    #[derive(Component, Default)]
+    pub struct PlayerCoinState {
+        state: PlayerCoinBehaviorStatus,
+
+        pub last: Option<PlayerCoinBehaviorStatus>,
     }
 
     impl PlayerCoinState {
-        pub fn state(&self) {
-            self.state;
+        pub fn state(&self) -> PlayerCoinBehaviorStatus {
+            self.state
         }
 
-        pub fn set_state(&mut self, state: PlayerCoinBehaviorState) {
+        pub fn set_state(&mut self, state: PlayerCoinBehaviorStatus) {
             self.last = Some(self.state);
             self.state = state;
         }
 
         pub fn reset(&mut self) {
-            self.set_state(PlayerCoinBehaviorState::Initialized);
+            self.set_state(PlayerCoinBehaviorStatus::Initialized);
         }
     }
 
     impl Deref for PlayerCoinState {
-        type Target = PlayerCoinBehaviorState;
+        type Target = PlayerCoinBehaviorStatus;
 
         fn deref(&self) -> &Self::Target {
             &self.state
         }
     }
 
-    impl PlayerCoinState {
-        pub fn is_idle(&self) -> bool {
-            matches!(self.state, PlayerCoinBehaviorState::Idle)
-        }
-
-        pub fn is_stop(&self) -> bool {
-            !matches!(self.state, PlayerCoinBehaviorState::Ejecting)
-        }
-
-        pub fn is_aiming(&self) -> bool {
-            matches!(self.state, PlayerCoinBehaviorState::Aiming)
-        }
-
-        pub fn is_charging(&self) -> bool {
-            matches!(self.state, PlayerCoinBehaviorState::Charging { .. })
-        }
-
-        pub fn eject_vector(&self) -> Vec2 {
-            match self.state {
-                PlayerCoinBehaviorState::Charging { eject_vector } => eject_vector,
-                _ => Vec2::ZERO,
-            }
+    impl DerefMut for PlayerCoinState {
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            &mut self.state
         }
     }
 
-    pub trait ResPlayerCoinStateExt {
-        fn just_ejected(&self) -> bool;
+    pub trait RefPlayerCoinStateExt {
+        fn just_eject_finished(&self) -> bool;
 
         fn just_initialized(&self) -> bool;
 
-        fn just_ejected_or_initialized(&self) -> bool {
-            self.just_ejected() || self.just_initialized()
+        fn just_eject_finished_or_initialized(&self) -> bool {
+            self.just_eject_finished() || self.just_initialized()
         }
     }
 
-    impl<'w> ResPlayerCoinStateExt for Res<'w, PlayerCoinState> {
-        fn just_ejected(&self) -> bool {
+    impl<'w> RefPlayerCoinStateExt for Ref<'w, PlayerCoinState> {
+        fn just_eject_finished(&self) -> bool {
             self.is_changed()
-                && matches!(self.state, PlayerCoinBehaviorState::Idle)
-                && self
-                    .last
-                    .is_some_and(|s| matches!(s, PlayerCoinBehaviorState::Ejecting))
+                && matches!(self.state, PlayerCoinBehaviorStatus::Idle)
+                && self.last.is_some_and(|s| s.is_moving())
         }
 
         fn just_initialized(&self) -> bool {
             self.is_changed()
-                && matches!(self.state, PlayerCoinBehaviorState::Idle)
-                && self
-                    .last
-                    .is_some_and(|s| matches!(s, PlayerCoinBehaviorState::Initialized))
+                && self.state.is_idle()
+                && self.last.is_some_and(|s| s.is_initialized())
         }
     }
 
     #[derive(Resource, Default)]
     pub struct CursorWorldPosition(pub Option<Vec2>);
 
-    pub fn reset_player_coin_state(mut player_coin_state: ResMut<PlayerCoinState>) {
-        player_coin_state.reset();
+    pub fn set_player_coin_state_idle(mut player_coin_state: Query<&mut PlayerCoinState>) {
+        player_coin_state
+            .iter_mut()
+            .for_each(|mut state| state.set_state(PlayerCoinBehaviorStatus::Idle));
     }
+
+    #[derive(Component)]
+    pub struct PointerMarker;
 
     pub fn setup_player(
         mut commands: Commands,
@@ -142,7 +213,6 @@ pub mod controller {
         progress: Res<GameProgress>,
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<ColorMaterial>>,
-        mut player_coin_state: ResMut<PlayerCoinState>,
     ) {
         let player_position = progress.last_player_stop_position.unwrap_or(Vec2::ZERO);
         commands.spawn((
@@ -157,6 +227,7 @@ pub mod controller {
             Velocity::default(),
             Pickable::default(),
             crate::GameView,
+            PlayerCoinState::default(),
         ));
 
         commands.spawn((
@@ -167,8 +238,6 @@ pub mod controller {
             PointerMarker,
             crate::GameView,
         ));
-
-        player_coin_state.set_state(PlayerCoinBehaviorState::Idle);
     }
 
     pub fn track_pointer_world_position(
@@ -206,47 +275,46 @@ pub mod controller {
     pub fn update_player_hover_state(
         mut over_events: MessageReader<Pointer<Over>>,
         mut out_events: MessageReader<Pointer<Out>>,
-        mut player_state: ResMut<PlayerCoinState>,
-        player_query: Query<&Velocity, With<PlayerCoin>>,
+        mut player_query: Query<(&mut PlayerCoinState, &Velocity), With<PlayerCoin>>,
     ) {
-        let Ok(velocity) = player_query.single() else {
-            return;
-        };
-        if !player_state.is_idle() && !player_state.is_aiming() {
-            return;
-        }
-
-        for event in over_events.read() {
-            if event.hit.position.is_some() && velocity.length_squared() <= 0.0 {
-                player_state.set_state(PlayerCoinBehaviorState::Aiming);
+        for (mut player_state, velocity) in player_query.iter_mut() {
+            if !player_state.is_idle() && !player_state.is_aiming() {
+                continue;
             }
-        }
-        for _ in out_events.read() {
-            if player_state.is_aiming() {
-                player_state.set_state(PlayerCoinBehaviorState::Idle);
+
+            for event in over_events.read() {
+                if event.hit.position.is_some() && velocity.length_squared() <= 0.0 {
+                    player_state.set_state(PlayerCoinBehaviorStatus::Aiming);
+                }
+            }
+            for _ in out_events.read() {
+                if player_state.is_aiming() {
+                    player_state.set_state(PlayerCoinBehaviorStatus::Idle);
+                }
             }
         }
     }
 
     pub fn start_player_charge_from_pointer(
         mut press_events: MessageReader<Pointer<Press>>,
-        mut player_state: ResMut<PlayerCoinState>,
-        player_query: Query<&Velocity, With<PlayerCoin>>,
+        mut player_query: Query<(&mut PlayerCoinState, &Velocity), With<PlayerCoin>>,
     ) {
-        let Ok(velocity) = player_query.single() else {
-            return;
-        };
-        if velocity.length_squared() > 0.0
-            || matches!(**player_state, PlayerCoinBehaviorState::Ejecting)
-        {
-            return;
-        }
-
         for event in press_events.read() {
-            if event.button == PointerButton::Primary && player_query.get(event.entity).is_ok() {
-                player_state.set_state(PlayerCoinBehaviorState::Charging {
-                    eject_vector: Vec2::ZERO,
-                });
+            if event.button != PointerButton::Primary {
+                continue;
+            }
+
+            match player_query.get_mut(event.entity) {
+                Ok((mut player_state, velocity)) => {
+                    if player_state.is_moving() || velocity.length_squared() > 0.0 {
+                        continue;
+                    }
+
+                    player_state.set_state(PlayerCoinBehaviorStatus::Charging {
+                        eject_vector: Vec2::ZERO,
+                    });
+                }
+                Err(_) => {}
             }
         }
     }
@@ -255,31 +323,33 @@ pub mod controller {
         config: Res<GameConfig>,
         mut drag_events: MessageReader<Pointer<Drag>>,
         camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
-        mut player_state: ResMut<PlayerCoinState>,
-        player_query: Query<&Transform, With<PlayerCoin>>,
+        mut player_query: Query<(&mut PlayerCoinState, &Transform), With<PlayerCoin>>,
     ) {
-        if !player_state.is_charging() {
-            return;
-        }
-
-        let Ok(player_transform) = player_query.single() else {
-            return;
-        };
-        let player_position = player_transform.translation.truncate();
-
         for event in drag_events.read() {
-            if event.button != PointerButton::Primary || player_query.get(event.entity).is_err() {
+            if event.button != PointerButton::Primary {
                 continue;
             }
-            let Some(cursor) =
-                pointer_world_position(&camera_query, event.pointer_location.position)
-            else {
-                continue;
-            };
-            player_state.set_state(PlayerCoinBehaviorState::Charging {
-                eject_vector: (player_position - cursor)
-                    .clamp_length_max(config.player.max_eject_distance),
-            });
+
+            match player_query.get_mut(event.entity) {
+                Ok((mut player_state, player_transform)) => {
+                    if !player_state.is_charging() {
+                        continue;
+                    }
+
+                    let player_position = player_transform.translation.truncate();
+                    let Some(cursor) =
+                        pointer_world_position(&camera_query, event.pointer_location.position)
+                    else {
+                        continue;
+                    };
+
+                    player_state.set_state(PlayerCoinBehaviorStatus::Charging {
+                        eject_vector: (player_position - cursor)
+                            .clamp_length_max(config.player.max_eject_distance),
+                    });
+                }
+                Err(_) => {}
+            }
         }
     }
 
@@ -287,46 +357,55 @@ pub mod controller {
         config: Res<GameConfig>,
         mut release_events: MessageReader<Pointer<Release>>,
         mut drag_end_events: MessageReader<Pointer<DragEnd>>,
-        mut player_state: ResMut<PlayerCoinState>,
-        mut player_query: Query<(&mut PlayerCoin, &mut Velocity), With<PlayerCoin>>,
+        mut player_query: Query<(&mut PlayerCoinState, &mut Velocity), With<PlayerCoin>>,
     ) {
-        if !player_state.is_charging() {
+        let mut released_at = HashSet::new();
+
+        let _ = release_events
+            .read()
+            .map(|event| (event.button, event.entity))
+            .chain(
+                drag_end_events
+                    .read()
+                    .map(|event| (event.button, event.entity)),
+            )
+            .filter(|(button, _)| button.eq(&PointerButton::Primary))
+            .for_each(|(_, entity)| {
+                released_at.insert(entity);
+            });
+
+        if released_at.is_empty() {
             return;
         }
 
-        let mut released = false;
-        for event in release_events.read() {
-            released |=
-                event.button == PointerButton::Primary && player_query.get(event.entity).is_ok();
-        }
-        for event in drag_end_events.read() {
-            released |=
-                event.button == PointerButton::Primary && player_query.get(event.entity).is_ok();
-        }
-        if !released {
-            return;
-        }
+        for entity in released_at {
+            match player_query.get_mut(entity) {
+                Ok((mut player_state, mut velocity)) => {
+                    if !player_state.is_charging() {
+                        continue;
+                    }
 
-        let Ok((mut player, mut velocity)) = player_query.single_mut() else {
-            return;
-        };
-        let eject_vector = player_state.eject_vector();
-        if eject_vector.length() > config.player.min_launch_distance {
-            let charge_ratio = eject_vector.length() / config.player.max_eject_distance;
-            let planar_velocity =
-                charge_ratio * config.player.max_planar_speed * eject_vector.normalize_or_zero();
-            let vertical_velocity = config.player.min_vertical_speed
-                + charge_ratio
-                    * (config.player.max_vertical_speed - config.player.min_vertical_speed);
+                    let eject_vector = player_state.eject_vector();
+                    if eject_vector.length() > config.player.min_launch_distance {
+                        let charge_ratio = eject_vector.length() / config.player.max_eject_distance;
+                        let planar_velocity = charge_ratio
+                            * config.player.max_planar_speed
+                            * eject_vector.normalize_or_zero();
+                        let vertical_velocity = config.player.min_vertical_speed
+                            + charge_ratio
+                                * (config.player.max_vertical_speed
+                                    - config.player.min_vertical_speed);
 
-            velocity.x = planar_velocity.x;
-            velocity.y = planar_velocity.y;
-            velocity.z = vertical_velocity;
-            player.sim_z = 0.0;
-            player.ground_contact_count = 0;
-            player_state.set_state(PlayerCoinBehaviorState::Ejecting);
-        } else {
-            player_state.set_state(PlayerCoinBehaviorState::Aiming);
+                        velocity.x = planar_velocity.x;
+                        velocity.y = planar_velocity.y;
+                        velocity.z = vertical_velocity;
+                        player_state.set_state(PlayerCoinBehaviorStatus::new_upspring());
+                    } else {
+                        player_state.set_state(PlayerCoinBehaviorStatus::Aiming);
+                    }
+                }
+                Err(_) => {}
+            }
         }
     }
 
@@ -346,74 +425,71 @@ pub mod controller {
     pub fn update_aiming_marker(
         config: Res<GameConfig>,
         cursor_world: Res<CursorWorldPosition>,
-        player_state: Res<PlayerCoinState>,
+        player_query: Query<&PlayerCoinState, With<PlayerCoin>>,
         mut marker_query: Query<(&mut Transform, &mut Visibility), With<PointerMarker>>,
     ) {
         let Ok((mut transform, mut visibility)) = marker_query.single_mut() else {
             return;
         };
 
-        if player_state.is_aiming() || player_state.is_charging() {
-            if let Some(cursor) = cursor_world.0 {
-                transform.translation = cursor.extend(config.visuals.marker_z);
-                *visibility = Visibility::Visible;
-                return;
+        for player_state in player_query.iter() {
+            if player_state.is_aiming() || player_state.is_charging() {
+                if let Some(cursor) = cursor_world.0 {
+                    transform.translation = cursor.extend(config.visuals.marker_z);
+                    *visibility = Visibility::Visible;
+                    return;
+                }
             }
-        }
 
-        *visibility = Visibility::Hidden;
+            *visibility = Visibility::Hidden;
+        }
     }
 
     pub fn update_player_visuals(
         config: Res<GameConfig>,
-        mut player_query: Query<(&PlayerCoin, &mut Transform), With<PlayerCoin>>,
+        mut player_query: Query<(&PlayerCoinState, &mut Transform), With<PlayerCoin>>,
     ) {
-        let Ok((player, mut transform)) = player_query.single_mut() else {
-            return;
-        };
+        for (player_state, mut transform) in player_query.iter_mut() {
+            let scale = 1.0 + player_state.sim_z() * config.player.height_scale_factor;
 
-        let scale = 1.0 + player.sim_z * config.player.height_scale_factor;
-
-        transform.scale = Vec3::splat(scale);
+            transform.scale = Vec3::splat(scale);
+        }
     }
 
     pub fn draw_arena_and_aim(
         config: Res<GameConfig>,
         mut gizmos: Gizmos,
-        player_state: Res<PlayerCoinState>,
-        player_query: Query<&Transform, With<PlayerCoin>>,
+        player_query: Query<(&PlayerCoinState, &Transform), With<PlayerCoin>>,
     ) {
-        let Ok(player_transform) = player_query.single() else {
-            return;
-        };
-
-        let player_position = player_transform.translation.truncate();
-        gizmos.circle_2d(
-            player_position,
-            config.visuals.player_radius + config.player.aim_ring_padding,
-            config.player.aim_ring_color(),
-        );
-
-        let eject_vector = player_state.eject_vector();
-        if player_state.is_charging() && eject_vector != Vec2::ZERO {
-            let cursor_position = player_position + eject_vector;
-            let launch_target = player_position - eject_vector;
-
-            gizmos.line_2d(
-                player_position,
-                cursor_position,
-                config.player.charge_line_color(),
-            );
-            gizmos.line_2d(
-                player_position,
-                launch_target,
-                config.player.launch_line_color(),
-            );
+        for (player_state, player_transform) in player_query.iter() {
+            let player_position = player_transform.translation.truncate();
             gizmos.circle_2d(
-                launch_target,
-                config.player.launch_marker_radius,
-                config.player.launch_line_color(),
+                player_position,
+                config.visuals.player_radius + config.player.aim_ring_padding,
+                config.player.aim_ring_color(),
             );
+
+            let eject_vector = player_state.eject_vector();
+            if player_state.is_charging() && eject_vector != Vec2::ZERO {
+                let cursor_position = player_position + eject_vector;
+                let launch_target = player_position - eject_vector;
+
+                gizmos.line_2d(
+                    player_position,
+                    cursor_position,
+                    config.player.charge_line_color(),
+                );
+                gizmos.line_2d(
+                    player_position,
+                    launch_target,
+                    config.player.launch_line_color(),
+                );
+                gizmos.circle_2d(
+                    launch_target,
+                    config.player.launch_marker_radius,
+                    config.player.launch_line_color(),
+                );
+            }
         }
     }
 }
@@ -421,12 +497,11 @@ pub mod controller {
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CursorWorldPosition>()
-            .init_resource::<PlayerCoinState>()
             .add_systems(
                 OnEnter(GameStatus::Loading),
                 (
-                    controller::reset_player_coin_state,
                     controller::setup_player,
+                    controller::set_player_coin_state_idle,
                 )
                     .chain()
                     .in_set(GameLoadingSet::BuildScene),

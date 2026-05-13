@@ -339,11 +339,11 @@ $$
 
 - [A] 陷阱卡
 - [A] Area 区域，可执行陷阱交互或踩下交互
-- [B] 问号显示调整。
-- [B] 存档机制
+- [B] 问号显示调整
+- [B] 开始新游戏与继续游戏。
 - [C] 配置验证
 - [C] `Camera2D Orthographic` 的可视范围应该用于限制 Order 范围。
 - [C] 通过 TextSpan 加强文本显示功能，将对话中的重要信息标红。
 - [D] `CardEditorSystemRegistration` 提供了极宽泛的注册时机，比 `CardSpecializedRegistration` 更甚。应该使用统一架构。
 - [D] 区分运行时参数，而非简单合并，显然有更多好处：直接在编辑器生成时进行复制留存即可。
-- [D] Android 打包？
+- [E] Android 打包

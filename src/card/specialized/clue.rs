@@ -4,7 +4,7 @@ use crate::card::card_params::{
 };
 use crate::card::{Card, CardKind, CardSpecializedInstaller, spawn_card_by_card_param};
 use crate::coin::player::PlayerCoin;
-use crate::coin::player::controller::{PlayerCoinState, ResPlayerCoinStateExt};
+use crate::coin::player::controller::{PlayerCoinState, RefPlayerCoinStateExt};
 use crate::config::GameConfig;
 use crate::editor::{
     EditorInteractionState, EditorLinkedEntities, EditorPlacedCard, EditorRuntimeSpecializedParam,
@@ -177,65 +177,60 @@ fn restore_reveal_clues(
 
 fn reveal_clues(
     mut commands: Commands,
-    player_coin_state: Res<PlayerCoinState>,
-    player_query: Query<&Transform, With<PlayerCoin>>,
+    player_query: Query<(Ref<PlayerCoinState>, &Transform), With<PlayerCoin>>,
     mut clue_query: Query<(Entity, &Card, &mut ClueCard, &GlobalTransform), Without<Disable>>,
     obstacle_query: Query<(&Transform, &Obstacle), (Without<PlayerCoin>, Without<Disable>)>,
     mut illumination_mesh_query: Query<&mut Mesh2d, With<ClueIllumination>>,
     mut progress: ResMut<GameProgress>,
     mut card_spawn_params: CardSpawnParams,
 ) {
-    if !player_coin_state.just_ejected_or_initialized() {
-        return;
-    }
-    let Ok(player_transform) = player_query.single() else {
-        return;
-    };
-
-    for (entity, card, mut clue, global_transform) in &mut clue_query {
-        let revealed = progress
-            .revealed_clue_instances
-            .get(&card.instance_id)
-            .is_some();
-        if revealed {
+    for (player_state, player_transform) in player_query.iter() {
+        if !player_state.just_eject_finished_or_initialized() {
             continue;
         }
 
-        let Some(stamp) = build_visible_clue_stamp(
-            &card_spawn_params.config,
-            player_transform.translation.truncate(),
-            global_transform,
-            &obstacle_query,
-        ) else {
-            continue;
-        };
-        clue.illuminated_regions.push(stamp);
-
-        let (merged_mesh, illuminated_area) = build_merged_illumination_mesh(&clue);
-        let coverage = illuminated_area / Card::card_area();
-
-        if coverage >= clue.param.reveal_threshold.get_threshold() {
-            progress
+        for (entity, card, mut clue, global_transform) in &mut clue_query {
+            let revealed = progress
                 .revealed_clue_instances
-                .insert(card.instance_id.clone());
-            progress
-                .revealed_clue_instances
-                .insert(card.instance_id.clone());
-            despawn_clue_visual_feedback(&mut commands, &mut clue);
-            spawn_revealed_card(&mut commands, &mut card_spawn_params, &clue);
-            continue;
+                .get(&card.instance_id)
+                .is_some();
+            if revealed {
+                continue;
+            }
+
+            let Some(stamp) = build_visible_clue_stamp(
+                &card_spawn_params.config,
+                player_transform.translation.truncate(),
+                global_transform,
+                &obstacle_query,
+            ) else {
+                continue;
+            };
+            clue.illuminated_regions.push(stamp);
+
+            let (merged_mesh, illuminated_area) = build_merged_illumination_mesh(&clue);
+            let coverage = illuminated_area / Card::card_area();
+
+            if coverage >= clue.param.reveal_threshold.get_threshold() {
+                progress
+                    .revealed_clue_instances
+                    .insert(card.instance_id.clone());
+                despawn_clue_visual_feedback(&mut commands, &mut clue);
+                spawn_revealed_card(&mut commands, &mut card_spawn_params, &clue);
+                continue;
+            }
+
+            update_clue_illumination_visual(
+                &mut commands,
+                &card_spawn_params.config,
+                entity,
+                &mut clue,
+                merged_mesh,
+                &mut illumination_mesh_query,
+                card_spawn_params.meshes.as_mut(),
+                card_spawn_params.materials.as_mut(),
+            );
         }
-
-        update_clue_illumination_visual(
-            &mut commands,
-            &card_spawn_params.config,
-            entity,
-            &mut clue,
-            merged_mesh,
-            &mut illumination_mesh_query,
-            card_spawn_params.meshes.as_mut(),
-            card_spawn_params.materials.as_mut(),
-        );
     }
 }
 

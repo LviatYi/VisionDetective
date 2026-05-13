@@ -35,8 +35,10 @@ impl Plugin for CameraControlPlugin {
 
 fn update_game_camera(
     time: Res<Time>,
-    player_state: Res<PlayerCoinState>,
-    player_query: Query<(&Transform, &Velocity), (With<PlayerCoin>, Without<GameCamera>)>,
+    player_query: Query<
+        (Ref<PlayerCoinState>, &Transform, &Velocity),
+        (With<PlayerCoin>, Without<GameCamera>),
+    >,
     mut camera_query: Query<(&mut Transform, &Projection), (With<GameCamera>, Without<PlayerCoin>)>,
     mut phase: ResMut<CameraControlPhase>,
     mut input_blocker: ResMut<GameplayInputBlocker>,
@@ -45,14 +47,13 @@ fn update_game_camera(
     if dt <= 0.0 {
         return;
     }
-
-    let Ok((player_transform, player_velocity)) = player_query.single() else {
-        return;
-    };
     let Ok((mut camera_transform, projection)) = camera_query.single_mut() else {
         return;
     };
     let Projection::Orthographic(orthographic) = projection else {
+        return;
+    };
+    let Ok((player_state, player_transform, player_velocity)) = player_query.single() else {
         return;
     };
 

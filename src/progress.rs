@@ -1,6 +1,6 @@
 use crate::GameplaySet;
 use crate::coin::player::PlayerCoin;
-use crate::coin::player::controller::PlayerCoinState;
+use crate::coin::player::controller::{PlayerCoinState, RefPlayerCoinStateExt};
 use bevy::prelude::*;
 use std::collections::HashSet;
 
@@ -44,17 +44,14 @@ impl Plugin for GameProgressPlugin {
 }
 
 fn record_player_stop_position(
-    player_state: Res<PlayerCoinState>,
-    player_query: Query<&Transform, With<PlayerCoin>>,
+    player_query: Query<(Ref<PlayerCoinState>, &Transform), With<PlayerCoin>>,
     mut progress: ResMut<GameProgress>,
 ) {
-    if !player_state.is_changed() || !player_state.is_stop() {
-        return;
+    for (player_state, transform) in player_query.iter() {
+        if !player_state.just_eject_finished_or_initialized() {
+            continue;
+        }
+
+        progress.last_player_stop_position = Some(transform.translation.truncate());
     }
-
-    let Ok(transform) = player_query.single() else {
-        return;
-    };
-
-    progress.last_player_stop_position = Some(transform.translation.truncate());
 }

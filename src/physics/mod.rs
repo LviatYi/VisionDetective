@@ -1,5 +1,5 @@
 use crate::coin::player::PlayerCoin;
-use crate::coin::player::controller::{PlayerCoinBehaviorState, PlayerCoinState};
+use crate::coin::player::controller::{PlayerCoinBehaviorStatus, PlayerCoinState};
 use crate::config::GameConfig;
 use crate::tools::Disable;
 use crate::{AppStatus, GameplaySet};
@@ -31,56 +31,76 @@ impl Plugin for PhysicsPlugin {
 pub fn move_player_coin_transform(
     config: Res<GameConfig>,
     time: Res<Time>,
-    mut player_state: ResMut<PlayerCoinState>,
-    mut transform_query: Query<(&mut Transform, &mut PlayerCoin, &mut Velocity)>,
+    mut transform_query: Query<
+        (Mut<PlayerCoinState>, &mut Transform, &mut Velocity),
+        With<PlayerCoin>,
+    >,
     obstacle_query: Query<(&Transform, &Obstacle), (Without<PlayerCoin>, Without<Disable>)>,
 ) {
-    let Ok((mut transform, mut coin, mut velocity)) = transform_query.single_mut() else {
-        return;
-    };
-
-    let dt = time.delta_secs();
-    let airborne = coin.ground_contact_count < config.physics.max_ground_bounce_count;
-
-    if airborne {
-        coin.sim_z += velocity.z * dt;
-        velocity.z += config.physics.gravity * dt;
-    }
-
-    transform.translation += velocity.with_z(0.0) * dt;
-
-    resolve_obstacle_collisions(&config, &mut transform, &mut velocity, &obstacle_query);
-
-    if airborne && coin.sim_z <= 0.0 {
-        coin.sim_z = 0.0;
-        coin.ground_contact_count += 1;
-        velocity.x *= config.physics.landing_speed_loss;
-        velocity.y *= config.physics.landing_speed_loss;
-
-        if coin.ground_contact_count >= config.physics.max_ground_bounce_count {
-            velocity.z = 0.0;
-        } else {
-            velocity.z = -velocity.z * config.physics.landing_speed_loss;
+    for (mut player_state, mut transform, mut velocity) in transform_query.iter_mut() {
+        if player_state.is_stop() {
+            continue;
         }
-    }
 
-    if coin.ground_contact_count >= config.physics.max_ground_bounce_count {
-        let planar_velocity = velocity.truncate();
-        let planar_speed = planar_velocity.length();
+        let dt = time.delta_secs();
 
-        if planar_speed < config.physics.stop_speed {
-            velocity.x = 0.0;
-            velocity.y = 0.0;
-            if matches!(**player_state, PlayerCoinBehaviorState::Ejecting) {
-                player_state.set_state(PlayerCoinBehaviorState::Idle);
+        transform.translation += velocity.with_z(0.0) * dt;
+        resolve_obstacle_collisions(&config, &mut transform, &mut velocity, &obstacle_query);
+
+        match player_state.state() {
+            PlayerCoinBehaviorStatus::Upspring { .. } => {
+                let sim_z = player_state.sim_z();
+                player_state.set_sim_z(sim_z + velocity.z * dt);
+                velocity.z += config.physics.gravity * dt;
+
+                if player_state.sim_z() <= 0.0 {
+                    player_state.set_sim_z(0.0);
+                    velocity.x *= config.physics.landing_speed_loss;
+                    velocity.y *= config.physics.landing_speed_loss;
+
+                    if player_state.contact_count() >= config.physics.max_ground_bounce_count {
+                        player_state.set_state(PlayerCoinBehaviorStatus::Slide);
+                        velocity.z = 0.0;
+                    } else {
+                        velocity.z = -velocity.z * config.physics.landing_speed_loss;
+                        let new_contact_count = player_state.contact_count() + 1;
+                        player_state.set_state(PlayerCoinBehaviorStatus::Contact {
+                            save_velocity: velocity.clone(),
+                            contact_count: new_contact_count,
+                        });
+                    }
+                }
             }
-        } else {
-            let friction_delta = config.physics.sliding_friction * dt;
-            let next_speed = (planar_speed - friction_delta).max(0.0);
-            let next_planar_velocity = planar_velocity.normalize() * next_speed;
+            PlayerCoinBehaviorStatus::Contact {
+                save_velocity,
+                contact_count,
+            } => {
+                velocity.0 = save_velocity;
+                player_state.set_state(PlayerCoinBehaviorStatus::Upspring {
+                    sim_z: 0.0,
+                    contact_count,
+                });
+                let new_sim_z = player_state.sim_z() + velocity.z * dt;
+                player_state.set_sim_z(new_sim_z);
+            }
+            PlayerCoinBehaviorStatus::Slide => {
+                let planar_velocity = velocity.truncate();
+                let planar_speed = planar_velocity.length();
 
-            velocity.x = next_planar_velocity.x;
-            velocity.y = next_planar_velocity.y;
+                if planar_speed < config.physics.stop_speed {
+                    velocity.x = 0.0;
+                    velocity.y = 0.0;
+                    player_state.set_state(PlayerCoinBehaviorStatus::Idle);
+                } else {
+                    let friction_delta = config.physics.sliding_friction * dt;
+                    let next_speed = (planar_speed - friction_delta).max(0.0);
+                    let next_planar_velocity = planar_velocity.normalize() * next_speed;
+
+                    velocity.x = next_planar_velocity.x;
+                    velocity.y = next_planar_velocity.y;
+                }
+            }
+            _ => {}
         }
     }
 }
