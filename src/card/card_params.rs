@@ -263,7 +263,7 @@ mod tests {
             .expect("obstacle specialized type should be registered");
 
         let specialized = (registration.json_param_parser)(&serde_json::json!({
-            "obstacle_def": "full"
+            "shape_def": "full"
         }))
         .expect("registered obstacle deserializer should parse json");
 
@@ -303,7 +303,7 @@ mod tests {
       "id": 10000002,
       "type": "obstacle",
       "params": {
-        "obstacle_def": {
+        "shape_def": {
           "path": [[-90.0, -56.0], [74.0, -68.0], [102.0, 12.0], [18.0, 72.0], [-88.0, 42.0]]
         }
       }

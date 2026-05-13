@@ -7,6 +7,7 @@ use bevy::math::{Vec2, Vec3};
 use bevy::prelude::*;
 use obstacle::Obstacle;
 
+pub mod area;
 pub mod obstacle;
 pub mod vision;
 

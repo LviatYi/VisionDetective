@@ -63,6 +63,7 @@ scenery_fill_color = "#E0E0E0"
 obstacle_fill_color = "#585F75"
 interaction_fill_color = "#FFD20D"
 clue_fill_color = "#9198B0"
+trap_fill_color = "#E86A6A"
 default_fill_color = "#E0E0E0"
 corner_radius = 10.0
 rounded_corner_segments = 8

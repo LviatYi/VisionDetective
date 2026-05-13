@@ -91,6 +91,10 @@ pub mod controller {
             matches!(self, PlayerCoinBehaviorStatus::Upspring { .. })
         }
 
+        pub fn is_death(&self) -> bool {
+            matches!(self, PlayerCoinBehaviorStatus::Death)
+        }
+
         pub fn eject_vector(&self) -> Vec2 {
             match self {
                 PlayerCoinBehaviorStatus::Charging { eject_vector } => *eject_vector,
@@ -202,6 +206,23 @@ pub mod controller {
         player_coin_state
             .iter_mut()
             .for_each(|mut state| state.set_state(PlayerCoinBehaviorStatus::Idle));
+    }
+
+    pub fn handle_death(
+        mut player_query: Query<(&mut PlayerCoinState, &mut Transform), With<PlayerCoin>>,
+        game_progress: Res<GameProgress>,
+    ) {
+        for (mut player_state, mut player_transform) in player_query.iter_mut() {
+            if !player_state.is_death() {
+                continue;
+            }
+
+            player_state.set_state(PlayerCoinBehaviorStatus::Idle);
+            player_transform.translation = game_progress
+                .last_player_stop_position
+                .unwrap_or_else(Vec2::default)
+                .extend(0.0);
+        }
     }
 
     #[derive(Component)]
@@ -502,6 +523,7 @@ impl Plugin for PlayerPlugin {
                 (
                     controller::setup_player,
                     controller::set_player_coin_state_idle,
+                    controller::handle_death,
                 )
                     .chain()
                     .in_set(GameLoadingSet::BuildScene),

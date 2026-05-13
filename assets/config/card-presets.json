@@ -121,14 +121,14 @@
       "id": 10000201,
       "type": "obstacle",
       "params": {
-        "obstacle_def": "full"
+        "shape_def": "full"
       }
     },
     {
       "id": 10000202,
       "type": "obstacle",
       "params": {
-        "obstacle_def": {
+        "shape_def": {
           "path": [
             [
               -34,
@@ -186,7 +186,7 @@
       "id": 10000203,
       "type": "obstacle",
       "params": {
-        "obstacle_def": {
+        "shape_def": {
           "path": [
             [
               44,
@@ -244,7 +244,7 @@
       "id": 10000204,
       "type": "obstacle",
       "params": {
-        "obstacle_def": {
+        "shape_def": {
           "path": [
             [
               -44,
@@ -383,7 +383,7 @@
       "id": 10000199,
       "type": "obstacle",
       "params": {
-        "obstacle_def": {
+        "shape_def": {
           "bezier": {
             "anchors": [
               [

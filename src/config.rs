@@ -219,6 +219,7 @@ pub struct CardConfig {
     pub obstacle_fill_color: String,
     pub interaction_fill_color: String,
     pub clue_fill_color: String,
+    pub trap_fill_color: String,
     pub default_fill_color: String,
     pub corner_radius: f32,
     pub rounded_corner_segments: usize,
@@ -238,6 +239,7 @@ impl CardConfig {
             crate::card::CardKind::Obstacle => Srgba::hex(&self.obstacle_fill_color),
             crate::card::CardKind::Interaction => Srgba::hex(&self.interaction_fill_color),
             crate::card::CardKind::Clue => Srgba::hex(&self.clue_fill_color),
+            crate::card::CardKind::Trap => Srgba::hex(&self.trap_fill_color),
         }
         .map(|c| Color::Srgba(c))
         .unwrap_or_else(|_| self.default_fill_color())

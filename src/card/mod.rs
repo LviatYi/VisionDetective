@@ -51,7 +51,9 @@ pub enum CardKind {
     Obstacle,
     Interaction,
     Clue,
+    Trap,
 }
+
 pub const CARD_BACKGROUND_Z_ORDER_OFFSET: f32 = 0.01;
 pub const CARD_IMAGE_Z_ORDER_OFFSET: f32 = 0.02;
 pub const CARD_TITLE_Z_ORDER_OFFSET: f32 = 0.03;

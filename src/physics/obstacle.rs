@@ -1,21 +1,17 @@
 use crate::config::GameConfig;
+use crate::physics::area::Area;
 use bevy::prelude::*;
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Deref)]
 pub struct Obstacle {
-    pub local_path: Vec<Vec2>,
+    pub area: Area,
 }
 
 impl Obstacle {
     pub fn new(local_path: Vec<Vec2>) -> Self {
-        Self { local_path }
-    }
-
-    pub fn world_path(&self, transform: &Transform) -> Vec<Vec2> {
-        self.local_path
-            .iter()
-            .map(|point| transform.transform_point(point.extend(0.0)).truncate())
-            .collect()
+        Self {
+            area: Area { local_path },
+        }
     }
 }
 
