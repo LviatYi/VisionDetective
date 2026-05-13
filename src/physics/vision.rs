@@ -1,7 +1,7 @@
 use crate::card::Card;
+use crate::card::specialized::obstacle::Obstacle;
 use crate::coin::player::PlayerCoin;
 use crate::config::GameConfig;
-use crate::physics::obstacle::Obstacle;
 use crate::scene::SceneLayer;
 use crate::tools::Disable;
 use crate::{GameStatus, GameView, GameplaySet};

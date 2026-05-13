@@ -2,6 +2,7 @@ use crate::card::card_params::{
     CardParam, CardRuntimeSpecializedConfig, CardSceneParam, CardSpawnParams,
     CardSpecializedConfigData, CardSpecializedParam,
 };
+use crate::card::specialized::obstacle::Obstacle;
 use crate::card::{Card, CardKind, CardSpecializedInstaller, spawn_card_by_card_param};
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinState, RefPlayerCoinStateExt};
@@ -10,7 +11,6 @@ use crate::editor::{
     EditorInteractionState, EditorLinkedEntities, EditorPlacedCard, EditorRuntimeSpecializedParam,
     EditorSpecializedAuxiliaryCard, spawn_editor_card,
 };
-use crate::physics::obstacle::Obstacle;
 use crate::physics::vision::compute_visible_points;
 use crate::progress::GameProgress;
 use crate::scene::SceneLayer;

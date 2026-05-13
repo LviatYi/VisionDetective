@@ -2,12 +2,12 @@ use crate::AppStatus;
 use crate::card::card_params::{
     CardParam, CardRuntimeSpecializedConfig, CardSceneParam, CardSpawnParams,
 };
+use crate::card::specialized::obstacle::Obstacle;
 use crate::card::{Card, CardSpecializedRegistry, spawn_card_by_card_param};
 use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
 use crate::editor::editor_view::{EditorView, setup_editor_view};
 use crate::game_view::main_view::cleanup_view;
-use crate::physics::obstacle::Obstacle;
 use crate::physics::vision::{build_vision_mesh, compute_visible_points};
 use crate::scene::SceneLayer;
 use crate::tools::Disable;
