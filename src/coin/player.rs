@@ -91,6 +91,10 @@ pub mod controller {
             matches!(self, PlayerCoinBehaviorStatus::Upspring { .. })
         }
 
+        pub fn is_on_ground(&self) -> bool {
+            !self.is_airborne() && !self.is_death()
+        }
+
         pub fn is_death(&self) -> bool {
             matches!(self, PlayerCoinBehaviorStatus::Death)
         }

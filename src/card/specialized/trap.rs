@@ -80,7 +80,7 @@ fn handle_player_trap_collision(
     trap_query: Query<(&Transform, &Trap), Without<Disable>>,
 ) {
     for (mut player_state, player_transform) in &mut player_query {
-        if matches!(player_state.state(), PlayerCoinBehaviorStatus::Death) {
+        if !player_state.is_on_ground() {
             continue;
         }
 
