@@ -1,7 +1,6 @@
 use crate::GameView;
 use crate::card::card_params::{CardParam, SpawnCardSystemParams};
 use crate::card::spawn_card_by_card_param;
-use crate::config::terrain_config::TerrainPresetsConfig;
 use crate::progress::GameProgress;
 use crate::scene::terrain::{TerrainParam, spawn_terrain};
 use bevy::prelude::*;
@@ -41,7 +40,6 @@ impl Plugin for RuntimeScenePlugin {
 pub fn load_demo_scene(
     commands: &mut Commands,
     spawn_params: &mut SpawnCardSystemParams<'_>,
-    terrain_presets: &TerrainPresetsConfig,
     _progress: &GameProgress,
     runtime_cards: &mut RuntimeSceneCards,
 ) {
@@ -73,7 +71,7 @@ pub fn load_demo_scene(
     spawn_runtime_scene_cards(commands, spawn_params, runtime_cards);
 
     for terrain in &scene.terrains {
-        spawn_terrain(commands, spawn_params, terrain_presets, terrain);
+        spawn_terrain(commands, spawn_params, terrain);
     }
 }
 

@@ -10,6 +10,7 @@ use crate::editor::editor_view::{EditorView, setup_editor_view};
 use crate::game_view::main_view::cleanup_view;
 use crate::physics::vision::{build_vision_mesh, compute_visible_points};
 use crate::scene::SceneLayer;
+use crate::scene::terrain::{TerrainParam, TerrainSceneParam, TerrainType, TrapTerrain, draw_path};
 use crate::tools::Disable;
 use bevy::camera::Projection;
 use bevy::input::ButtonInput;
@@ -46,6 +47,10 @@ const EDITOR_CAMERA_MIN_ZOOM: f32 = 0.35;
 const EDITOR_CAMERA_MAX_ZOOM: f32 = 4.0;
 const EDITOR_CAMERA_ZOOM_BASE: f32 = 1.12;
 const EDITOR_BOX_SELECT_MIN_SIZE: f32 = 4.0;
+const TERRAIN_CLOSE_DISTANCE: f32 = 12.0;
+const EDITOR_TERRAIN_MIN_DISTANCE: f32 = 120.0;
+const EDITOR_TERRAIN_REJECTION_ATTEMPTS: usize = 30;
+const EDITOR_TERRAIN_ORDER_OFFSET: f32 = 0.01;
 
 pub struct EditorPlugin;
 
@@ -93,6 +98,8 @@ pub struct EditorInteractionState {
     rotating_entity: Option<RotatingEntityState>,
     camera_panning: Option<EditorCameraPanState>,
     box_selection: Option<EditorBoxSelectionState>,
+    terrain_draw_mode: bool,
+    terrain_drawing: Option<EditorTerrainDrawingState>,
     prefab_scroll_offset: f32,
     escape_consumed: bool,
     pending_exit_confirmation: bool,
@@ -106,6 +113,7 @@ impl EditorInteractionState {
             || self.rotating_entity.is_some()
             || self.camera_panning.is_some()
             || self.box_selection.is_some()
+            || self.terrain_drawing.is_some()
     }
 
     pub fn take_escape_consumed(&mut self) -> bool {
@@ -210,6 +218,13 @@ struct EditorBoxSelectionState {
     current_position: Vec2,
 }
 
+#[derive(Clone)]
+struct EditorTerrainDrawingState {
+    points: Vec<Vec2>,
+    current_position: Vec2,
+    before_scene: EditorSceneFile,
+}
+
 #[derive(Component)]
 struct EditorStatusText;
 
@@ -220,6 +235,7 @@ struct EditorResetCameraButton;
 enum EditorButtonAction {
     ExportScene,
     ImportScene,
+    DrawTrapTerrain,
     ResetCameraView,
 }
 
@@ -244,6 +260,12 @@ struct EditorVisionPreview;
 pub struct EditorPlacedCard;
 
 #[derive(Component, Clone)]
+struct EditorPlacedTerrain;
+
+#[derive(Component, Clone)]
+struct EditorTerrainData(TerrainParam);
+
+#[derive(Component, Clone)]
 pub struct EditorSpecializedAuxiliaryCard;
 
 #[derive(Component, Clone)]
@@ -264,6 +286,9 @@ struct PrefabPreviewItem {
 struct EditorSceneFile {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cards: Vec<CardParam>,
+
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub terrains: Vec<TerrainParam>,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -333,6 +358,7 @@ impl Plugin for EditorPlugin {
                     update_drag_preview_card,
                     cancel_prefab_drag_with_escape,
                     handle_prefab_drop,
+                    handle_terrain_drawing,
                     handle_editor_camera_pan,
                     handle_editor_camera_zoom,
                     handle_scene_editing,
@@ -383,7 +409,11 @@ fn open_last_editor_scene(
             Option<&EditorRuntimeSpecializedParam>,
             Option<&EditorSpecializedAuxiliaryCard>,
         ),
-        Without<EditorDragPreview>,
+        (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
+    >,
+    terrain_query: Query<
+        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        With<EditorPlacedTerrain>,
     >,
     mut spawn_deps: SpawnCardSystemParams<'_>,
     mut state: ResMut<EditorInteractionState>,
@@ -398,7 +428,13 @@ fn open_last_editor_scene(
         return;
     }
 
-    state.status_message = load_scene_from_path(&mut commands, &card_query, &mut spawn_deps, path);
+    state.status_message = load_scene_from_path(
+        &mut commands,
+        &card_query,
+        &terrain_query,
+        &mut spawn_deps,
+        path,
+    );
     if state.status_message.starts_with("已从") {
         history.clear();
         state.clear_exit_confirmation();
@@ -468,6 +504,12 @@ fn setup_editor_ui(
                 .with_children(|toolbar| {
                     spawn_button(toolbar, &ui_font, "导出", EditorButtonAction::ExportScene);
                     spawn_button(toolbar, &ui_font, "导入", EditorButtonAction::ImportScene);
+                    spawn_button(
+                        toolbar,
+                        &ui_font,
+                        "绘制陷阱地形",
+                        EditorButtonAction::DrawTrapTerrain,
+                    );
                 });
 
             parent
@@ -568,7 +610,7 @@ fn setup_editor_ui(
 
                     sidebar.spawn((
                         Text::new(
-                            "操作说明\n1. 直接按住卡牌预览并拖到主场景，松开后会克隆一张。\n2. 左键拖动卡牌位置，空白处左键拖动可框选多张卡牌。\n3. 拖动选中卡牌可整体移动，按住 Shift 仅横向或纵向移动。\n4. 右键拖动主场景可平移编辑器视角，空白处滚轮调整视角高度。\n5. 拖动右上角旋转控制点，角度按 30° 粒度吸附。\n6. 鼠标悬浮卡牌时滚轮调整其在相交卡牌组内的层级。\n7. PageUp / PageDown 调整层级，Home / End 置底或置顶。\n8. Delete 删除选中卡牌。\n9. Ctrl+Z 撤销，Ctrl+Shift+Z 重做。\n10. Ctrl+E 导出，Ctrl+I 导入。",
+                            "操作说明\n1. 直接按住卡牌预览并拖到主场景，松开后会克隆一张。\n2. 点击“绘制陷阱地形”后左键逐点绘制，点击起点附近或按 Enter 完成。\n3. 左键拖动卡牌位置，空白处左键拖动可框选多张卡牌。\n4. 拖动选中卡牌可整体移动，按住 Shift 仅横向或纵向移动。\n5. 右键拖动主场景可平移编辑器视角，空白处滚轮调整视角高度。\n6. 拖动右上角旋转控制点，角度按 30° 粒度吸附。\n7. 鼠标悬浮卡牌时滚轮调整其在相交卡牌组内的层级。\n8. Delete 删除选中卡牌。\n9. Ctrl+Z 撤销，Ctrl+Shift+Z 重做。\n10. Ctrl+E 导出，Ctrl+I 导入。",
                         ),
                         TextFont {
                             font: ui_font.clone(),
@@ -733,11 +775,20 @@ fn handle_toolbar_buttons(
             Option<&EditorRuntimeSpecializedParam>,
             Option<&EditorSpecializedAuxiliaryCard>,
         ),
-        Without<EditorDragPreview>,
+        (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
+    >,
+    terrain_query: Query<
+        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        With<EditorPlacedTerrain>,
     >,
     mut camera_query: Query<
         (&mut Transform, &mut Projection),
-        (With<Camera2d>, With<EditorView>, Without<Card>),
+        (
+            With<Camera2d>,
+            With<EditorView>,
+            Without<Card>,
+            Without<EditorPlacedTerrain>,
+        ),
     >,
     mut spawn_deps: SpawnCardSystemParams<'_>,
     mut state: ResMut<EditorInteractionState>,
@@ -759,6 +810,7 @@ fn handle_toolbar_buttons(
                         Some(path) => {
                             let message = save_scene_to_path(
                                 &card_query,
+                                &terrain_query,
                                 &path,
                                 &spawn_deps.card_presets_config,
                             );
@@ -779,6 +831,7 @@ fn handle_toolbar_buttons(
                             let message = load_scene_from_path(
                                 &mut commands,
                                 &card_query,
+                                &terrain_query,
                                 &mut spawn_deps,
                                 &path,
                             );
@@ -792,6 +845,19 @@ fn handle_toolbar_buttons(
                         None => "已取消导入".into(),
                     };
                 state.clear_selection();
+            }
+            EditorButtonAction::DrawTrapTerrain => {
+                state.terrain_draw_mode = !state.terrain_draw_mode;
+                state.terrain_drawing = None;
+                state.moving_entity = None;
+                state.rotating_entity = None;
+                state.box_selection = None;
+                state.clear_selection();
+                state.status_message = if state.terrain_draw_mode {
+                    "已进入陷阱地形绘制模式：左键逐点绘制，Enter 完成，Esc 取消".into()
+                } else {
+                    "已退出陷阱地形绘制模式".into()
+                };
             }
             EditorButtonAction::ResetCameraView => {
                 let Ok((mut camera_transform, mut projection)) = camera_query.single_mut() else {
@@ -824,7 +890,11 @@ fn handle_prefab_drag_start(
             Option<&EditorRuntimeSpecializedParam>,
             Option<&EditorSpecializedAuxiliaryCard>,
         ),
-        Without<EditorDragPreview>,
+        (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
+    >,
+    terrain_query: Query<
+        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        With<EditorPlacedTerrain>,
     >,
     mut spawn_deps: SpawnCardSystemParams<'_>,
     mut state: ResMut<EditorInteractionState>,
@@ -844,7 +914,7 @@ fn handle_prefab_drag_start(
         let start_position = cursor_world_position(&camera_query, event.pointer_location.position)
             .map(normalize_editor_position)
             .unwrap_or(Vec2::ZERO);
-        let before_scene = collect_editor_scene_snapshot(&card_query);
+        let before_scene = collect_editor_scene_snapshot(&card_query, &terrain_query);
         let entity = spawn_editor_card(
             &mut commands,
             &mut spawn_deps,
@@ -930,6 +1000,10 @@ fn handle_prefab_list_scroll(
     mut content_query: Query<&mut Node, With<PrefabListContent>>,
     mut state: ResMut<EditorInteractionState>,
 ) {
+    if state.terrain_draw_mode {
+        return;
+    }
+
     let Ok(window) = window_query.single() else {
         return;
     };
@@ -999,6 +1073,14 @@ pub(crate) fn cancel_prefab_drag_with_escape(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut state: ResMut<EditorInteractionState>,
 ) {
+    if state.terrain_draw_mode && keyboard_input.just_pressed(KeyCode::Escape) {
+        state.terrain_drawing = None;
+        state.terrain_draw_mode = false;
+        state.escape_consumed = true;
+        state.status_message = "已取消陷阱地形绘制".into();
+        return;
+    }
+
     if state.dragging_prefab.is_none() || !keyboard_input.just_pressed(KeyCode::Escape) {
         return;
     }
@@ -1016,7 +1098,10 @@ fn handle_prefab_drop(
     mut commands: Commands,
     mut release_events: MessageReader<Pointer<Release>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    mut preview_query: Query<&mut Transform, With<EditorDragPreview>>,
+    mut preview_query: Query<
+        &mut Transform,
+        (With<EditorDragPreview>, Without<EditorPlacedTerrain>),
+    >,
     card_query: Query<
         (
             Entity,
@@ -1025,7 +1110,11 @@ fn handle_prefab_drop(
             Option<&EditorRuntimeSpecializedParam>,
             Option<&EditorSpecializedAuxiliaryCard>,
         ),
-        Without<EditorDragPreview>,
+        (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
+    >,
+    terrain_query: Query<
+        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        With<EditorPlacedTerrain>,
     >,
     mut state: ResMut<EditorInteractionState>,
     mut history: ResMut<EditorUndoHistory>,
@@ -1064,7 +1153,7 @@ fn handle_prefab_drop(
         return;
     };
 
-    let before_scene = collect_editor_scene_snapshot(&card_query);
+    let before_scene = collect_editor_scene_snapshot(&card_query, &terrain_query);
     let placed_order =
         next_card_order_from_transforms(card_query.iter().map(|(_, _, transform, _, _)| transform));
     let world_position = if let Ok(mut transform) = preview_query.get_mut(entity) {
@@ -1090,6 +1179,158 @@ fn handle_prefab_drop(
         "已放置卡牌 #{} ({:.0}, {:.0})，层级 {:.0}",
         prefab_id, world_position.x, world_position.y, placed_order
     );
+}
+
+fn handle_terrain_drawing(
+    mut commands: Commands,
+    mut press_events: MessageReader<Pointer<Press>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    card_query: Query<
+        (
+            Entity,
+            &Card,
+            &Transform,
+            Option<&EditorRuntimeSpecializedParam>,
+            Option<&EditorSpecializedAuxiliaryCard>,
+        ),
+        (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
+    >,
+    terrain_query: Query<
+        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        With<EditorPlacedTerrain>,
+    >,
+    mut state: ResMut<EditorInteractionState>,
+    mut history: ResMut<EditorUndoHistory>,
+) {
+    if !state.terrain_draw_mode {
+        return;
+    }
+
+    if keyboard_input.just_pressed(KeyCode::Escape) {
+        state.terrain_drawing = None;
+        state.terrain_draw_mode = false;
+        state.escape_consumed = true;
+        state.status_message = "已取消陷阱地形绘制".into();
+        return;
+    }
+
+    let Ok(window) = window_query.single() else {
+        return;
+    };
+
+    if let Some(cursor_position) = window.cursor_position()
+        && let Some(world_position) = cursor_world_position(&camera_query, cursor_position)
+        && let Some(drawing) = state.terrain_drawing.as_mut()
+    {
+        drawing.current_position = normalize_editor_position(world_position);
+    }
+
+    for event in press_events.read() {
+        if event.button != PointerButton::Primary
+            || !cursor_is_over_scene(window, event.pointer_location.position)
+        {
+            continue;
+        }
+        let Some(world_position) =
+            cursor_world_position(&camera_query, event.pointer_location.position)
+        else {
+            continue;
+        };
+        let point = normalize_editor_position(world_position);
+
+        if state.terrain_drawing.is_none() {
+            state.terrain_drawing = Some(EditorTerrainDrawingState {
+                points: Vec::new(),
+                current_position: point,
+                before_scene: collect_editor_scene_snapshot(&card_query, &terrain_query),
+            });
+        }
+
+        let should_close = state
+            .terrain_drawing
+            .as_ref()
+            .map(|drawing| {
+                drawing.points.len() >= 3
+                    && point.distance(drawing.points[0]) <= TERRAIN_CLOSE_DISTANCE
+            })
+            .unwrap_or(false);
+        if should_close {
+            finish_terrain_drawing(
+                &mut commands,
+                &card_query,
+                &terrain_query,
+                &mut state,
+                &mut history,
+            );
+            return;
+        }
+
+        let Some(drawing) = state.terrain_drawing.as_mut() else {
+            continue;
+        };
+        drawing.points.push(point);
+        drawing.current_position = point;
+        let point_count = drawing.points.len();
+        state.clear_selection();
+        state.moving_entity = None;
+        state.rotating_entity = None;
+        state.box_selection = None;
+        state.status_message = format!(
+            "正在绘制陷阱地形：已放置 {} 个点，Enter 完成，Esc 取消",
+            point_count
+        );
+    }
+
+    if keyboard_input.just_pressed(KeyCode::Enter) {
+        finish_terrain_drawing(
+            &mut commands,
+            &card_query,
+            &terrain_query,
+            &mut state,
+            &mut history,
+        );
+    }
+}
+
+fn finish_terrain_drawing<F: bevy::ecs::query::QueryFilter>(
+    commands: &mut Commands,
+    card_query: &Query<
+        (
+            Entity,
+            &Card,
+            &Transform,
+            Option<&EditorRuntimeSpecializedParam>,
+            Option<&EditorSpecializedAuxiliaryCard>,
+        ),
+        F,
+    >,
+    terrain_query: &Query<
+        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        With<EditorPlacedTerrain>,
+    >,
+    state: &mut EditorInteractionState,
+    history: &mut EditorUndoHistory,
+) {
+    let Some(drawing) = state.terrain_drawing.take() else {
+        return;
+    };
+    if drawing.points.len() < 3 {
+        state.status_message = "陷阱地形至少需要 3 个点".into();
+        return;
+    }
+
+    let order = next_scene_order(
+        card_query.iter().map(|(_, _, transform, _, _)| transform),
+        terrain_query.iter().map(|(_, transform, _, _)| transform),
+    );
+    let terrain = terrain_param_from_world_path(drawing.points, order);
+    spawn_editor_terrain(commands, &terrain);
+    record_editor_undo(history, drawing.before_scene);
+    state.terrain_draw_mode = false;
+    state.clear_exit_confirmation();
+    state.status_message = "已添加陷阱地形".into();
 }
 
 fn handle_editor_camera_pan(
@@ -1237,8 +1478,11 @@ fn handle_scene_editing(
     window_query: Query<&Window, With<PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
     mut card_queries: ParamSet<(
-        Query<(Entity, &Card, &GlobalTransform, &Transform), Without<EditorDragPreview>>,
-        Query<&mut Transform>,
+        Query<
+            (Entity, &Card, &GlobalTransform, &Transform),
+            (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
+        >,
+        Query<&mut Transform, (With<Card>, Without<EditorPlacedTerrain>)>,
         Query<
             (
                 Entity,
@@ -1247,10 +1491,14 @@ fn handle_scene_editing(
                 Option<&EditorRuntimeSpecializedParam>,
                 Option<&EditorSpecializedAuxiliaryCard>,
             ),
-            Without<EditorDragPreview>,
+            (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
         >,
     )>,
     linked_entities_query: Query<&EditorLinkedEntities>,
+    terrain_query: Query<
+        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        With<EditorPlacedTerrain>,
+    >,
     reset_button_query: Query<(), With<EditorResetCameraButton>>,
     mut state: ResMut<EditorInteractionState>,
     mut history: ResMut<EditorUndoHistory>,
@@ -1302,7 +1550,7 @@ fn handle_scene_editing(
         if let Some(entity) = start_rotation {
             let before_scene = {
                 let snapshot_query = card_queries.p2();
-                collect_editor_scene_snapshot(&snapshot_query)
+                collect_editor_scene_snapshot(&snapshot_query, &terrain_query)
             };
             state.rotating_entity = Some(RotatingEntityState {
                 entity,
@@ -1318,7 +1566,7 @@ fn handle_scene_editing(
         if let Some((entity, pointer_offset, start_position)) = start_move {
             let before_scene = {
                 let snapshot_query = card_queries.p2();
-                collect_editor_scene_snapshot(&snapshot_query)
+                collect_editor_scene_snapshot(&snapshot_query, &terrain_query)
             };
             let selected_entities = state.selected_entities_for_move(entity);
             let moving_entities = {
@@ -1456,7 +1704,7 @@ fn handle_scene_editing(
     if keyboard_input.just_pressed(KeyCode::Delete) && !state.selected_entities.is_empty() {
         let before_scene = {
             let snapshot_query = card_queries.p2();
-            collect_editor_scene_snapshot(&snapshot_query)
+            collect_editor_scene_snapshot(&snapshot_query, &terrain_query)
         };
         let selected_entities = std::mem::take(&mut state.selected_entities);
         let mut despawned_entities = HashSet::new();
@@ -1508,7 +1756,11 @@ fn handle_editor_shortcuts(
             Option<&EditorRuntimeSpecializedParam>,
             Option<&EditorSpecializedAuxiliaryCard>,
         ),
-        Without<EditorDragPreview>,
+        (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
+    >,
+    terrain_query: Query<
+        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        With<EditorPlacedTerrain>,
     >,
     mut spawn_deps: SpawnCardSystemParams<'_>,
     mut state: ResMut<EditorInteractionState>,
@@ -1525,11 +1777,21 @@ fn handle_editor_shortcuts(
     if keyboard_input.just_pressed(KeyCode::KeyZ) {
         if keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)
         {
-            state.status_message =
-                redo_editor_operation(&mut commands, &card_query, spawn_deps, &mut history);
+            state.status_message = redo_editor_operation(
+                &mut commands,
+                &card_query,
+                &terrain_query,
+                spawn_deps,
+                &mut history,
+            );
         } else {
-            state.status_message =
-                undo_editor_operation(&mut commands, &card_query, spawn_deps, &mut history);
+            state.status_message = undo_editor_operation(
+                &mut commands,
+                &card_query,
+                &terrain_query,
+                spawn_deps,
+                &mut history,
+            );
         }
         state.clear_selection();
         state.clear_exit_confirmation();
@@ -1540,8 +1802,12 @@ fn handle_editor_shortcuts(
         state.status_message =
             match pick_scene_export_path(file_state.current_scene_path.as_deref()) {
                 Some(path) => {
-                    let message =
-                        save_scene_to_path(&card_query, &path, &spawn_deps.card_presets_config);
+                    let message = save_scene_to_path(
+                        &card_query,
+                        &terrain_query,
+                        &path,
+                        &spawn_deps.card_presets_config,
+                    );
                     if message.starts_with("已导出") {
                         history.mark_clean();
                         state.clear_exit_confirmation();
@@ -1558,8 +1824,12 @@ fn handle_editor_shortcuts(
             state.status_message = "保存失败：尚未选择编辑文件，请先导出或导入场景".into();
             return;
         };
-        state.status_message =
-            save_scene_to_path(&card_query, &path, &spawn_deps.card_presets_config);
+        state.status_message = save_scene_to_path(
+            &card_query,
+            &terrain_query,
+            &path,
+            &spawn_deps.card_presets_config,
+        );
         if state.status_message.starts_with("已导出") {
             history.mark_clean();
             state.clear_exit_confirmation();
@@ -1571,8 +1841,13 @@ fn handle_editor_shortcuts(
         state.status_message =
             match pick_scene_import_path(file_state.current_scene_path.as_deref()) {
                 Some(path) => {
-                    let message =
-                        load_scene_from_path(&mut commands, &card_query, &mut spawn_deps, &path);
+                    let message = load_scene_from_path(
+                        &mut commands,
+                        &card_query,
+                        &terrain_query,
+                        &mut spawn_deps,
+                        &path,
+                    );
                     if message.starts_with("已从") {
                         history.clear();
                         state.clear_exit_confirmation();
@@ -1589,7 +1864,14 @@ fn handle_editor_shortcuts(
 fn handle_card_order_shortcuts(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut card_queries: ParamSet<(
-        Query<(Entity, &mut Transform), (With<Card>, Without<EditorDragPreview>)>,
+        Query<
+            (Entity, &mut Transform),
+            (
+                With<Card>,
+                Without<EditorPlacedTerrain>,
+                Without<EditorDragPreview>,
+            ),
+        >,
         Query<
             (
                 Entity,
@@ -1598,9 +1880,13 @@ fn handle_card_order_shortcuts(
                 Option<&EditorRuntimeSpecializedParam>,
                 Option<&EditorSpecializedAuxiliaryCard>,
             ),
-            Without<EditorDragPreview>,
+            (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
         >,
     )>,
+    terrain_query: Query<
+        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        With<EditorPlacedTerrain>,
+    >,
     mut state: ResMut<EditorInteractionState>,
     mut history: ResMut<EditorUndoHistory>,
 ) {
@@ -1632,7 +1918,7 @@ fn handle_card_order_shortcuts(
 
     let before_scene = {
         let snapshot_query = card_queries.p1();
-        collect_editor_scene_snapshot(&snapshot_query)
+        collect_editor_scene_snapshot(&snapshot_query, &terrain_query)
     };
 
     let mut card_query = card_queries.p0();
@@ -1664,8 +1950,18 @@ fn handle_card_order_shortcuts(
 fn handle_card_order_wheel(
     mut scroll_events: MessageReader<Pointer<Scroll>>,
     mut card_queries: ParamSet<(
-        Query<(Entity, &Card, &GlobalTransform, &Transform), Without<EditorDragPreview>>,
-        Query<&mut Transform, (With<Card>, Without<EditorDragPreview>)>,
+        Query<
+            (Entity, &Card, &GlobalTransform, &Transform),
+            (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
+        >,
+        Query<
+            &mut Transform,
+            (
+                With<Card>,
+                Without<EditorPlacedTerrain>,
+                Without<EditorDragPreview>,
+            ),
+        >,
         Query<
             (
                 Entity,
@@ -1674,9 +1970,13 @@ fn handle_card_order_wheel(
                 Option<&EditorRuntimeSpecializedParam>,
                 Option<&EditorSpecializedAuxiliaryCard>,
             ),
-            Without<EditorDragPreview>,
+            (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
         >,
     )>,
+    terrain_query: Query<
+        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        With<EditorPlacedTerrain>,
+    >,
     mut state: ResMut<EditorInteractionState>,
     mut history: ResMut<EditorUndoHistory>,
 ) {
@@ -1737,7 +2037,7 @@ fn handle_card_order_wheel(
 
     let before_scene = {
         let snapshot_query = card_queries.p2();
-        collect_editor_scene_snapshot(&snapshot_query)
+        collect_editor_scene_snapshot(&snapshot_query, &terrain_query)
     };
 
     {
@@ -1905,6 +2205,12 @@ fn draw_editor_gizmos(
             );
         }
     }
+
+    if let Some(drawing) = state.terrain_drawing.as_ref() {
+        let mut preview_path = drawing.points.clone();
+        preview_path.push(drawing.current_position);
+        draw_path(&mut gizmos, &preview_path, Color::srgb(0.95, 0.24, 0.24));
+    }
 }
 
 fn draw_card_outline(gizmos: &mut Gizmos, transform: &Transform, color: Color) {
@@ -2060,8 +2366,31 @@ fn normalize_editor_export_scene_param(scene_param: &CardSceneParam) -> CardScen
     csp
 }
 
+fn normalize_editor_terrain_scene_param(scene_param: &TerrainSceneParam) -> TerrainSceneParam {
+    TerrainSceneParam {
+        position: normalize_editor_position(scene_param.position),
+        rotation: normalize_editor_rotation(scene_param.rotation),
+        order: normalize_editor_order(scene_param.order),
+        enable_if: scene_param.enable_if.clone(),
+        disable_if: scene_param.disable_if.clone(),
+        description: scene_param.description.clone(),
+    }
+}
+
 fn normalize_editor_order(order: f32) -> f32 {
     order.round().max(0.0)
+}
+
+fn default_editor_terrain_min_distance() -> f32 {
+    EDITOR_TERRAIN_MIN_DISTANCE
+}
+
+fn default_editor_terrain_rejection_attempts() -> usize {
+    EDITOR_TERRAIN_REJECTION_ATTEMPTS
+}
+
+fn default_editor_terrain_order_offset() -> f32 {
+    EDITOR_TERRAIN_ORDER_OFFSET
 }
 
 fn editor_local_order_from_transform(transform: &Transform) -> f32 {
@@ -2233,6 +2562,18 @@ fn closest_editor_snap_axis(
 
 fn next_card_order_from_transforms<'a>(transforms: impl Iterator<Item = &'a Transform>) -> f32 {
     transforms
+        .map(editor_local_order_from_transform)
+        .reduce(f32::max)
+        .unwrap_or(0.0)
+        + CARD_ORDER_STEP
+}
+
+fn next_scene_order<'a>(
+    card_transforms: impl Iterator<Item = &'a Transform>,
+    terrain_transforms: impl Iterator<Item = &'a Transform>,
+) -> f32 {
+    card_transforms
+        .chain(terrain_transforms)
         .map(editor_local_order_from_transform)
         .reduce(f32::max)
         .unwrap_or(0.0)
@@ -2413,6 +2754,91 @@ pub fn spawn_editor_card(
     entity
 }
 
+fn spawn_editor_terrain(commands: &mut Commands, terrain: &TerrainParam) -> Entity {
+    let normalized_scene_param = normalize_editor_terrain_scene_param(&terrain.scene_param);
+    let mut entity = commands.spawn((
+        Transform::from_translation(
+            normalized_scene_param
+                .position
+                .extend(editor_global_z_from_order(normalized_scene_param.order)),
+        )
+        .with_rotation(Quat::from_rotation_z(normalized_scene_param.rotation)),
+        EditorTerrainData(terrain.clone()),
+        EditorPlacedTerrain,
+        EditorView,
+    ));
+
+    if terrain.terrain_type == TerrainType::Trap {
+        entity.insert(TrapTerrain::new(terrain.path.clone()));
+    }
+
+    entity.id()
+}
+
+fn terrain_param_from_world_path(world_path: Vec<Vec2>, order: f32) -> TerrainParam {
+    let (min, max) = path_bounds(&world_path).unwrap_or((Vec2::ZERO, Vec2::ZERO));
+    let center = normalize_editor_position((min + max) * 0.5);
+    let local_path = world_path
+        .into_iter()
+        .map(|point| normalize_editor_position(point - center))
+        .collect();
+
+    TerrainParam {
+        terrain_type: TerrainType::Trap,
+        path: local_path,
+        appearance_id: None,
+        min_distance: default_editor_terrain_min_distance(),
+        rejection_attempts: default_editor_terrain_rejection_attempts(),
+        max_cards: None,
+        order_offset: default_editor_terrain_order_offset(),
+        rotation: 0.0,
+        rotation_jitter: 0.0,
+        seed: 0,
+        scene_param: TerrainSceneParam {
+            position: center,
+            rotation: 0.0,
+            order,
+            enable_if: None,
+            disable_if: None,
+            description: String::new(),
+        },
+    }
+}
+
+fn editor_terrain_to_scene_terrain(
+    transform: &Transform,
+    terrain_data: &EditorTerrainData,
+    trap_terrain: Option<&TrapTerrain>,
+) -> TerrainParam {
+    let mut terrain = terrain_data.0.clone();
+    if let Some(trap_terrain) = trap_terrain {
+        terrain.path = trap_terrain.local_path.clone();
+    }
+    terrain.scene_param = normalize_editor_terrain_scene_param(&TerrainSceneParam {
+        position: transform.translation.truncate(),
+        rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
+        order: editor_local_order_from_transform(transform),
+        enable_if: terrain.scene_param.enable_if.clone(),
+        disable_if: terrain.scene_param.disable_if.clone(),
+        description: terrain.scene_param.description.clone(),
+    });
+    terrain
+}
+
+fn path_bounds(path: &[Vec2]) -> Option<(Vec2, Vec2)> {
+    let mut points = path.iter();
+    let first = *points.next()?;
+    let mut min = first;
+    let mut max = first;
+
+    for &point in points {
+        min = min.min(point);
+        max = max.max(point);
+    }
+
+    Some((min, max))
+}
+
 fn append_editor_card_overlays(
     commands: &mut Commands,
     entity: Entity,
@@ -2447,6 +2873,10 @@ fn collect_editor_scene_snapshot<F: bevy::ecs::query::QueryFilter>(
         ),
         F,
     >,
+    terrain_query: &Query<
+        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        With<EditorPlacedTerrain>,
+    >,
 ) -> EditorSceneFile {
     let mut cards = card_query
         .iter()
@@ -2465,8 +2895,27 @@ fn collect_editor_scene_snapshot<F: bevy::ecs::query::QueryFilter>(
             .then_with(|| entity_a.index().cmp(&entity_b.index()))
     });
 
+    let mut terrains = terrain_query
+        .iter()
+        .map(|(entity, transform, terrain_data, trap_terrain)| {
+            (
+                entity,
+                editor_terrain_to_scene_terrain(transform, terrain_data, trap_terrain),
+            )
+        })
+        .collect::<Vec<_>>();
+    terrains.sort_by(|(entity_a, terrain_a), (entity_b, terrain_b)| {
+        terrain_a
+            .scene_param
+            .order
+            .partial_cmp(&terrain_b.scene_param.order)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| entity_a.index().cmp(&entity_b.index()))
+    });
+
     EditorSceneFile {
         cards: cards.into_iter().map(|(_, card)| card).collect(),
+        terrains: terrains.into_iter().map(|(_, terrain)| terrain).collect(),
     }
 }
 
@@ -2486,7 +2935,11 @@ fn undo_editor_operation(
             Option<&EditorRuntimeSpecializedParam>,
             Option<&EditorSpecializedAuxiliaryCard>,
         ),
-        Without<EditorDragPreview>,
+        (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
+    >,
+    terrain_query: &Query<
+        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        With<EditorPlacedTerrain>,
     >,
     mut spawn_deps: SpawnCardSystemParams<'_>,
     history: &mut EditorUndoHistory,
@@ -2495,8 +2948,14 @@ fn undo_editor_operation(
         return "没有可撤销的操作".into();
     };
 
-    let current_scene = collect_editor_scene_snapshot(card_query);
-    restore_editor_scene(commands, card_query, &mut spawn_deps, &previous_scene);
+    let current_scene = collect_editor_scene_snapshot(card_query, terrain_query);
+    restore_editor_scene(
+        commands,
+        card_query,
+        terrain_query,
+        &mut spawn_deps,
+        &previous_scene,
+    );
     history.redo_stack.push(current_scene);
     history.dirty = true;
     "已撤销上一步操作".into()
@@ -2512,7 +2971,11 @@ fn redo_editor_operation(
             Option<&EditorRuntimeSpecializedParam>,
             Option<&EditorSpecializedAuxiliaryCard>,
         ),
-        Without<EditorDragPreview>,
+        (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
+    >,
+    terrain_query: &Query<
+        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        With<EditorPlacedTerrain>,
     >,
     mut spawn_deps: SpawnCardSystemParams<'_>,
     history: &mut EditorUndoHistory,
@@ -2521,8 +2984,14 @@ fn redo_editor_operation(
         return "没有可重做的操作".into();
     };
 
-    let current_scene = collect_editor_scene_snapshot(card_query);
-    restore_editor_scene(commands, card_query, &mut spawn_deps, &next_scene);
+    let current_scene = collect_editor_scene_snapshot(card_query, terrain_query);
+    restore_editor_scene(
+        commands,
+        card_query,
+        terrain_query,
+        &mut spawn_deps,
+        &next_scene,
+    );
     history.undo_stack.push(current_scene);
     history.dirty = true;
     "已重做上一步操作".into()
@@ -2538,7 +3007,11 @@ fn restore_editor_scene(
             Option<&EditorRuntimeSpecializedParam>,
             Option<&EditorSpecializedAuxiliaryCard>,
         ),
-        Without<EditorDragPreview>,
+        (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
+    >,
+    terrain_query: &Query<
+        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        With<EditorPlacedTerrain>,
     >,
     spawn_deps: &mut SpawnCardSystemParams<'_>,
     scene: &EditorSceneFile,
@@ -2546,10 +3019,16 @@ fn restore_editor_scene(
     for (entity, _, _, _, _) in card_query.iter() {
         commands.entity(entity).despawn();
     }
+    for (entity, _, _, _) in terrain_query.iter() {
+        commands.entity(entity).despawn();
+    }
 
     for card in &scene.cards {
         let entity = spawn_editor_card(commands, spawn_deps, card);
         commands.entity(entity).insert(EditorPlacedCard);
+    }
+    for terrain in &scene.terrains {
+        spawn_editor_terrain(commands, terrain);
     }
 }
 
@@ -2568,7 +3047,11 @@ fn save_scene_to_path(
             Option<&EditorRuntimeSpecializedParam>,
             Option<&EditorSpecializedAuxiliaryCard>,
         ),
-        Without<EditorDragPreview>,
+        (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
+    >,
+    terrain_query: &Query<
+        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        With<EditorPlacedTerrain>,
     >,
     path: &Path,
     card_presets_config: &CardPresetsConfig,
@@ -2598,6 +3081,15 @@ fn save_scene_to_path(
                 card
             })
             .collect(),
+        terrains: terrain_query
+            .iter()
+            .map(|(_, transform, terrain_data, trap_terrain)| {
+                let mut terrain =
+                    editor_terrain_to_scene_terrain(transform, terrain_data, trap_terrain);
+                terrain.scene_param = normalize_editor_terrain_scene_param(&terrain.scene_param);
+                terrain
+            })
+            .collect(),
     };
 
     if let Some(parent) = path.parent()
@@ -2618,7 +3110,12 @@ fn save_scene_to_path(
     };
 
     match result {
-        Ok(()) => format!("已导出 {} 张卡牌到 {}", scene.cards.len(), path.display()),
+        Ok(()) => format!(
+            "已导出 {} 张卡牌、{} 个地形到 {}",
+            scene.cards.len(),
+            scene.terrains.len(),
+            path.display()
+        ),
         Err(error) => format!("导出失败 {}: {error}", path.display()),
     }
 }
@@ -2670,7 +3167,11 @@ fn load_scene_from_path(
             Option<&EditorRuntimeSpecializedParam>,
             Option<&EditorSpecializedAuxiliaryCard>,
         ),
-        Without<EditorDragPreview>,
+        (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
+    >,
+    terrain_query: &Query<
+        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        With<EditorPlacedTerrain>,
     >,
     spawn_deps: &mut SpawnCardSystemParams<'_>,
     path: &Path,
@@ -2697,14 +3198,26 @@ fn load_scene_from_path(
     for (entity, _, _, _, _) in card_query.iter() {
         commands.entity(entity).despawn();
     }
+    for (entity, _, _, _) in terrain_query.iter() {
+        commands.entity(entity).despawn();
+    }
 
     let cards = scene.cards;
+    let terrains = scene.terrains;
     for card in &cards {
         let entity = spawn_editor_card(commands, spawn_deps, card);
         commands.entity(entity).insert(EditorPlacedCard);
     }
+    for terrain in &terrains {
+        spawn_editor_terrain(commands, terrain);
+    }
 
-    format!("已从 {} 导入 {} 张卡牌", path.display(), cards.len())
+    format!(
+        "已从 {} 导入 {} 张卡牌、{} 个地形",
+        path.display(),
+        cards.len(),
+        terrains.len()
+    )
 }
 
 fn editor_scene_dir() -> PathBuf {

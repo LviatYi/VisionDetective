@@ -1,5 +1,4 @@
 pub mod card_config;
-pub mod terrain_config;
 
 use bevy::color::Color;
 use bevy::math::{Vec2, Vec3};

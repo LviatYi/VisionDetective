@@ -20,7 +20,6 @@ use crate::coin::player::PlayerPlugin;
 use crate::coin::player::controller::{PlayerCoinBehaviorStatus, PlayerCoinState};
 use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
-use crate::config::terrain_config::TerrainPresetsConfig;
 use crate::editor::EditorPlugin;
 use crate::game_view::GameViewPlugin;
 use crate::game_view::main_view::{cleanup_view, handle_esc_to_main_menu};
@@ -73,13 +72,11 @@ pub enum GameLoadingSet {
 fn main() {
     let config = GameConfig::load();
     let card_presets_config = CardPresetsConfig::load();
-    let terrain_presets_config = TerrainPresetsConfig::load();
 
     App::new()
         .insert_resource(ClearColor(config.window.clear_color()))
         .insert_resource(config.clone())
         .insert_resource(card_presets_config.clone())
-        .insert_resource(terrain_presets_config.clone())
         .init_resource::<GameplayInputBlocker>()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -170,7 +167,6 @@ fn setup_game_scene(
     mut commands: Commands,
     mut card_spawn_params: SpawnCardSystemParams<'_>,
     progress: Res<GameProgress>,
-    terrain_presets: Res<TerrainPresetsConfig>,
     mut scene_cards: ResMut<scene::demo_level::RuntimeSceneCards>,
 ) {
     commands.spawn((
@@ -182,7 +178,6 @@ fn setup_game_scene(
     load_demo_scene(
         &mut commands,
         &mut card_spawn_params,
-        &terrain_presets,
         &progress,
         &mut scene_cards,
     );

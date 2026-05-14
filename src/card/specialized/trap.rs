@@ -109,7 +109,7 @@ fn handle_player_trap_collision(
     }
 }
 
-fn is_covered_by_higher_card(
+pub fn is_covered_by_higher_card(
     trap_entity: Entity,
     trap_z: f32,
     player_position: Vec2,

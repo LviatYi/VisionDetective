@@ -68,7 +68,37 @@
     {
       "id": 100014,
       "title": "疑云",
-      "image_res_path": ""
+      "image_res_path": "pic/doubt-puzzle.png"
+    },
+    {
+      "id": 100015,
+      "title": "钉板",
+      "image_res_path": "pic/patch.png"
+    },
+    {
+      "id": 100016,
+      "title": "陷阱",
+      "image_res_path": "pic/trap-big.png"
+    },
+    {
+      "id": 100017,
+      "title": "打开的保险箱",
+      "image_res_path": "pic/coffer.png"
+    },
+    {
+      "id": 100018,
+      "title": "疑虑",
+      "image_res_path": "pic/doubt.png"
+    },
+    {
+      "id": 100019,
+      "title": "灵感",
+      "image_res_path": "pic/inspire.png"
+    },
+    {
+      "id": 100020,
+      "title": "线索",
+      "image_res_path": "pic/clue.png"
     },
     {
       "id": 100901,

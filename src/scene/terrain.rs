@@ -1,20 +1,81 @@
 use crate::GameView;
+use crate::card::Card;
 use crate::card::card_params::{CardSceneParam, SpawnCardSystemParams};
 use crate::card::spawn_scenery_by_appearance;
-use crate::config::terrain_config::TerrainPresetsConfig;
+use crate::card::specialized::trap::is_covered_by_higher_card;
+use crate::coin::player::PlayerCoin;
+use crate::coin::player::controller::{PlayerCoinBehaviorStatus, PlayerCoinState};
 use crate::physics::area::Area;
 use crate::scene::SceneLayer;
+use crate::tools::Disable;
 use bevy::math::Vec2;
-use bevy::prelude::{Commands, Quat, Transform};
+use bevy::prelude::{
+    Color, Commands, Component, Deref, Entity, Gizmos, GlobalTransform, Mut, Quat, Query,
+    Transform, With, Without,
+};
 use fast_poisson::Poisson2D;
 use serde::{Deserialize, Serialize};
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerrainParam {
-    pub preset_id: u32,
+    #[serde(default, rename = "type")]
+    pub terrain_type: TerrainType,
+
+    #[serde(default)]
+    pub path: Vec<Vec2>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub appearance_id: Option<u32>,
+
+    #[serde(default = "default_min_distance")]
+    pub min_distance: f32,
+
+    #[serde(default = "default_rejection_attempts")]
+    pub rejection_attempts: usize,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_cards: Option<usize>,
+
+    #[serde(default = "default_order_offset")]
+    pub order_offset: f32,
+
+    #[serde(default)]
+    pub rotation: f32,
+
+    #[serde(default)]
+    pub rotation_jitter: f32,
+
+    #[serde(default)]
+    pub seed: u64,
 
     #[serde(default)]
     pub scene_param: TerrainSceneParam,
+}
+
+impl Default for TerrainParam {
+    fn default() -> Self {
+        Self {
+            terrain_type: TerrainType::default(),
+            path: Vec::new(),
+            appearance_id: None,
+            min_distance: default_min_distance(),
+            rejection_attempts: default_rejection_attempts(),
+            max_cards: None,
+            order_offset: default_order_offset(),
+            rotation: 0.0,
+            rotation_jitter: 0.0,
+            seed: 0,
+            scene_param: TerrainSceneParam::default(),
+        }
+    }
+}
+
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TerrainType {
+    #[default]
+    Trap,
+    Scenery,
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -40,75 +101,91 @@ pub struct TerrainSceneParam {
 pub fn spawn_terrain(
     commands: &mut Commands,
     spawn_params: &mut SpawnCardSystemParams<'_>,
-    terrain_presets: &TerrainPresetsConfig,
     terrain: &TerrainParam,
 ) {
-    let Some(preset) = terrain_presets.get(terrain.preset_id) else {
-        bevy::log::warn!("terrain preset {} is not found", terrain.preset_id);
-        return;
-    };
-    if preset.appearance_ids.is_empty() || preset.min_distance <= 0.0 {
+    if terrain.path.len() < 3 {
+        bevy::log::warn!("terrain path must contain at least 3 points");
         return;
     }
 
-    let appearances = preset
-        .appearance_ids
-        .iter()
-        .filter_map(|appearance_id| {
-            spawn_params
-                .card_presets_config
-                .appearances
-                .iter()
-                .find(|appearance| appearance.id == *appearance_id)
-                .cloned()
-        })
-        .collect::<Vec<_>>();
-    if appearances.is_empty() {
-        return;
+    spawn_terrain_fill(commands, spawn_params, terrain);
+
+    if terrain.terrain_type == TerrainType::Trap {
+        commands.spawn((
+            terrain_transform(terrain),
+            TrapTerrain::new(terrain.path.clone()),
+            GameView,
+        ));
     }
+}
 
-    let area = Area::new(preset.shape_def.sample_path(&spawn_params.config.cards));
-    let points = sample_poisson_disk_in_area(
-        &area,
-        preset.min_distance,
-        preset.rejection_attempts,
-        preset.max_cards,
-    );
-    let terrain_transform = Transform::from_translation(
-        terrain
-            .scene_param
-            .position
-            .extend(SceneLayer::Card.get_layer_base_z() + terrain.scene_param.order),
-    )
-    .with_rotation(Quat::from_rotation_z(terrain.scene_param.rotation));
+#[derive(Component, Clone, Deref)]
+pub struct TrapTerrain {
+    pub area: Area,
+}
 
-    let points_count = points.len();
-    let inner_z_offset: f32 = 1.0 / (points_count as f32);
+impl TrapTerrain {
+    pub fn new(local_path: Vec<Vec2>) -> Self {
+        Self {
+            area: Area::new(local_path),
+        }
+    }
+}
 
-    for (index, point) in points.into_iter().enumerate() {
-        let appearance = &appearances[index % appearances.len()];
-        let world_position = terrain_transform
-            .transform_point(point.extend(0.0))
-            .truncate();
-        let rotation = preset.rotation
-            + terrain.scene_param.rotation
-            + deterministic_signed_unit(index as u64, appearance.id as u64)
-                * preset.rotation_jitter;
+pub fn handle_player_trap_terrain_collision(
+    mut player_query: Query<(Mut<PlayerCoinState>, &Transform), With<PlayerCoin>>,
+    trap_terrain_query: Query<(Entity, &Transform, &TrapTerrain), Without<Disable>>,
+    card_query: Query<(Entity, &Card, &GlobalTransform), Without<Disable>>,
+) {
+    for (mut player_state, player_transform) in &mut player_query {
+        if !player_state.is_on_ground() {
+            continue;
+        }
 
-        let entity = spawn_scenery_by_appearance(
-            commands,
-            spawn_params,
-            appearance,
-            CardSceneParam {
-                position: world_position,
-                rotation,
-                order: terrain.scene_param.order + index as f32 * inner_z_offset,
-                enable_if: terrain.scene_param.enable_if.clone(),
-                disable_if: terrain.scene_param.disable_if.clone(),
-                ..Default::default()
-            },
+        let player_position = player_transform.translation.truncate();
+        let falls_into_trap = trap_terrain_query
+            .iter()
+            .filter(|(_, terrain_transform, terrain)| {
+                terrain.contains_world_point(terrain_transform, player_position)
+            })
+            .any(|(terrain_entity, terrain_transform, _)| {
+                !is_covered_by_higher_card(
+                    terrain_entity,
+                    terrain_transform.translation.z,
+                    player_position,
+                    &card_query,
+                )
+            });
+
+        if falls_into_trap {
+            player_state.set_state(PlayerCoinBehaviorStatus::Death);
+        }
+    }
+}
+
+pub fn draw_trap_terrain_paths(
+    mut gizmos: Gizmos,
+    trap_terrain_query: Query<(&Transform, &TrapTerrain)>,
+) {
+    for (transform, terrain) in &trap_terrain_query {
+        draw_path(
+            &mut gizmos,
+            &terrain.world_path(transform),
+            Color::srgb(0.95, 0.24, 0.24),
         );
-        commands.entity(entity).insert(GameView);
+    }
+}
+
+pub fn draw_path(gizmos: &mut Gizmos, world_path: &[Vec2], color: Color) {
+    if world_path.len() < 2 {
+        return;
+    }
+
+    for index in 0..world_path.len() {
+        let a = world_path[index];
+        let b = world_path[(index + 1) % world_path.len()];
+        gizmos.line_2d(a, b, color);
+        gizmos.circle_2d(a, 3.0, color);
     }
 }
 
@@ -117,6 +194,7 @@ fn sample_poisson_disk_in_area(
     min_distance: f32,
     rejection_attempts: usize,
     max_points: Option<usize>,
+    seed: u64,
 ) -> Vec<Vec2> {
     let Some((min, max)) = area.local_bounds() else {
         return Vec::new();
@@ -133,7 +211,7 @@ fn sample_poisson_disk_in_area(
 
     Poisson2D::new()
         .with_dimensions([size.x as f64, size.y as f64], min_distance as f64)
-        .with_seed(area_seed(area, min_distance))
+        .with_seed(seed)
         .with_samples(rejection_attempts.max(1) as u32)
         .iter()
         .map(|point| min + Vec2::new(point[0] as f32, point[1] as f32))
@@ -142,15 +220,91 @@ fn sample_poisson_disk_in_area(
         .collect()
 }
 
-fn area_seed(area: &Area, min_distance: f32) -> u64 {
-    let mut hash = min_distance.to_bits() as u64;
-    for point in &area.local_path {
-        hash = hash.wrapping_mul(1_099_511_628_211);
-        hash ^= point.x.to_bits() as u64;
-        hash = hash.wrapping_mul(1_099_511_628_211);
-        hash ^= point.y.to_bits() as u64;
+fn spawn_terrain_fill(
+    commands: &mut Commands,
+    spawn_params: &mut SpawnCardSystemParams<'_>,
+    terrain: &TerrainParam,
+) {
+    let Some(appearance_id) = terrain.appearance_id else {
+        return;
+    };
+    if terrain.min_distance <= 0.0 {
+        return;
     }
-    hash
+
+    let Some(appearance) = spawn_params
+        .card_presets_config
+        .appearances
+        .iter()
+        .find(|appearance| appearance.id == appearance_id)
+        .cloned()
+    else {
+        bevy::log::warn!("terrain appearance {} is not found", appearance_id);
+        return;
+    };
+
+    let area = Area::new(terrain.path.clone());
+    let points = sample_poisson_disk_in_area(
+        &area,
+        terrain.min_distance,
+        terrain.rejection_attempts,
+        terrain.max_cards,
+        terrain.seed,
+    );
+    if points.is_empty() {
+        return;
+    }
+
+    let transform = terrain_transform(terrain);
+    let points_count = points.len();
+    let inner_z_offset = 1.0 / points_count as f32;
+
+    for (index, point) in points.into_iter().enumerate() {
+        let world_position = transform.transform_point(point.extend(0.0)).truncate();
+        let rotation = terrain.rotation
+            + terrain.scene_param.rotation
+            + deterministic_signed_unit(index as u64, appearance.id as u64)
+                * terrain.rotation_jitter;
+
+        let entity = spawn_scenery_by_appearance(
+            commands,
+            spawn_params,
+            &appearance,
+            CardSceneParam {
+                position: world_position,
+                rotation,
+                order: terrain.scene_param.order
+                    + terrain.order_offset
+                    + index as f32 * inner_z_offset,
+                enable_if: terrain.scene_param.enable_if.clone(),
+                disable_if: terrain.scene_param.disable_if.clone(),
+                ..Default::default()
+            },
+        );
+        commands.entity(entity).insert(GameView);
+    }
+}
+
+fn terrain_transform(terrain: &TerrainParam) -> Transform {
+    Transform::from_translation(
+        terrain
+            .scene_param
+            .position
+            .extend(SceneLayer::Card.get_layer_base_z() + terrain.scene_param.order),
+    )
+    .with_rotation(Quat::from_rotation_z(terrain.scene_param.rotation))
+}
+
+fn default_min_distance() -> f32 {
+    120.0
+}
+
+fn default_rejection_attempts() -> usize {
+    30
+}
+
+fn default_order_offset() -> f32 {
+    0.01
 }
 
 fn deterministic_signed_unit(index: u64, salt: u64) -> f32 {

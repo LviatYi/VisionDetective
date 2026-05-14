@@ -874,7 +874,32 @@ order = 73.0
 description = "title: 桌子, image_path: pic/table-right.png, desc: 沙发（右）"
 
 [[terrains]]
-preset_id = 1001
+type = "scenery"
+path = [
+    [
+        -320.0,
+        -220.0,
+    ],
+    [
+        320.0,
+        -220.0,
+    ],
+    [
+        320.0,
+        220.0,
+    ],
+    [
+        -320.0,
+        220.0,
+    ],
+]
+appearance_id = 100014
+min_distance = 128.0
+rejection_attempts = 30
+order_offset = 0.01
+rotation = 0.0
+rotation_jitter = 0.35
+seed = 0
 
 [terrains.scene_param]
 position = [
