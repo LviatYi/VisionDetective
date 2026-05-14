@@ -1,5 +1,5 @@
 use crate::card::card_params::{CardSpawnParams, CardSpecializedParam};
-use crate::card::{CardKind, CardSpecializedInstaller};
+use crate::card::{Card, CardKind, CardSpecializedInstaller};
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinBehaviorStatus, PlayerCoinState};
 use crate::config::GameConfig;
@@ -9,8 +9,8 @@ use crate::{GameplaySet, register_card_specialized_installer};
 use bevy::app::{App, Update};
 use bevy::math::Vec2;
 use bevy::prelude::{
-    Component, Deref, EntityCommands, Gizmos, IntoScheduleConfigs, Mut, Query, Res, Transform,
-    With, Without,
+    Component, Deref, Entity, EntityCommands, Gizmos, GlobalTransform, IntoScheduleConfigs, Mut,
+    Query, Res, Transform, With, Without,
 };
 use serde::{Deserialize, Serialize};
 
@@ -77,7 +77,8 @@ impl Trap {
 
 fn handle_player_trap_collision(
     mut player_query: Query<(Mut<PlayerCoinState>, &Transform), With<PlayerCoin>>,
-    trap_query: Query<(&Transform, &Trap), Without<Disable>>,
+    trap_query: Query<(Entity, &Transform, &Trap), Without<Disable>>,
+    card_query: Query<(Entity, &Card, &GlobalTransform), Without<Disable>>,
 ) {
     for (mut player_state, player_transform) in &mut player_query {
         if !player_state.is_on_ground() {
@@ -85,12 +86,38 @@ fn handle_player_trap_collision(
         }
 
         let player_position = player_transform.translation.truncate();
-        if trap_query.iter().any(|(trap_transform, trap)| {
-            trap.contains_world_point(trap_transform, player_position)
-        }) {
+        let falls_into_trap = trap_query
+            .iter()
+            .filter(|(_, trap_transform, trap)| {
+                trap.contains_world_point(trap_transform, player_position)
+            })
+            .any(|(trap_entity, trap_transform, _)| {
+                !is_covered_by_higher_card(
+                    trap_entity,
+                    trap_transform.translation.z,
+                    player_position,
+                    &card_query,
+                )
+            });
+
+        if falls_into_trap {
             player_state.set_state(PlayerCoinBehaviorStatus::Death);
         }
     }
+}
+
+fn is_covered_by_higher_card(
+    trap_entity: Entity,
+    trap_z: f32,
+    player_position: Vec2,
+    card_query: &Query<(Entity, &Card, &GlobalTransform), Without<Disable>>,
+) -> bool {
+    card_query
+        .iter()
+        .filter(|(entity, _, transform)| {
+            *entity != trap_entity && transform.translation().z > trap_z
+        })
+        .any(|(_, card, transform)| card.contains_point(transform, player_position))
 }
 
 //region Gizmos
