@@ -51,9 +51,6 @@ pub struct TerrainPresetConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_cards: Option<usize>,
 
-    #[serde(default = "default_order_offset")]
-    pub order_offset: f32,
-
     #[serde(default)]
     pub rotation: f32,
 
@@ -67,8 +64,4 @@ fn default_min_distance() -> f32 {
 
 fn default_rejection_attempts() -> usize {
     30
-}
-
-fn default_order_offset() -> f32 {
-    0.01
 }

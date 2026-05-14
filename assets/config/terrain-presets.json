@@ -28,8 +28,6 @@
       ],
       "min_distance": 128.0,
       "rejection_attempts": 30,
-      "order_offset": 0.01,
-      "order_step": 0.01,
       "rotation_jitter": 0.35
     }
   ]

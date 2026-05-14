@@ -102,9 +102,7 @@ pub fn spawn_terrain(
             CardSceneParam {
                 position: world_position,
                 rotation,
-                order: terrain.scene_param.order
-                    + preset.order_offset
-                    + index as f32 * inner_z_offset,
+                order: terrain.scene_param.order + index as f32 * inner_z_offset,
                 enable_if: terrain.scene_param.enable_if.clone(),
                 disable_if: terrain.scene_param.disable_if.clone(),
                 ..Default::default()
