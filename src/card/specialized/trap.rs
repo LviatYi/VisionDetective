@@ -2,15 +2,14 @@ use crate::card::card_params::{CardSpawnParams, CardSpecializedParam};
 use crate::card::{Card, CardKind, CardSpecializedInstaller};
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinBehaviorStatus, PlayerCoinState};
-use crate::config::GameConfig;
 use crate::physics::area::{Area, ShapeType};
 use crate::tools::Disable;
 use crate::{GameplaySet, register_card_specialized_installer};
 use bevy::app::{App, Update};
 use bevy::math::Vec2;
 use bevy::prelude::{
-    Component, Deref, Entity, EntityCommands, Gizmos, GlobalTransform, IntoScheduleConfigs, Mut,
-    Query, Res, Transform, With, Without,
+    Color, Component, Deref, Entity, EntityCommands, Gizmos, GlobalTransform, IntoScheduleConfigs,
+    Mut, Query, Transform, With, Without,
 };
 use serde::{Deserialize, Serialize};
 
@@ -122,28 +121,19 @@ fn is_covered_by_higher_card(
 
 //region Gizmos
 
-pub fn draw_trap_paths(
-    config: Res<GameConfig>,
-    mut gizmos: Gizmos,
-    trap_query: Query<(&Transform, &Trap)>,
-) {
+pub fn draw_trap_paths(mut gizmos: Gizmos, trap_query: Query<(&Transform, &Trap)>) {
     for (transform, trap) in &trap_query {
         let world_path = trap.world_path(transform);
         if world_path.len() < 2 {
             continue;
         }
 
-        todo!("//TODO_LviatYi: by Lviat Yi");
-        // for index in 0..world_path.len() {
-        //     let a = world_path[index];
-        //     let b = world_path[(index + 1) % world_path.len()];
-        //     gizmos.line_2d(a, b, config.traps.edge_color());
-        //     gizmos.circle_2d(
-        //         a,
-        //         config.traps.vertex_radius,
-        //         config.traps.vertex_color(),
-        //     );
-        // }
+        for index in 0..world_path.len() {
+            let a = world_path[index];
+            let b = world_path[(index + 1) % world_path.len()];
+            gizmos.line_2d(a, b, Color::srgb(0.91, 0.42, 0.42));
+            gizmos.circle_2d(a, 3.0, Color::srgb(1.0, 0.72, 0.76));
+        }
     }
 }
 

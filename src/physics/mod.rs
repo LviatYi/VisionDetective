@@ -1,4 +1,5 @@
 use crate::card::specialized::obstacle::{Obstacle, draw_obstacle_paths};
+use crate::card::specialized::trap::draw_trap_paths;
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinBehaviorStatus, PlayerCoinState};
 use crate::config::GameConfig;
@@ -23,7 +24,7 @@ impl Plugin for PhysicsPlugin {
         )
         .add_systems(
             Update,
-            draw_obstacle_paths.run_if(in_state(AppStatus::Editor)),
+            (draw_obstacle_paths, draw_trap_paths).run_if(in_state(AppStatus::Editor)),
         );
     }
 }
