@@ -1,0 +1,36 @@
+{
+  "terrains": [
+    {
+      "id": 1001,
+      "name": "草地",
+      "shape_def": {
+        "path": [
+          [
+            -320.0,
+            -220.0
+          ],
+          [
+            320.0,
+            -220.0
+          ],
+          [
+            320.0,
+            220.0
+          ],
+          [
+            -320.0,
+            220.0
+          ]
+        ]
+      },
+      "appearance_ids": [
+        100901
+      ],
+      "min_distance": 128.0,
+      "rejection_attempts": 30,
+      "order_offset": 0.01,
+      "order_step": 0.01,
+      "rotation_jitter": 0.35
+    }
+  ]
+}

@@ -1,7 +1,9 @@
 use crate::GameView;
 use crate::card::card_params::{CardParam, CardSpawnParams};
 use crate::card::spawn_card_by_card_param;
+use crate::config::terrain_config::TerrainPresetsConfig;
 use crate::progress::GameProgress;
+use crate::scene::terrain::{TerrainParam, spawn_terrain};
 use bevy::prelude::*;
 use serde::Deserialize;
 use std::fs;
@@ -13,6 +15,9 @@ const DEMO_SCENE_PATH: &str = "assets/scene/scene-demo-01.toml";
 struct SceneFile {
     #[serde(default)]
     cards: Vec<CardParam>,
+
+    #[serde(default)]
+    terrains: Vec<TerrainParam>,
 }
 
 #[derive(Resource, Default)]
@@ -36,6 +41,7 @@ impl Plugin for RuntimeScenePlugin {
 pub fn load_demo_scene(
     commands: &mut Commands,
     spawn_params: &mut CardSpawnParams<'_>,
+    terrain_presets: &TerrainPresetsConfig,
     _progress: &GameProgress,
     runtime_cards: &mut RuntimeSceneCards,
 ) {
@@ -65,6 +71,10 @@ pub fn load_demo_scene(
         })
         .collect();
     spawn_runtime_scene_cards(commands, spawn_params, runtime_cards);
+
+    for terrain in &scene.terrains {
+        spawn_terrain(commands, spawn_params, terrain_presets, terrain);
+    }
 }
 
 fn spawn_runtime_scene_cards(

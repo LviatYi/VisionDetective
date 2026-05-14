@@ -822,19 +822,6 @@ order = 68.0
 description = "title: 对话, image_path: pic/talk-bubble.png, desc: 对话：初遇邻居"
 
 [[cards]]
-prefab_id = 1901
-
-[cards.scene_param]
-instance_id = "1901-草-68602ee5-510d-4190-9c3c-22be0e1a3942"
-position = [
-    627.0,
-    2043.0,
-]
-rotation = 0.5235989
-order = 69.0
-description = "title: 草, image_path: "
-
-[[cards]]
 prefab_id = 1002
 
 [cards.scene_param]
@@ -885,3 +872,15 @@ position = [
 rotation = 0.0
 order = 73.0
 description = "title: 桌子, image_path: pic/table-right.png, desc: 沙发（右）"
+
+[[terrains]]
+preset_id = 1001
+
+[terrains.scene_param]
+position = [
+    627.0,
+    2043.0,
+]
+rotation = 0.5235989
+order = 69.0
+description = "terrain: 草地"

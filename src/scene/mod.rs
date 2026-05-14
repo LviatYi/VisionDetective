@@ -1,6 +1,7 @@
 use bevy::camera::{Camera2d, OrthographicProjection, Projection};
 
 pub mod demo_level;
+pub mod terrain;
 
 #[derive(Debug, Copy, Clone)]
 pub enum SceneLayer {

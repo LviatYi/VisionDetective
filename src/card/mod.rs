@@ -1,7 +1,7 @@
 pub mod card_params;
 pub mod specialized;
 
-use crate::card::card_params::{CardParam, CardSpawnParams};
+use crate::card::card_params::{CardAppearanceConfig, CardParam, CardSpawnParams};
 use crate::card::card_params::{CardSceneParam, CardSpecializedParam};
 use crate::config::{CardConfig, GameConfig};
 use crate::editor::EditorRuntimeSpecializedParam;
@@ -208,12 +208,14 @@ impl Card {
 #[derive(Clone, Debug)]
 pub enum CardInstanceType {
     Prefab(u32),
+    GeneratedScenery { appearance_id: u32 },
 }
 
 impl CardInstanceType {
     pub fn get_prefab_id(&self) -> u32 {
         match self {
             CardInstanceType::Prefab(id) => *id,
+            CardInstanceType::GeneratedScenery { appearance_id } => *appearance_id,
         }
     }
 }
@@ -341,6 +343,73 @@ pub fn spawn_card_by_card_param(
     }
 
     if card_param.scene_param.enable_if.is_some() {
+        entity.insert((Disable, Visibility::Hidden));
+    }
+
+    entity.with_children(|parent| {
+        spawn_card_image(
+            parent,
+            spawn_params.asset_server.as_ref(),
+            spawn_params.meshes.as_mut(),
+            spawn_params.materials.as_mut(),
+            &appearance.image_res_path,
+            &spawn_params.config.cards.background_card_image_path,
+        );
+        spawn_card_title(
+            parent,
+            spawn_params.asset_server.as_ref(),
+            &spawn_params.config,
+            &appearance.title,
+        );
+    });
+
+    entity.id()
+}
+
+pub fn spawn_scenery_card_by_appearance(
+    commands: &mut Commands,
+    spawn_params: &mut CardSpawnParams<'_>,
+    appearance: &CardAppearanceConfig,
+    scene_param: CardSceneParam,
+) -> Entity {
+    let should_disable_initially = scene_param.enable_if.is_some();
+    let fill_color = if appearance.background_color_appearance_override.is_empty() {
+        spawn_params.config.cards.fill_color(CardKind::Scenery)
+    } else {
+        Srgba::hex(&appearance.background_color_appearance_override)
+            .map(Color::Srgba)
+            .unwrap_or_else(|_| spawn_params.config.cards.fill_color(CardKind::Scenery))
+    };
+    let z_order = SceneLayer::Card.get_layer_base_z() + scene_param.order;
+    let instance_id = if scene_param.instance_id.is_empty() {
+        card_params::make_card_instance_id(appearance.id, &appearance.title)
+    } else {
+        scene_param.instance_id
+    };
+
+    let mut entity = commands.spawn((
+        Transform::from_translation(scene_param.position.extend(z_order))
+            .with_rotation(Quat::from_rotation_z(scene_param.rotation)),
+        Card {
+            instance_id,
+            title: appearance.title.clone(),
+            instance_type: CardInstanceType::GeneratedScenery {
+                appearance_id: appearance.id,
+            },
+            enable_if: scene_param.enable_if,
+            disable_if: scene_param.disable_if,
+        },
+        CardKind::Scenery,
+        Pickable::default(),
+        Mesh2d(
+            spawn_params
+                .meshes
+                .add(Card::card_rounded_mesh(&spawn_params.config.cards)),
+        ),
+        MeshMaterial2d(spawn_params.materials.add(fill_color)),
+    ));
+
+    if should_disable_initially {
         entity.insert((Disable, Visibility::Hidden));
     }
 

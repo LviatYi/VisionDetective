@@ -13,6 +13,7 @@ inventory = "0.3.24"
 anyhow = "1.0.102"
 geo = "0.33.1"
 uuid = { version = "1.23.1", features = ["v4"] }
+fast_poisson = "1.0.2"
 
 #[profile.dev]
 #opt-level = 1

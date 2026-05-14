@@ -73,11 +73,29 @@ impl Area {
         Self { local_path }
     }
 
+    pub fn local_bounds(&self) -> Option<(Vec2, Vec2)> {
+        let mut points = self.local_path.iter();
+        let first = *points.next()?;
+        let mut min = first;
+        let mut max = first;
+
+        for &point in points {
+            min = min.min(point);
+            max = max.max(point);
+        }
+
+        Some((min, max))
+    }
+
     pub fn world_path(&self, transform: &Transform) -> Vec<Vec2> {
         self.local_path
             .iter()
             .map(|point| transform.transform_point(point.extend(0.0)).truncate())
             .collect()
+    }
+
+    pub fn contains_local_point(&self, point: Vec2) -> bool {
+        point_in_polygon(point, &self.local_path)
     }
 
     pub fn contains_world_point(&self, transform: &Transform, point: Vec2) -> bool {
