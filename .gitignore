@@ -19,3 +19,6 @@ target/
 
 assets/materials-pic/**
 assets/editor/editor-state.toml
+
+# 临时地忽略图片资产
+**.png
