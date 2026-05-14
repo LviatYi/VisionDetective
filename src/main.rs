@@ -15,7 +15,7 @@ pub mod tools;
 use crate::asset::font;
 use crate::camera_control::{CameraControlPlugin, GameCamera};
 use crate::card::CardPlugin;
-use crate::card::card_params::CardSpawnParams;
+use crate::card::card_params::SpawnCardSystemParams;
 use crate::coin::player::PlayerPlugin;
 use crate::coin::player::controller::{PlayerCoinBehaviorStatus, PlayerCoinState};
 use crate::config::GameConfig;
@@ -168,7 +168,7 @@ fn finish_game_loading(mut next_game_state: ResMut<NextState<GameStatus>>) {
 
 fn setup_game_scene(
     mut commands: Commands,
-    mut card_spawn_params: CardSpawnParams<'_>,
+    mut card_spawn_params: SpawnCardSystemParams<'_>,
     progress: Res<GameProgress>,
     terrain_presets: Res<TerrainPresetsConfig>,
     mut scene_cards: ResMut<scene::demo_level::RuntimeSceneCards>,

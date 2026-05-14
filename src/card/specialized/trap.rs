@@ -1,4 +1,4 @@
-use crate::card::card_params::{CardSpawnParams, CardSpecializedParam};
+use crate::card::card_params::{CardSpecializedParam, SpawnCardSystemParams};
 use crate::card::{Card, CardKind, CardSpecializedInstaller};
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinBehaviorStatus, PlayerCoinState};
@@ -48,7 +48,11 @@ impl CardSpecializedParam for TrapCardParams {
         CardKind::Trap
     }
 
-    fn spawn_with(&self, entity: &mut EntityCommands<'_>, spawn_params: &mut CardSpawnParams<'_>) {
+    fn spawn_with(
+        &self,
+        entity: &mut EntityCommands<'_>,
+        spawn_params: &mut SpawnCardSystemParams<'_>,
+    ) {
         entity.insert(Trap::new(
             self.shape_def.sample_path(&spawn_params.config.cards),
         ));

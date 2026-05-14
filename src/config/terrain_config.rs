@@ -54,9 +54,6 @@ pub struct TerrainPresetConfig {
     #[serde(default = "default_order_offset")]
     pub order_offset: f32,
 
-    #[serde(default = "default_order_step")]
-    pub order_step: f32,
-
     #[serde(default)]
     pub rotation: f32,
 
@@ -73,9 +70,5 @@ fn default_rejection_attempts() -> usize {
 }
 
 fn default_order_offset() -> f32 {
-    0.01
-}
-
-fn default_order_step() -> f32 {
     0.01
 }

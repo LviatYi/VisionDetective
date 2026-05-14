@@ -2,7 +2,7 @@
   "terrains": [
     {
       "id": 1001,
-      "name": "草地",
+      "name": "疑云",
       "shape_def": {
         "path": [
           [
@@ -24,7 +24,7 @@
         ]
       },
       "appearance_ids": [
-        100901
+        100014
       ],
       "min_distance": 128.0,
       "rejection_attempts": 30,

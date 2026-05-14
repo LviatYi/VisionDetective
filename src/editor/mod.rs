@@ -1,6 +1,6 @@
 use crate::AppStatus;
 use crate::card::card_params::{
-    CardParam, CardRuntimeSpecializedConfig, CardSceneParam, CardSpawnParams,
+    CardParam, CardRuntimeSpecializedConfig, CardSceneParam, SpawnCardSystemParams,
 };
 use crate::card::specialized::obstacle::Obstacle;
 use crate::card::{Card, CardSpecializedRegistry, spawn_card_by_card_param};
@@ -385,7 +385,7 @@ fn open_last_editor_scene(
         ),
         Without<EditorDragPreview>,
     >,
-    mut spawn_deps: CardSpawnParams<'_>,
+    mut spawn_deps: SpawnCardSystemParams<'_>,
     mut state: ResMut<EditorInteractionState>,
     mut history: ResMut<EditorUndoHistory>,
     file_state: Res<EditorFileState>,
@@ -739,7 +739,7 @@ fn handle_toolbar_buttons(
         (&mut Transform, &mut Projection),
         (With<Camera2d>, With<EditorView>, Without<Card>),
     >,
-    mut spawn_deps: CardSpawnParams<'_>,
+    mut spawn_deps: SpawnCardSystemParams<'_>,
     mut state: ResMut<EditorInteractionState>,
     mut history: ResMut<EditorUndoHistory>,
     mut file_state: ResMut<EditorFileState>,
@@ -826,7 +826,7 @@ fn handle_prefab_drag_start(
         ),
         Without<EditorDragPreview>,
     >,
-    mut spawn_deps: CardSpawnParams<'_>,
+    mut spawn_deps: SpawnCardSystemParams<'_>,
     mut state: ResMut<EditorInteractionState>,
 ) {
     for event in press_events.read() {
@@ -1510,7 +1510,7 @@ fn handle_editor_shortcuts(
         ),
         Without<EditorDragPreview>,
     >,
-    mut spawn_deps: CardSpawnParams<'_>,
+    mut spawn_deps: SpawnCardSystemParams<'_>,
     mut state: ResMut<EditorInteractionState>,
     mut history: ResMut<EditorUndoHistory>,
     mut file_state: ResMut<EditorFileState>,
@@ -2391,7 +2391,7 @@ fn projections_overlap(a: (f32, f32), b: (f32, f32)) -> bool {
 
 pub fn spawn_editor_card(
     commands: &mut Commands,
-    spawn_deps: &mut CardSpawnParams<'_>,
+    spawn_deps: &mut SpawnCardSystemParams<'_>,
     card_param: &CardParam,
 ) -> Entity {
     let normalized_card_param = CardParam {
@@ -2488,7 +2488,7 @@ fn undo_editor_operation(
         ),
         Without<EditorDragPreview>,
     >,
-    mut spawn_deps: CardSpawnParams<'_>,
+    mut spawn_deps: SpawnCardSystemParams<'_>,
     history: &mut EditorUndoHistory,
 ) -> String {
     let Some(previous_scene) = history.undo_stack.pop() else {
@@ -2514,7 +2514,7 @@ fn redo_editor_operation(
         ),
         Without<EditorDragPreview>,
     >,
-    mut spawn_deps: CardSpawnParams<'_>,
+    mut spawn_deps: SpawnCardSystemParams<'_>,
     history: &mut EditorUndoHistory,
 ) -> String {
     let Some(next_scene) = history.redo_stack.pop() else {
@@ -2540,7 +2540,7 @@ fn restore_editor_scene(
         ),
         Without<EditorDragPreview>,
     >,
-    spawn_deps: &mut CardSpawnParams<'_>,
+    spawn_deps: &mut SpawnCardSystemParams<'_>,
     scene: &EditorSceneFile,
 ) {
     for (entity, _, _, _, _) in card_query.iter() {
@@ -2633,7 +2633,7 @@ fn editor_card_to_scene_card(
         return None;
     }
 
-    let mut card_param = card.to_card_param(transform, runtime);
+    let mut card_param = card.to_card_param(transform, runtime)?;
     card_param.scene_param = normalize_editor_scene_param(&CardSceneParam {
         instance_id: card_param.scene_param.instance_id.clone(),
         position: transform.translation.truncate(),
@@ -2672,7 +2672,7 @@ fn load_scene_from_path(
         ),
         Without<EditorDragPreview>,
     >,
-    spawn_deps: &mut CardSpawnParams<'_>,
+    spawn_deps: &mut SpawnCardSystemParams<'_>,
     path: &Path,
 ) -> String {
     let format = match scene_file_format_from_path(path) {

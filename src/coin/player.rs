@@ -341,7 +341,7 @@ pub mod controller {
             }
 
             match player_query.get_mut(event.entity) {
-                Ok((mut player_state)) => {
+                Ok(mut player_state) => {
                     if !matches!(
                         player_state.state(),
                         PlayerCoinBehaviorStatus::Idle | PlayerCoinBehaviorStatus::Aiming

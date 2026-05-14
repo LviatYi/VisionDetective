@@ -1,12 +1,14 @@
 pub mod card_params;
 pub mod specialized;
 
-use crate::card::card_params::{CardAppearanceConfig, CardParam, CardSpawnParams};
+use crate::card::card_params::{CardAppearanceConfig, CardParam, SpawnCardSystemParams};
 use crate::card::card_params::{CardSceneParam, CardSpecializedParam};
 use crate::config::{CardConfig, GameConfig};
 use crate::editor::EditorRuntimeSpecializedParam;
 use crate::progress::GameProgress;
-use crate::scene::SceneLayer;
+use crate::scene::{
+    SceneLayer, Z_OFFSET_CARD_BACKGROUND, Z_OFFSET_CARD_IMAGE, Z_OFFSET_CARD_TITLE,
+};
 use crate::tools::Disable;
 use crate::{AppStatus, GameplaySet};
 use bevy::asset::RenderAssetUsages;
@@ -54,15 +56,11 @@ pub enum CardKind {
     Trap,
 }
 
-pub const CARD_BACKGROUND_Z_ORDER_OFFSET: f32 = 0.01;
-pub const CARD_IMAGE_Z_ORDER_OFFSET: f32 = 0.02;
-pub const CARD_TITLE_Z_ORDER_OFFSET: f32 = 0.03;
-
 #[derive(Component, Clone, Debug)]
 pub struct Card {
     pub instance_id: String,
     pub title: String,
-    pub instance_type: CardInstanceType,
+    pub according_type: CardAccordingType,
     pub enable_if: Option<String>,
     pub disable_if: Option<String>,
 }
@@ -188,34 +186,36 @@ impl Card {
         &self,
         transform: &Transform,
         runtime: Option<&EditorRuntimeSpecializedParam>,
-    ) -> CardParam {
-        CardParam {
-            scene_param: CardSceneParam {
-                instance_id: self.instance_id.clone(),
-                position: transform.translation.truncate(),
-                rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
-                order: transform.translation.z - SceneLayer::Card.get_layer_base_z(),
-                enable_if: self.enable_if.clone(),
-                disable_if: self.disable_if.clone(),
-                description: String::new(),
-            },
-            prefab_id: self.instance_type.get_prefab_id(),
-            runtime_specialized_param: runtime.cloned().map(|runtime| runtime.0),
-        }
+    ) -> Option<CardParam> {
+        self.according_type
+            .get_prefab_id()
+            .map(|prefab_id| CardParam {
+                scene_param: CardSceneParam {
+                    instance_id: self.instance_id.clone(),
+                    position: transform.translation.truncate(),
+                    rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
+                    order: transform.translation.z - SceneLayer::Card.get_layer_base_z(),
+                    enable_if: self.enable_if.clone(),
+                    disable_if: self.disable_if.clone(),
+                    description: String::new(),
+                },
+                prefab_id,
+                runtime_specialized_param: runtime.cloned().map(|runtime| runtime.0),
+            })
     }
 }
 
 #[derive(Clone, Debug)]
-pub enum CardInstanceType {
+pub enum CardAccordingType {
     Prefab(u32),
     GeneratedScenery { appearance_id: u32 },
 }
 
-impl CardInstanceType {
-    pub fn get_prefab_id(&self) -> u32 {
+impl CardAccordingType {
+    pub fn get_prefab_id(&self) -> Option<u32> {
         match self {
-            CardInstanceType::Prefab(id) => *id,
-            CardInstanceType::GeneratedScenery { appearance_id } => *appearance_id,
+            CardAccordingType::Prefab(id) => Some(*id),
+            CardAccordingType::GeneratedScenery { .. } => None,
         }
     }
 }
@@ -289,9 +289,10 @@ macro_rules! register_card_specialized_installer {
 struct FitCardTitleText {
     max_width: f32,
 }
+
 pub fn spawn_card_by_card_param(
     commands: &mut Commands,
-    spawn_params: &mut CardSpawnParams<'_>,
+    spawn_params: &mut SpawnCardSystemParams<'_>,
     card_param: &CardParam,
 ) -> Entity {
     let appearance = card_param.load_appearance(&spawn_params.card_presets_config);
@@ -310,23 +311,98 @@ pub fn spawn_card_by_card_param(
         .as_ref()
         .map(|specialized| specialized.kind())
         .unwrap_or(CardKind::Scenery);
-    let fill_color = card_param.resolve_fill_color(
-        &spawn_params.config,
-        &spawn_params.card_presets_config,
-        &spawn_params.card_specialized_registry,
+    let fill_color = resolve_appearance_fill_color(
+        &appearance,
+        specialized
+            .as_ref()
+            .map(|specialized| spawn_params.config.cards.fill_color(specialized.kind()))
+            .unwrap_or_else(|| spawn_params.config.cards.default_fill_color()),
     );
 
-    let z_order = SceneLayer::Card.get_layer_base_z() + card_param.scene_param.order;
+    spawn_card_inner(
+        commands,
+        spawn_params,
+        CardSpawnParams {
+            appearance: &appearance,
+            scene_param: card_param.scene_param.clone(),
+            instance_id,
+            according_type: CardAccordingType::Prefab(card_param.prefab_id),
+            card_kind,
+            fill_color,
+            specialized: specialized.as_deref(),
+        },
+    )
+}
+
+pub fn spawn_scenery_by_appearance(
+    commands: &mut Commands,
+    spawn_params: &mut SpawnCardSystemParams<'_>,
+    appearance: &CardAppearanceConfig,
+    scene_param: CardSceneParam,
+) -> Entity {
+    let instance_id = if scene_param.instance_id.is_empty() {
+        card_params::make_card_instance_id(appearance.id, &appearance.title)
+    } else {
+        scene_param.instance_id.clone()
+    };
+    let card_kind = CardKind::Scenery;
+    let fill_color =
+        resolve_appearance_fill_color(appearance, spawn_params.config.cards.fill_color(card_kind));
+
+    spawn_card_inner(
+        commands,
+        spawn_params,
+        CardSpawnParams {
+            appearance,
+            scene_param,
+            instance_id,
+            according_type: CardAccordingType::GeneratedScenery {
+                appearance_id: appearance.id,
+            },
+            card_kind,
+            fill_color,
+            specialized: None,
+        },
+    )
+}
+
+struct CardSpawnParams<'a> {
+    appearance: &'a CardAppearanceConfig,
+    scene_param: CardSceneParam,
+    instance_id: String,
+    according_type: CardAccordingType,
+    card_kind: CardKind,
+    fill_color: Color,
+    specialized: Option<&'a dyn CardSpecializedParam>,
+}
+
+fn spawn_card_inner(
+    commands: &mut Commands,
+    spawn_params: &mut SpawnCardSystemParams<'_>,
+    spawn_config: CardSpawnParams<'_>,
+) -> Entity {
+    let CardSpawnParams {
+        appearance,
+        scene_param,
+        instance_id,
+        according_type,
+        card_kind,
+        fill_color,
+        specialized,
+    } = spawn_config;
+
+    let should_disable_initially = scene_param.enable_if.is_some();
+    let z_order = SceneLayer::Card.get_layer_base_z() + scene_param.order;
 
     let mut entity = commands.spawn((
-        Transform::from_translation(card_param.scene_param.position.extend(z_order))
-            .with_rotation(Quat::from_rotation_z(card_param.scene_param.rotation)),
+        Transform::from_translation(scene_param.position.extend(z_order))
+            .with_rotation(Quat::from_rotation_z(scene_param.rotation)),
         Card {
             instance_id,
             title: appearance.title.clone(),
-            instance_type: CardInstanceType::Prefab(card_param.prefab_id),
-            enable_if: card_param.scene_param.enable_if.clone(),
-            disable_if: card_param.scene_param.disable_if.clone(),
+            according_type,
+            enable_if: scene_param.enable_if,
+            disable_if: scene_param.disable_if,
         },
         card_kind,
         Pickable::default(),
@@ -341,73 +417,6 @@ pub fn spawn_card_by_card_param(
     if let Some(specialized) = specialized {
         specialized.spawn_with(&mut entity, spawn_params);
     }
-
-    if card_param.scene_param.enable_if.is_some() {
-        entity.insert((Disable, Visibility::Hidden));
-    }
-
-    entity.with_children(|parent| {
-        spawn_card_image(
-            parent,
-            spawn_params.asset_server.as_ref(),
-            spawn_params.meshes.as_mut(),
-            spawn_params.materials.as_mut(),
-            &appearance.image_res_path,
-            &spawn_params.config.cards.background_card_image_path,
-        );
-        spawn_card_title(
-            parent,
-            spawn_params.asset_server.as_ref(),
-            &spawn_params.config,
-            &appearance.title,
-        );
-    });
-
-    entity.id()
-}
-
-pub fn spawn_scenery_card_by_appearance(
-    commands: &mut Commands,
-    spawn_params: &mut CardSpawnParams<'_>,
-    appearance: &CardAppearanceConfig,
-    scene_param: CardSceneParam,
-) -> Entity {
-    let should_disable_initially = scene_param.enable_if.is_some();
-    let fill_color = if appearance.background_color_appearance_override.is_empty() {
-        spawn_params.config.cards.fill_color(CardKind::Scenery)
-    } else {
-        Srgba::hex(&appearance.background_color_appearance_override)
-            .map(Color::Srgba)
-            .unwrap_or_else(|_| spawn_params.config.cards.fill_color(CardKind::Scenery))
-    };
-    let z_order = SceneLayer::Card.get_layer_base_z() + scene_param.order;
-    let instance_id = if scene_param.instance_id.is_empty() {
-        card_params::make_card_instance_id(appearance.id, &appearance.title)
-    } else {
-        scene_param.instance_id
-    };
-
-    let mut entity = commands.spawn((
-        Transform::from_translation(scene_param.position.extend(z_order))
-            .with_rotation(Quat::from_rotation_z(scene_param.rotation)),
-        Card {
-            instance_id,
-            title: appearance.title.clone(),
-            instance_type: CardInstanceType::GeneratedScenery {
-                appearance_id: appearance.id,
-            },
-            enable_if: scene_param.enable_if,
-            disable_if: scene_param.disable_if,
-        },
-        CardKind::Scenery,
-        Pickable::default(),
-        Mesh2d(
-            spawn_params
-                .meshes
-                .add(Card::card_rounded_mesh(&spawn_params.config.cards)),
-        ),
-        MeshMaterial2d(spawn_params.materials.add(fill_color)),
-    ));
 
     if should_disable_initially {
         entity.insert((Disable, Visibility::Hidden));
@@ -431,6 +440,16 @@ pub fn spawn_scenery_card_by_appearance(
     });
 
     entity.id()
+}
+
+fn resolve_appearance_fill_color(appearance: &CardAppearanceConfig, fallback: Color) -> Color {
+    if appearance.background_color_appearance_override.is_empty() {
+        return fallback;
+    }
+
+    Srgba::hex(&appearance.background_color_appearance_override)
+        .map(Color::Srgba)
+        .unwrap_or(fallback)
 }
 
 fn sync_card_disable_state(
@@ -478,19 +497,37 @@ fn spawn_card_image(
     image_res_path: &str,
     background_res_path: &str,
 ) {
+    spawn_card_image_inner(
+        parent,
+        asset_server,
+        meshes,
+        materials,
+        image_res_path,
+        Z_OFFSET_CARD_IMAGE,
+    );
+    spawn_card_image_inner(
+        parent,
+        asset_server,
+        meshes,
+        materials,
+        background_res_path,
+        Z_OFFSET_CARD_BACKGROUND,
+    );
+}
+
+fn spawn_card_image_inner(
+    parent: &mut ChildSpawnerCommands<'_>,
+    asset_server: &AssetServer,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<ColorMaterial>,
+    image_res_path: &str,
+    z: f32,
+) {
     if let Some(image_path) = normalize_asset_path(image_res_path) {
         parent.spawn((
             Mesh2d(meshes.add(Card::card_mesh())),
             MeshMaterial2d(materials.add(ColorMaterial::from(asset_server.load(image_path)))),
-            Transform::from_xyz(0.0, 0.0, CARD_IMAGE_Z_ORDER_OFFSET),
-        ));
-    };
-
-    if let Some(bg_path) = normalize_asset_path(background_res_path) {
-        parent.spawn((
-            Mesh2d(meshes.add(Card::card_mesh())),
-            MeshMaterial2d(materials.add(ColorMaterial::from(asset_server.load(bg_path)))),
-            Transform::from_xyz(0.0, 0.0, CARD_BACKGROUND_Z_ORDER_OFFSET),
+            Transform::from_xyz(0.0, 0.0, z),
         ));
     };
 }
@@ -514,7 +551,7 @@ fn spawn_card_title(
         TextColor(Color::BLACK),
         TextLayout::new_with_justify(Justify::Center),
         Anchor::CENTER,
-        Transform::from_xyz(0.0, title_position_y, CARD_TITLE_Z_ORDER_OFFSET),
+        Transform::from_xyz(0.0, title_position_y, Z_OFFSET_CARD_TITLE),
         FitCardTitleText {
             max_width: max_title_width,
         },

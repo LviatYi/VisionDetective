@@ -1,4 +1,4 @@
-use crate::card::card_params::{CardSpawnParams, CardSpecializedParam};
+use crate::card::card_params::{CardSpecializedParam, SpawnCardSystemParams};
 use crate::card::{CardKind, CardSpecializedInstaller};
 use crate::register_card_specialized_installer;
 use bevy::ecs::system::EntityCommands;
@@ -32,7 +32,7 @@ impl CardSpecializedParam for SceneryCardParams {
     fn spawn_with(
         &self,
         _entity: &mut EntityCommands<'_>,
-        _spawn_params: &mut CardSpawnParams<'_>,
+        _spawn_params: &mut SpawnCardSystemParams<'_>,
     ) {
     }
 }

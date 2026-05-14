@@ -1,6 +1,6 @@
 use crate::card::card_params::{
-    CardParam, CardRuntimeSpecializedConfig, CardSceneParam, CardSpawnParams,
-    CardSpecializedConfigData, CardSpecializedParam,
+    CardParam, CardRuntimeSpecializedConfig, CardSceneParam, CardSpecializedConfigData,
+    CardSpecializedParam, SpawnCardSystemParams,
 };
 use crate::card::specialized::obstacle::Obstacle;
 use crate::card::{Card, CardKind, CardSpecializedInstaller, spawn_card_by_card_param};
@@ -84,7 +84,11 @@ impl CardSpecializedParam for ClueCardParams {
         CardKind::Clue
     }
 
-    fn spawn_with(&self, entity: &mut EntityCommands<'_>, spawn_params: &mut CardSpawnParams<'_>) {
+    fn spawn_with(
+        &self,
+        entity: &mut EntityCommands<'_>,
+        spawn_params: &mut SpawnCardSystemParams<'_>,
+    ) {
         let mut question_mark = None;
         entity.with_children(|parent| {
             question_mark = Some(
@@ -165,7 +169,7 @@ fn restore_reveal_clues(
     mut commands: Commands,
     progress: ResMut<GameProgress>,
     mut clue_query: Query<(&Card, &mut ClueCard), Without<Disable>>,
-    mut card_spawn_params: CardSpawnParams,
+    mut card_spawn_params: SpawnCardSystemParams,
 ) {
     for (card, mut clue) in &mut clue_query {
         let revealed = progress
@@ -189,7 +193,7 @@ fn reveal_clues(
     obstacle_query: Query<(&Transform, &Obstacle), (Without<PlayerCoin>, Without<Disable>)>,
     mut illumination_mesh_query: Query<&mut Mesh2d, With<ClueIllumination>>,
     mut progress: ResMut<GameProgress>,
-    mut card_spawn_params: CardSpawnParams,
+    mut card_spawn_params: SpawnCardSystemParams,
 ) {
     for (player_state, player_transform) in player_query.iter() {
         if !player_state.just_eject_finished_or_initialized() {
@@ -243,7 +247,7 @@ fn reveal_clues(
 
 fn spawn_revealed_card(
     commands: &mut Commands,
-    spawn_params: &mut CardSpawnParams<'_>,
+    spawn_params: &mut SpawnCardSystemParams<'_>,
     clue: &ClueCard,
 ) {
     let Some(target_card_param) = clue.param.target_card_param.as_ref() else {
@@ -452,7 +456,7 @@ fn register_editor_systems(app: &mut App) {
 
 fn spawn_editor_clue_targets(
     mut commands: Commands,
-    mut spawn_params: CardSpawnParams<'_>,
+    mut spawn_params: SpawnCardSystemParams<'_>,
     mut editor_state: ResMut<EditorInteractionState>,
     clue_query: Query<(Entity, &ClueCard, &Transform), Added<EditorPlacedCard>>,
 ) {
@@ -515,9 +519,10 @@ fn update_editor_runtime_params(
         let Ok((target_card, target_transform, runtime)) = target_query.get(link.target) else {
             continue;
         };
+
         let params = match serde_json::to_value(ClueCardParams {
             reveal_threshold: Default::default(),
-            target_card_param: Some(target_card.to_card_param(target_transform, runtime)),
+            target_card_param: target_card.to_card_param(target_transform, runtime),
         }) {
             Ok(params) => params,
             Err(error) => {

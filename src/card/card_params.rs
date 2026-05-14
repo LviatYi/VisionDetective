@@ -166,11 +166,15 @@ pub trait CardSpecializedParam: Send + Sync {
     fn kind(&self) -> CardKind;
 
     /// Inserts kind-specific ECS components into the spawned entity.
-    fn spawn_with(&self, entity: &mut EntityCommands<'_>, spawn_params: &mut CardSpawnParams<'_>);
+    fn spawn_with(
+        &self,
+        entity: &mut EntityCommands<'_>,
+        spawn_params: &mut SpawnCardSystemParams<'_>,
+    );
 }
 
 #[derive(SystemParam)]
-pub struct CardSpawnParams<'w> {
+pub struct SpawnCardSystemParams<'w> {
     pub asset_server: Res<'w, AssetServer>,
     pub config: Res<'w, GameConfig>,
     pub meshes: ResMut<'w, Assets<Mesh>>,

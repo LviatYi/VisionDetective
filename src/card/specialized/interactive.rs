@@ -2,7 +2,8 @@ mod dialogue;
 mod hello_world;
 
 use crate::card::card_params::{
-    CardRuntimeSpecializedConfig, CardSpawnParams, CardSpecializedConfigData, CardSpecializedParam,
+    CardRuntimeSpecializedConfig, CardSpecializedConfigData, CardSpecializedParam,
+    SpawnCardSystemParams,
 };
 use crate::card::{Card, CardKind, CardSpecializedInstaller};
 use crate::coin::player::PlayerCoin;
@@ -21,7 +22,6 @@ use bevy::prelude::{
     Commands, Component, DetectChanges, Entity, EntityEvent, GlobalTransform, IntoScheduleConfigs,
     On, Query, Ref, Res, ResMut, Resource, Transform, With, Without, in_state,
 };
-use bevy::transform::TransformSystems;
 use serde::{Deserialize, Serialize};
 
 //region Installer
@@ -81,7 +81,11 @@ impl CardSpecializedParam for InteractionCardParams {
         CardKind::Interaction
     }
 
-    fn spawn_with(&self, entity: &mut EntityCommands<'_>, _spawn_params: &mut CardSpawnParams<'_>) {
+    fn spawn_with(
+        &self,
+        entity: &mut EntityCommands<'_>,
+        _spawn_params: &mut SpawnCardSystemParams<'_>,
+    ) {
         let Some(registration) = inventory::iter::<CardInteractionRegistration>
             .into_iter()
             .find(|registration| registration.type_id == self.type_id)
@@ -234,20 +238,20 @@ fn dispatch_interaction_events(
         && active_interaction.current != Some(entity)
         && let Ok((entity, card)) = interaction_query.get(entity)
     {
-        commands.trigger(CardInteractionExited {
-            entity,
-            prefab_id: card.instance_type.get_prefab_id(),
-        });
+        if let Some(prefab_id) = card.according_type.get_prefab_id() {
+            commands.trigger(CardInteractionExited { entity, prefab_id });
+        } else {
+            // ignore GeneratedScenery
+        }
     }
 
     if let Some(entity) = active_interaction.current
         && active_interaction.previous != Some(entity)
         && let Ok((entity, card)) = interaction_query.get(entity)
     {
-        commands.trigger(CardInteractionEntered {
-            entity,
-            prefab_id: card.instance_type.get_prefab_id(),
-        });
+        if let Some(prefab_id) = card.according_type.get_prefab_id() {
+            commands.trigger(CardInteractionEntered { entity, prefab_id });
+        }
     }
 }
 

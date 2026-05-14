@@ -1,6 +1,6 @@
 use crate::GameView;
-use crate::card::card_params::{CardSceneParam, CardSpawnParams};
-use crate::card::spawn_scenery_card_by_appearance;
+use crate::card::card_params::{CardSceneParam, SpawnCardSystemParams};
+use crate::card::spawn_scenery_by_appearance;
 use crate::config::terrain_config::TerrainPresetsConfig;
 use crate::physics::area::Area;
 use crate::scene::SceneLayer;
@@ -39,7 +39,7 @@ pub struct TerrainSceneParam {
 
 pub fn spawn_terrain(
     commands: &mut Commands,
-    spawn_params: &mut CardSpawnParams<'_>,
+    spawn_params: &mut SpawnCardSystemParams<'_>,
     terrain_presets: &TerrainPresetsConfig,
     terrain: &TerrainParam,
 ) {
@@ -82,6 +82,9 @@ pub fn spawn_terrain(
     )
     .with_rotation(Quat::from_rotation_z(terrain.scene_param.rotation));
 
+    let points_count = points.len();
+    let inner_z_offset: f32 = 1.0 / (points_count as f32);
+
     for (index, point) in points.into_iter().enumerate() {
         let appearance = &appearances[index % appearances.len()];
         let world_position = terrain_transform
@@ -92,7 +95,7 @@ pub fn spawn_terrain(
             + deterministic_signed_unit(index as u64, appearance.id as u64)
                 * preset.rotation_jitter;
 
-        let entity = spawn_scenery_card_by_appearance(
+        let entity = spawn_scenery_by_appearance(
             commands,
             spawn_params,
             appearance,
@@ -101,7 +104,7 @@ pub fn spawn_terrain(
                 rotation,
                 order: terrain.scene_param.order
                     + preset.order_offset
-                    + index as f32 * preset.order_step,
+                    + index as f32 * inner_z_offset,
                 enable_if: terrain.scene_param.enable_if.clone(),
                 disable_if: terrain.scene_param.disable_if.clone(),
                 ..Default::default()

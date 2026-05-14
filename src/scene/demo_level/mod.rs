@@ -1,5 +1,5 @@
 use crate::GameView;
-use crate::card::card_params::{CardParam, CardSpawnParams};
+use crate::card::card_params::{CardParam, SpawnCardSystemParams};
 use crate::card::spawn_card_by_card_param;
 use crate::config::terrain_config::TerrainPresetsConfig;
 use crate::progress::GameProgress;
@@ -40,7 +40,7 @@ impl Plugin for RuntimeScenePlugin {
 
 pub fn load_demo_scene(
     commands: &mut Commands,
-    spawn_params: &mut CardSpawnParams<'_>,
+    spawn_params: &mut SpawnCardSystemParams<'_>,
     terrain_presets: &TerrainPresetsConfig,
     _progress: &GameProgress,
     runtime_cards: &mut RuntimeSceneCards,
@@ -79,7 +79,7 @@ pub fn load_demo_scene(
 
 fn spawn_runtime_scene_cards(
     commands: &mut Commands,
-    spawn_params: &mut CardSpawnParams<'_>,
+    spawn_params: &mut SpawnCardSystemParams<'_>,
     runtime_cards: &mut RuntimeSceneCards,
 ) {
     for runtime_card in &mut runtime_cards.cards {

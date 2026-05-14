@@ -1,4 +1,4 @@
-use crate::card::card_params::{CardSpawnParams, CardSpecializedParam};
+use crate::card::card_params::{CardSpecializedParam, SpawnCardSystemParams};
 use crate::card::{CardKind, CardSpecializedInstaller};
 use crate::config::GameConfig;
 use crate::physics::area::{Area, ShapeType};
@@ -34,7 +34,11 @@ impl CardSpecializedParam for ObstacleCardParams {
         CardKind::Obstacle
     }
 
-    fn spawn_with(&self, entity: &mut EntityCommands<'_>, spawn_params: &mut CardSpawnParams<'_>) {
+    fn spawn_with(
+        &self,
+        entity: &mut EntityCommands<'_>,
+        spawn_params: &mut SpawnCardSystemParams<'_>,
+    ) {
         entity.insert(Obstacle::new(
             self.shape_def.sample_path(&spawn_params.config.cards),
         ));

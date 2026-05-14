@@ -66,6 +66,11 @@
       "image_res_path": "pic/collapse.png"
     },
     {
+      "id": 100014,
+      "title": "疑云",
+      "image_res_path": ""
+    },
+    {
       "id": 100901,
       "title": "草",
       "background_color_appearance_override": "#4C8A68FF",
