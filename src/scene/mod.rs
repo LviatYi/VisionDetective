@@ -7,7 +7,9 @@ pub mod terrain;
 
 #[derive(Debug, Copy, Clone)]
 pub enum SceneLayer {
+    TerrainBackground,
     Card,
+    TerrainBoundary,
     PlayerVision,
     PlayerCoin,
     GizmoAimingMarker,
@@ -17,9 +19,11 @@ pub enum SceneLayer {
 impl SceneLayer {
     pub fn get_layer_base_z(&self) -> f32 {
         match self {
-            SceneLayer::Card => 10000.0,
-            SceneLayer::PlayerVision => 30000.0,
-            SceneLayer::PlayerCoin => 30001.0,
+            SceneLayer::TerrainBackground => 10000.0,
+            SceneLayer::Card => 20000.0,
+            SceneLayer::TerrainBoundary => 39999.0,
+            SceneLayer::PlayerVision => 40000.0,
+            SceneLayer::PlayerCoin => 40001.0,
             SceneLayer::GizmoAimingMarker => {
                 SceneLayer::PlayerCoin.get_layer_base_z() + Z_OFFSET_PLAYER_GIZMO_AIMING_MARKER
             }
@@ -44,6 +48,8 @@ pub const Z_OFFSET_CARD_IMAGE: f32 = 0.02;
 pub const Z_OFFSET_CARD_TITLE: f32 = 0.03;
 
 pub const Z_OFFSET_PLAYER_GIZMO_AIMING_MARKER: f32 = 0.01;
+
+pub const SCENE_ROTATION_STEP: f32 = std::f32::consts::PI / 6.0;
 
 /// Scene param for card instance.
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]

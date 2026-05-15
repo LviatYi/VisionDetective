@@ -11,6 +11,8 @@ dependencies = [
  "fast_poisson",
  "geo",
  "inventory",
+ "rand 0.9.4",
+ "rand_chacha",
  "rfd",
  "serde",
  "serde_json",

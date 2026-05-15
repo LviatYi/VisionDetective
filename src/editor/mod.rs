@@ -10,9 +10,9 @@ use crate::editor::editor_view::{EditorView, setup_editor_view};
 use crate::game_view::main_view::cleanup_view;
 use crate::physics::vision::{build_vision_mesh, compute_visible_points};
 use crate::scene::terrain::{
-    TerrainBoundary, TerrainParam, TerrainSceneParam, TerrainType, TrapTerrain,
+    TerrainBoundary, TerrainParam, TerrainSceneParam, TerrainType, TrapTerrain, random_terrain_seed,
 };
-use crate::scene::{SceneLayer, SceneParam};
+use crate::scene::{SCENE_ROTATION_STEP, SceneLayer, SceneParam};
 use crate::tools::Disable;
 use bevy::camera::Projection;
 use bevy::input::ButtonInput;
@@ -42,7 +42,7 @@ const EDITOR_STATE_TOML: &str = "editor-state.toml";
 const CARD_ORDER_STEP: f32 = 1.0;
 const DRAG_PREVIEW_ORDER: f32 = 20.0;
 const ORDER_LABEL_FONT_SIZE: f32 = 13.0;
-const EDITOR_ROTATION_STEP: f32 = PI / 6.0;
+const EDITOR_ROTATION_STEP: f32 = SCENE_ROTATION_STEP;
 const EDITOR_SNAP_DISTANCE: f32 = 8.0;
 const EDITOR_CAMERA_DEFAULT_ZOOM: f32 = 1.0;
 const EDITOR_CAMERA_MIN_ZOOM: f32 = 0.35;
@@ -2772,6 +2772,7 @@ fn terrain_param_from_world_path(world_path: Vec<Vec2>, order: f32) -> TerrainPa
 
     TerrainParam {
         path: local_path,
+        seed: random_terrain_seed(),
         scene_param: TerrainSceneParam(SceneParam {
             position: center,
             order,

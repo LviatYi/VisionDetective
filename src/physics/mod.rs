@@ -4,7 +4,7 @@ use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinBehaviorStatus, PlayerCoinState};
 use crate::config::GameConfig;
 use crate::scene::terrain::{
-    draw_terrain_paths, handle_player_trap_terrain_collision, spawn_terrain_boundary_meshes,
+    draw_editor_terrain_paths, handle_player_trap_terrain_collision, spawn_terrain_boundary_meshes,
 };
 use crate::tools::Disable;
 use crate::{AppStatus, GameplaySet};
@@ -33,7 +33,11 @@ impl Plugin for PhysicsPlugin {
         )
         .add_systems(
             Update,
-            (draw_obstacle_paths, draw_trap_paths, draw_terrain_paths)
+            (
+                draw_obstacle_paths,
+                draw_trap_paths,
+                draw_editor_terrain_paths,
+            )
                 .run_if(in_state(AppStatus::Editor)),
         )
         .add_systems(

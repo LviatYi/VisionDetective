@@ -7,7 +7,7 @@ use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinBehaviorStatus, PlayerCoinState};
 use crate::config::GameConfig;
 use crate::physics::area::Area;
-use crate::scene::{SceneLayer, SceneParam};
+use crate::scene::{SCENE_ROTATION_STEP, SceneLayer, SceneParam};
 use crate::tools::Disable;
 use bevy::asset::RenderAssetUsages;
 use bevy::math::Vec2;
@@ -19,10 +19,11 @@ use bevy::prelude::{
 };
 use bevy::utils::default;
 use fast_poisson::Poisson2D;
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 use serde::{Deserialize, Serialize};
 
 const TERRAIN_BOUNDARY_WIDTH: f32 = 4.0;
-const TERRAIN_BOUNDARY_Z_OFFSET: f32 = 0.05;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerrainParam {
@@ -51,9 +52,6 @@ pub struct TerrainParam {
     pub rotation: f32,
 
     #[serde(default)]
-    pub rotation_jitter: f32,
-
-    #[serde(default)]
     pub seed: u64,
 
     #[serde(default)]
@@ -71,7 +69,6 @@ impl Default for TerrainParam {
             max_cards: None,
             order_offset: default_order_offset(),
             rotation: 0.0,
-            rotation_jitter: 0.0,
             seed: 0,
             scene_param: TerrainSceneParam::default(),
         }
@@ -188,7 +185,7 @@ pub fn handle_player_trap_terrain_collision(
     }
 }
 
-pub fn draw_terrain_paths(
+pub fn draw_editor_terrain_paths(
     mut gizmos: Gizmos,
     config: Res<GameConfig>,
     terrain_query: Query<(&Transform, &TerrainBoundary)>,
@@ -249,7 +246,7 @@ fn spawn_terrain_boundary(
     parent.spawn((
         Mesh2d(meshes.add(mesh)),
         MeshMaterial2d(materials.add(color)),
-        Transform::from_xyz(0.0, 0.0, TERRAIN_BOUNDARY_Z_OFFSET),
+        Transform::from_xyz(0.0, 0.0, 0.0),
     ));
 }
 
@@ -361,8 +358,7 @@ fn spawn_terrain_fill(
         let world_position = transform.transform_point(point.extend(0.0)).truncate();
         let rotation = terrain.rotation
             + terrain.scene_param.rotation
-            + deterministic_signed_unit(index as u64, appearance.id as u64)
-                * terrain.rotation_jitter;
+            + deterministic_rotation(index as u64, terrain.seed);
 
         let entity = spawn_scenery_by_appearance(
             commands,
@@ -391,7 +387,7 @@ fn terrain_transform(terrain: &TerrainParam) -> Transform {
         terrain
             .scene_param
             .position
-            .extend(SceneLayer::Card.get_layer_base_z() + terrain.scene_param.order),
+            .extend(SceneLayer::TerrainBoundary.get_layer_base_z() + terrain.scene_param.order),
     )
     .with_rotation(Quat::from_rotation_z(terrain.scene_param.rotation))
 }
@@ -412,11 +408,13 @@ fn default_order_offset() -> f32 {
     0.01
 }
 
-fn deterministic_signed_unit(index: u64, salt: u64) -> f32 {
-    let hash = index
-        .wrapping_mul(1_315_423_911)
-        .wrapping_add(salt)
-        .wrapping_mul(6_364_136_223_846_793_005)
-        .wrapping_add(1);
-    ((hash >> 32) as f32 / u32::MAX as f32) * 2.0 - 1.0
+pub fn random_terrain_seed() -> u64 {
+    rand::rng().random()
+}
+
+fn deterministic_rotation(index: u64, seed: u64) -> f32 {
+    let step_count = (std::f32::consts::TAU / SCENE_ROTATION_STEP).round() as u32;
+    let mut rng = ChaCha8Rng::seed_from_u64(seed.wrapping_add(index));
+    let step = rng.random_range(0..step_count);
+    step as f32 * SCENE_ROTATION_STEP
 }
