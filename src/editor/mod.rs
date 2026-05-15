@@ -2869,7 +2869,7 @@ pub fn spawn_editor_card(
         prefab_id: card_param.prefab_id,
         runtime_specialized_param: card_param.runtime_specialized_param.clone(),
     };
-    let entity = spawn_card_by_card_param(commands, spawn_deps, &normalized_card_param);
+    let entity = spawn_card_by_card_param(commands, spawn_deps, &normalized_card_param, true);
     commands
         .entity(entity)
         .remove::<Disable>()

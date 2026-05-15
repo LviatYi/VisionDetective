@@ -85,7 +85,7 @@ max_ground_bounce_count = 1
 
 [vision]
 # Visibility radius centered on the player.
-radius = 480.0
+radius = 300.0
 # Base angular ray count for field-of-view sampling.
 ray_count = 128
 # Small angular offset around obstacle vertices to avoid missing edges.

@@ -333,33 +333,7 @@ macro_rules! register_card_interaction {
 
 //region Editor
 
-fn register_editor_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        (update_editor_runtime_params,).run_if(in_state(AppStatus::Editor)),
-    );
-}
-
-fn update_editor_runtime_params(mut commands: Commands, query: Query<(Entity, &Interactive)>) {
-    for (entity, interactive) in &query {
-        let Some(state_key) = interactive.state_key.as_ref() else {
-            continue;
-        };
-
-        if let Ok(mut entity) = commands.get_entity(entity) {
-            entity.try_insert(EditorRuntimeSpecializedParam(
-                CardRuntimeSpecializedConfig {
-                    data: CardSpecializedConfigData {
-                        type_id: "interactive".to_string(),
-                        params: serde_json::json!({
-                            "state_key":state_key,
-                        }),
-                    },
-                },
-            ));
-        }
-    }
-}
+fn register_editor_systems(_app: &mut App) {}
 
 register_card_editor_systems!("interactive", register_editor_systems);
 //endregion

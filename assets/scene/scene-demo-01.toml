@@ -143,16 +143,17 @@ disable_if = "first_encounter_with_the_neighbor"
 description = "title: 门, image_path: pic/door-outside.png, desc: 门-outside"
 
 [[cards]]
-prefab_id = 1500
+prefab_id = 1501
 
 [cards.scene_param]
 instance_id = "1500-对话-4801e38d-71da-49e2-a4a3-87fbdb4a51f9"
 position = [
-    -195.0,
-    85.0,
+    -69.0,
+    171.0,
 ]
 rotation = 0.5235989
 order = 17.0
+disable_if = "the-truth-comes-out"
 description = "title: 对话, image_path: pic/talk-bubble.png, desc: 对话：初遇邻居"
 
 [cards.runtime_specialized_param]
@@ -191,13 +192,29 @@ description = "title: 血滴, image_path: pic/blood-drop.png, desc: 血滴（线
 type = "clue"
 
 [cards.runtime_specialized_param.params.target_card_param]
-prefab_id = 1904
+prefab_id = 1500
 
 [cards.runtime_specialized_param.params.target_card_param.runtime_specialized_param]
 type = "interactive"
 
 [cards.runtime_specialized_param.params.target_card_param.runtime_specialized_param.params]
 state_key = "first_discover_blood_drop_on_the_ground"
+type = "dialogue"
+
+[[cards.runtime_specialized_param.params.target_card_param.runtime_specialized_param.params.params.nodes]]
+id = 1
+source = 1
+text = "地上有血滴的痕迹。按我的经验，血滴的形态表明受害者在移动。"
+
+[[cards.runtime_specialized_param.params.target_card_param.runtime_specialized_param.params.params.nodes]]
+id = 2
+source = 1
+text = "也许顺着它，能找到更多线索。"
+
+[[cards.runtime_specialized_param.params.target_card_param.runtime_specialized_param.params.params.nodes]]
+id = 3
+source = 1
+text = "当心落入 疑云 之中！！！灵感、疑虑和虚假都会左右我的判断。"
 
 [cards.runtime_specialized_param.params.target_card_param.scene_param]
 instance_id = "1904-对话交互卡-80049e1a-e53e-4cf4-96b0-a481ab2f1949"
@@ -565,39 +582,13 @@ description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 prefab_id = 1201
 
 [cards.scene_param]
-instance_id = "1201-墙-96302232-9076-4cd8-9a45-462664c5506a"
-position = [
-    -212.0,
-    2069.0,
-]
-rotation = 0.0
-order = 48.0
-description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
-
-[[cards]]
-prefab_id = 1201
-
-[cards.scene_param]
 instance_id = "1201-墙-371a8985-3746-4f60-819d-6e3db49a33e8"
 position = [
     -212.0,
     1409.0,
 ]
 rotation = 0.0
-order = 49.0
-description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
-
-[[cards]]
-prefab_id = 1201
-
-[cards.scene_param]
-instance_id = "1201-墙-fbedc843-1b66-45b3-891f-6732ef5764e0"
-position = [
-    -212.0,
-    1751.0,
-]
-rotation = 0.0
-order = 50.0
+order = 48.0
 description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 
 [[cards]]
@@ -608,6 +599,43 @@ instance_id = "1201-墙-932496f9-a911-425b-88ec-2cf43dac4a11"
 position = [
     -212.0,
     1580.0,
+]
+rotation = 0.0
+order = 49.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1500
+
+[cards.scene_param]
+instance_id = "1500-对话-f6f79ddd-9ea5-4481-8246-bb0e3b3e3859"
+position = [
+    -303.0,
+    1857.0,
+]
+rotation = 0.5235989
+order = 50.0
+description = "title: 对话, image_path: pic/talk-bubble.png, desc: 空对话"
+
+[cards.runtime_specialized_param]
+type = "interactive"
+
+[cards.runtime_specialized_param.params]
+type = "dialogue"
+
+[[cards.runtime_specialized_param.params.params.nodes]]
+id = 1
+source = 1
+text = "那是什么？也许我应该仔细调查"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-96302232-9076-4cd8-9a45-462664c5506a"
+position = [
+    -212.0,
+    2069.0,
 ]
 rotation = 0.0
 order = 51.0
@@ -640,69 +668,17 @@ order = 53.0
 description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 
 [[cards]]
-prefab_id = 1201
+prefab_id = 1005
 
 [cards.scene_param]
-instance_id = "1201-墙-7fc065f7-9da5-41b7-8e20-2374eac135a3"
+instance_id = "1005-血-4867be29-afcb-48d8-8103-5208fec1463d"
 position = [
-    -1333.0,
-    2546.0,
+    -450.0,
+    1828.0,
 ]
-rotation = 0.5235989
+rotation = -0.5235989
 order = 54.0
-description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
-
-[[cards]]
-prefab_id = 1201
-
-[cards.scene_param]
-instance_id = "1201-墙-857a3852-7f28-407e-b228-b356621d24a4"
-position = [
-    -1262.0,
-    2546.0,
-]
-rotation = 0.0
-order = 55.0
-description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
-
-[[cards]]
-prefab_id = 1201
-
-[cards.scene_param]
-instance_id = "1201-墙-7278c110-a176-468f-b892-57603ace4171"
-position = [
-    -1154.0,
-    2546.0,
-]
-rotation = 0.0
-order = 56.0
-description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
-
-[[cards]]
-prefab_id = 1201
-
-[cards.scene_param]
-instance_id = "1201-墙-aa69ca14-20e5-4e89-90ec-912874c72cb6"
-position = [
-    -1046.0,
-    2546.0,
-]
-rotation = 0.0
-order = 57.0
-description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
-
-[[cards]]
-prefab_id = 1201
-
-[cards.scene_param]
-instance_id = "1201-墙-e94bc6ad-e034-4f27-a250-a68ad2dd5219"
-position = [
-    -938.0,
-    2546.0,
-]
-rotation = 0.0
-order = 58.0
-description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+description = "title: 血, image_path: pic/blood-pool.png, desc: 一滩血"
 
 [[cards]]
 prefab_id = 1201
@@ -747,36 +723,23 @@ description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 prefab_id = 1201
 
 [cards.scene_param]
-instance_id = "1201-墙-a529776c-1e0d-40e8-8352-48823f943658"
+instance_id = "1201-墙-fbedc843-1b66-45b3-891f-6732ef5764e0"
 position = [
     -212.0,
-    1238.0,
+    1751.0,
 ]
 rotation = 0.0
 order = 62.0
 description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 
 [[cards]]
-prefab_id = 1004
-
-[cards.scene_param]
-instance_id = "1004-血滴-6ea68b40-fda7-44b4-9633-4f82410151e3"
-position = [
-    -1090.0,
-    2082.0,
-]
-rotation = 1.0471976
-order = 63.0
-description = "title: 血滴, image_path: pic/blood-drop.png, desc: 血滴"
-
-[[cards]]
 prefab_id = 1201
 
 [cards.scene_param]
-instance_id = "1201-墙-9469bff4-e7fa-4664-bba0-51f19fa0a7f1"
+instance_id = "1201-墙-7fc065f7-9da5-41b7-8e20-2374eac135a3"
 position = [
-    -536.0,
-    2070.0,
+    -860.0,
+    2069.0,
 ]
 rotation = 0.0
 order = 65.0
@@ -786,10 +749,10 @@ description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 prefab_id = 1201
 
 [cards.scene_param]
-instance_id = "1201-墙-d2258520-71ff-4ec5-9c88-af5ae2dc39cf"
+instance_id = "1201-墙-a529776c-1e0d-40e8-8352-48823f943658"
 position = [
-    -644.0,
-    2070.0,
+    -212.0,
+    1238.0,
 ]
 rotation = 0.0
 order = 66.0
@@ -807,45 +770,6 @@ position = [
 rotation = 0.0
 order = 67.0
 description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
-
-[[cards]]
-prefab_id = 1500
-
-[cards.scene_param]
-instance_id = "1500-对话-977c25b1-d4e4-4f46-b154-f0104deb4c35"
-position = [
-    -842.0,
-    2417.0,
-]
-rotation = -0.5235989
-order = 68.0
-description = "title: 对话, image_path: pic/talk-bubble.png, desc: 对话：初遇邻居"
-
-[[cards]]
-prefab_id = 1002
-
-[cards.scene_param]
-instance_id = "1002-门-af512c60-9ccb-45c8-8232-dd644f24f8ed"
-position = [
-    -896.0,
-    2483.0,
-]
-rotation = -0.5235989
-order = 70.0
-description = "title: 门, image_path: pic/door-inside.png, desc: 门-inside（景观）"
-
-[[cards]]
-prefab_id = 1202
-
-[cards.scene_param]
-instance_id = "1202-门-bc17adcd-1688-41c0-af15-8c5b65de2f41"
-position = [
-    -896.0,
-    2483.0,
-]
-rotation = -0.5235989
-order = 71.0
-description = "title: 门, image_path: pic/door-inside.png, desc: 门-inside"
 
 [[cards]]
 prefab_id = 1209
@@ -939,30 +863,30 @@ order = 79.0
 description = "title: 血滴, image_path: pic/blood-drop.png, desc: 血滴"
 
 [[cards]]
-prefab_id = 1211
+prefab_id = 1212
 
 [cards.scene_param]
-instance_id = "1211-冷静-97f40320-a2c0-4187-be5b-18e58eb3802a"
+instance_id = "1212-虚假-0b6e10dd-7c78-4be2-8f03-65b8804081c9"
 position = [
-    138.0,
-    1544.0,
+    328.0,
+    1483.0,
 ]
-rotation = 0.5235989
+rotation = -1.0471976
 order = 80.0
-description = "title: 冷静, image_path: pic/cooldown.png, desc: 线索（迷雾区障碍）"
+description = "title: 虚假, image_path: pic/fake.png, desc: 虚假（迷雾区障碍）"
 
 [[cards]]
-prefab_id = 1004
+prefab_id = 1201
 
 [cards.scene_param]
-instance_id = "1004-血滴-e6ac86f4-2e97-41e2-a28c-d6852c3414a6"
+instance_id = "1201-墙-9469bff4-e7fa-4664-bba0-51f19fa0a7f1"
 position = [
-    -104.0,
-    1898.0,
+    -536.0,
+    2070.0,
 ]
-rotation = 2.094395
+rotation = 0.0
 order = 82.0
-description = "title: 血滴, image_path: pic/blood-drop.png, desc: 血滴"
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 
 [[cards]]
 prefab_id = 1009
@@ -1004,17 +928,402 @@ order = 85.0
 description = "title: 冷静, image_path: pic/cooldown.png, desc: 线索（迷雾区障碍）"
 
 [[cards]]
-prefab_id = 1212
+prefab_id = 1211
 
 [cards.scene_param]
-instance_id = "1212-虚假-0b6e10dd-7c78-4be2-8f03-65b8804081c9"
+instance_id = "1211-冷静-97f40320-a2c0-4187-be5b-18e58eb3802a"
 position = [
-    328.0,
-    1483.0,
+    112.0,
+    1544.0,
 ]
-rotation = -1.0471976
+rotation = 0.0
 order = 86.0
-description = "title: 虚假, image_path: pic/fake.png, desc: 虚假（迷雾区障碍）"
+description = "title: 冷静, image_path: pic/cooldown.png, desc: 线索（迷雾区障碍）"
+
+[[cards]]
+prefab_id = 1004
+
+[cards.scene_param]
+instance_id = "1004-血滴-e6ac86f4-2e97-41e2-a28c-d6852c3414a6"
+position = [
+    -104.0,
+    1898.0,
+]
+rotation = 2.094395
+order = 87.0
+description = "title: 血滴, image_path: pic/blood-drop.png, desc: 血滴"
+
+[[cards]]
+prefab_id = 1005
+
+[cards.scene_param]
+instance_id = "1005-血-2e63ba60-161b-4558-a301-2affcaeb3c0f"
+position = [
+    -531.0,
+    1778.0,
+]
+rotation = 1.0471976
+order = 88.0
+description = "title: 血, image_path: pic/blood-pool.png, desc: 一滩血"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-d2258520-71ff-4ec5-9c88-af5ae2dc39cf"
+position = [
+    -644.0,
+    2070.0,
+]
+rotation = 0.0
+order = 89.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1213
+
+[cards.scene_param]
+instance_id = "1213-床-369748a3-759a-4764-98a0-39156b7ccd1b"
+position = [
+    -639.0,
+    1911.0,
+]
+rotation = 0.0
+order = 90.0
+description = "title: 床, image_path: pic/bed-left-top.png, desc: 床（左上）"
+
+[[cards]]
+prefab_id = 1215
+
+[cards.scene_param]
+instance_id = "1215-床-c6bc1621-90b1-4424-818d-d30f7574f678"
+position = [
+    -514.0,
+    1927.0,
+]
+rotation = 0.0
+order = 91.0
+description = "title: 床, image_path: pic/bed-right-top.png, desc: 床（右上）"
+
+[[cards]]
+prefab_id = 1214
+
+[cards.scene_param]
+instance_id = "1214-床-2eb2f348-3efa-41c9-91da-a1957cd35ef0"
+position = [
+    -639.0,
+    1738.0,
+]
+rotation = 0.0
+order = 92.0
+description = "title: 床, image_path: pic/bed-left-bottom.png, desc: 床（左下）"
+
+[[cards]]
+prefab_id = 1216
+
+[cards.scene_param]
+instance_id = "1216-床-5cadd2f4-5277-4fe0-b138-ba5b1568a9dc"
+position = [
+    -514.0,
+    1756.0,
+]
+rotation = 0.0
+order = 93.0
+description = "title: 床, image_path: pic/bed-right-bottom.png, desc: 床（右下）"
+
+[[cards]]
+prefab_id = 1105
+
+[cards.scene_param]
+instance_id = "1105-打开的保险箱-b2545d18-d1f5-4807-9af2-7dc1753b1ba2"
+position = [
+    -737.0,
+    1876.0,
+]
+rotation = 0.0
+order = 94.0
+description = "title: 打开的保险箱, image_path: pic/coffer.png, desc: 保险箱（线索）"
+
+[cards.runtime_specialized_param]
+type = "clue"
+
+[cards.runtime_specialized_param.params.target_card_param]
+prefab_id = 1500
+
+[cards.runtime_specialized_param.params.target_card_param.runtime_specialized_param]
+type = "interactive"
+
+[cards.runtime_specialized_param.params.target_card_param.runtime_specialized_param.params]
+state_key = "the-truth-comes-out"
+type = "dialogue"
+
+[[cards.runtime_specialized_param.params.target_card_param.runtime_specialized_param.params.params.nodes]]
+id = 1
+source = 1
+text = "卧室确实是第一现场...但尸体却倒在了客厅。"
+
+[[cards.runtime_specialized_param.params.target_card_param.runtime_specialized_param.params.params.nodes]]
+id = 2
+source = 1
+text = "进屋时门锁没有被撬动的痕迹..."
+
+[[cards.runtime_specialized_param.params.target_card_param.runtime_specialized_param.params.params.nodes]]
+id = 3
+source = 1
+text = "哪里不对呢？"
+
+[[cards.runtime_specialized_param.params.target_card_param.runtime_specialized_param.params.params.nodes]]
+id = 4
+source = 1
+text = "门外那个慌张的邻居似乎说的是「卧室里死了个人」..."
+
+[[cards.runtime_specialized_param.params.target_card_param.runtime_specialized_param.params.params.nodes]]
+id = 5
+source = 1
+text = "好像有一些眉目了，再想想吧。"
+
+[cards.runtime_specialized_param.params.target_card_param.scene_param]
+instance_id = "1904-对话交互卡-661c1837-60c4-4ace-9339-e961093beace"
+order = 97.0
+position = [
+    -752.0,
+    1358.0,
+]
+rotation = -0.0
+
+[[cards]]
+prefab_id = 1206
+
+[cards.scene_param]
+instance_id = "1206-椅子-b2c086c4-bd74-4fa1-a804-8f5c2b4ba445"
+position = [
+    -747.0,
+    1652.0,
+]
+rotation = 1.0471976
+order = 95.0
+description = "title: 椅子, image_path: pic/chair.png, desc: 椅子"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-ff29f70e-de8c-4aa2-8e89-e5c500882b57"
+position = [
+    -860.0,
+    1898.0,
+]
+rotation = 0.0
+order = 96.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1217
+
+[cards.scene_param]
+instance_id = "1217-柜子-b2cd853a-6098-4f43-96fb-82f094192a9c"
+position = [
+    -698.0,
+    1705.0,
+]
+rotation = 0.0
+order = 98.0
+description = "title: 柜子, image_path: pic/bedstand.png, desc: 床头柜"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-b23a95b0-b049-40cd-8482-d89a7cc26fd6"
+position = [
+    -860.0,
+    1727.0,
+]
+rotation = 0.0
+order = 99.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-599dcfa6-a97a-436a-aa19-3a6cf0265cd2"
+position = [
+    -644.0,
+    1238.0,
+]
+rotation = 0.0
+order = 100.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1207
+
+[cards.scene_param]
+instance_id = "1207-沙发-9c05cdab-9056-4bf3-9c0b-660a55064eb8"
+position = [
+    -460.0,
+    1434.0,
+]
+rotation = 0.0
+order = 101.0
+description = "title: 沙发, image_path: pic/sofa-left.png, desc: 沙发（左）"
+
+[[cards]]
+prefab_id = 1208
+
+[cards.scene_param]
+instance_id = "1208-沙发-16a9eb85-f9c0-4a22-8a7d-c9e63b34e77b"
+position = [
+    -342.0,
+    1434.0,
+]
+rotation = 0.0
+order = 102.0
+description = "title: 沙发, image_path: pic/sofa-right.png, desc: 沙发（右）"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-a3e950e0-0eca-48a4-9579-524b03701242"
+position = [
+    -212.0,
+    383.0,
+]
+rotation = 0.0
+order = 103.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1008
+
+[cards.scene_param]
+instance_id = "1008-灵感-07d29090-69fb-411c-be7a-3e0122d751e6"
+position = [
+    -514.0,
+    490.0,
+]
+rotation = 1.0471976
+order = 104.0
+description = "title: 灵感, image_path: pic/inspire.png, desc: 灵感（迷雾区景观）"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-b8a0d2fd-461b-4e72-bb41-ff6e457a8e07"
+position = [
+    -428.0,
+    383.0,
+]
+rotation = 0.0
+order = 105.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1008
+
+[cards.scene_param]
+instance_id = "1008-灵感-5502b0ea-2c05-4f57-8c9d-24b7086672a5"
+position = [
+    -693.0,
+    626.0,
+]
+rotation = 0.0
+order = 106.0
+description = "title: 灵感, image_path: pic/inspire.png, desc: 灵感（迷雾区景观）"
+
+[[cards]]
+prefab_id = 1211
+
+[cards.scene_param]
+instance_id = "1211-冷静-5580d3ff-2846-4899-853b-81b8502ab081"
+position = [
+    -766.0,
+    490.0,
+]
+rotation = 0.5235989
+order = 107.0
+description = "title: 冷静, image_path: pic/cooldown.png, desc: 线索（迷雾区障碍）"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-b9c60ec0-2346-4801-aae3-62a37752419c"
+position = [
+    -644.0,
+    383.0,
+]
+rotation = 0.0
+order = 108.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-9ce3bb4f-0c2e-403f-96df-932092b14825"
+position = [
+    -968.0,
+    383.0,
+]
+rotation = 0.0
+order = 109.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-86827401-3ef9-4741-9690-0f085b22ee3c"
+position = [
+    -1076.0,
+    383.0,
+]
+rotation = 0.0
+order = 110.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-51f39ec8-9a72-4b58-949d-3cd785ace210"
+position = [
+    -1184.0,
+    383.0,
+]
+rotation = 0.0
+order = 111.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1217
+
+[cards.scene_param]
+instance_id = "1217-柜子-42578b99-7e5b-481e-b8a4-98b585a7e3db"
+position = [
+    338.0,
+    856.0,
+]
+rotation = -0.5235989
+order = 112.0
+description = "title: 柜子, image_path: pic/bedstand.png, desc: 床头柜"
+
+[[cards]]
+prefab_id = 1217
+
+[cards.scene_param]
+instance_id = "1217-柜子-4962b058-5d71-457e-8838-300ada707cc6"
+position = [
+    721.0,
+    820.0,
+]
+rotation = 0.0
+order = 113.0
+description = "title: 柜子, image_path: pic/bedstand.png, desc: 床头柜"
 
 [[cards]]
 prefab_id = 1211
@@ -1022,12 +1331,453 @@ prefab_id = 1211
 [cards.scene_param]
 instance_id = "1211-冷静-8b12c0ba-da12-4a48-8c25-9ea0e20c7aca"
 position = [
-    -78.0,
-    1984.0,
+    -69.0,
+    2012.0,
+]
+rotation = -2.0943952
+order = 114.0
+description = "title: 冷静, image_path: pic/cooldown.png, desc: 线索（迷雾区障碍）"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-dcd176d4-93df-4aba-9e55-bde90f280ce1"
+position = [
+    -860.0,
+    1556.0,
+]
+rotation = 0.0
+order = 115.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1009
+
+[cards.scene_param]
+instance_id = "1009-线索-3e5794f3-b3a6-4516-92eb-26c7b3a5eda4"
+position = [
+    -752.0,
+    1082.0,
+]
+rotation = -2.0943952
+order = 116.0
+description = "title: 线索, image_path: pic/clue.png, desc: 线索（迷雾区景观）"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-5b73a6c8-2c86-4c1e-b689-3d751ff695ec"
+position = [
+    -860.0,
+    1385.0,
+]
+rotation = 0.0
+order = 117.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-d1765b97-f671-4b8f-a386-12b8078d4d67"
+position = [
+    -860.0,
+    1238.0,
+]
+rotation = 0.0
+order = 118.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1007
+
+[cards.scene_param]
+instance_id = "1007-疑虑-f2371b16-b488-4945-a53a-28238496e224"
+position = [
+    -514.0,
+    811.0,
+]
+rotation = -1.0471976
+order = 119.0
+description = "title: 疑虑, image_path: pic/doubt.png, desc: 疑虑（迷雾区景观）"
+
+[[cards]]
+prefab_id = 1211
+
+[cards.scene_param]
+instance_id = "1211-冷静-2b00a7af-735a-4433-af05-4506803702b4"
+position = [
+    -855.0,
+    856.0,
+]
+rotation = 1.0471976
+order = 120.0
+description = "title: 冷静, image_path: pic/cooldown.png, desc: 线索（迷雾区障碍）"
+
+[[cards]]
+prefab_id = 1212
+
+[cards.scene_param]
+instance_id = "1212-虚假-bcebad7b-5df9-4eef-814c-4b9ec96f7490"
+position = [
+    -1063.0,
+    725.0,
+]
+rotation = 0.5235989
+order = 121.0
+description = "title: 虚假, image_path: pic/fake.png, desc: 虚假（迷雾区障碍）"
+
+[[cards]]
+prefab_id = 1212
+
+[cards.scene_param]
+instance_id = "1212-虚假-6be02bc6-f7c9-4239-b5ae-46cb7d0d3eb0"
+position = [
+    -806.0,
+    1016.0,
+]
+rotation = 1.0471976
+order = 122.0
+description = "title: 虚假, image_path: pic/fake.png, desc: 虚假（迷雾区障碍）"
+
+[[cards]]
+prefab_id = 1008
+
+[cards.scene_param]
+instance_id = "1008-灵感-0ad2c75d-711c-4a0c-b458-5a800b6e3a38"
+position = [
+    -860.0,
+    1067.0,
+]
+rotation = -1.0471976
+order = 123.0
+description = "title: 灵感, image_path: pic/inspire.png, desc: 灵感（迷雾区景观）"
+
+[[cards]]
+prefab_id = 1218
+
+[cards.scene_param]
+instance_id = "1218-真相-08259933-950c-456c-bfaa-d10af94519c9"
+position = [
+    -329.0,
+    572.0,
+]
+rotation = 0.5235989
+order = 125.0
+description = "title: 真相, image_path: pic/truth.png, desc: 真相"
+
+[[cards]]
+prefab_id = 1008
+
+[cards.scene_param]
+instance_id = "1008-灵感-af2713cc-51c2-4b51-b463-3251c66e1ad3"
+position = [
+    -320.0,
+    383.0,
+]
+rotation = 0.0
+order = 126.0
+description = "title: 灵感, image_path: pic/inspire.png, desc: 灵感（迷雾区景观）"
+
+[[cards]]
+prefab_id = 1500
+
+[cards.scene_param]
+instance_id = "1501-对话-5dd9ce5c-1eec-47cb-b8d5-978530de3f2b"
+position = [
+    -357.0,
+    113.0,
+]
+rotation = -0.5235989
+order = 127.0
+enable_if = "the-truth-comes-out"
+description = "title: 对话, image_path: pic/talk-bubble.png, desc: 空对话"
+
+[cards.runtime_specialized_param]
+type = "interactive"
+
+[cards.runtime_specialized_param.params]
+type = "dialogue"
+
+[[cards.runtime_specialized_param.params.params.nodes]]
+id = 1
+source = 1
+text = "我已经完全找到了真相！"
+
+[[cards.runtime_specialized_param.params.params.nodes]]
+id = 2
+source = 2
+text = "啊！呃..."
+
+[[cards.runtime_specialized_param.params.params.nodes]]
+id = 3
+source = 2
+text = "真相是什么呢，先生？"
+
+[[cards.runtime_specialized_param.params.params.nodes]]
+id = 4
+source = 1
+text = "门锁完好无损，想必是熟人作案。也许就是邻居！"
+
+[[cards.runtime_specialized_param.params.params.nodes]]
+id = 5
+source = 2
+text = "啊！你怎么...不，不，我的先生啊！你不能怀疑我，你看，我都没有逃跑！"
+
+[[cards.runtime_specialized_param.params.params.nodes]]
+id = 6
+source = 2
+text = "对，对...你的证据呢？！"
+
+[[cards.runtime_specialized_param.params.params.nodes]]
+id = 7
+source = 1
+text = "想必你不知道的是，受害者强撑着一口气，从卧室爬到了客厅。"
+
+[[cards.runtime_specialized_param.params.params.nodes]]
+id = 8
+source = 2
+text = "客厅...客厅？！"
+
+[[cards.runtime_specialized_param.params.params.nodes]]
+id = 9
+source = 1
+text = "而你却说，「卧室里死了个人」！"
+
+[[cards.runtime_specialized_param.params.params.nodes]]
+id = 10
+source = 2
+text = "好吧，好吧...我坦白，是他先炫耀他的宝贝钻石...我是一时昏头了。"
+
+[[cards.runtime_specialized_param.params.params.nodes]]
+id = 11
+source = 2
+text = "我这算自首吧？！"
+
+[[cards]]
+prefab_id = 1211
+
+[cards.scene_param]
+instance_id = "1211-冷静-564bb389-1d19-4e55-a2fe-8297818804a3"
+position = [
+    -668.0,
+    864.0,
+]
+rotation = 0.0
+order = 128.0
+description = "title: 冷静, image_path: pic/cooldown.png, desc: 线索（迷雾区障碍）"
+
+[[cards]]
+prefab_id = 1212
+
+[cards.scene_param]
+instance_id = "1212-虚假-83d888b2-d003-45bf-9810-a74a48afbef6"
+position = [
+    -320.0,
+    820.0,
+]
+rotation = -1.0471976
+order = 129.0
+description = "title: 虚假, image_path: pic/fake.png, desc: 虚假（迷雾区障碍）"
+
+[[cards]]
+prefab_id = 1212
+
+[cards.scene_param]
+instance_id = "1212-虚假-33e4cc18-627f-4e62-af0b-cfbac7ceb9ee"
+position = [
+    -450.0,
+    693.0,
+]
+rotation = 2.6179936
+order = 130.0
+description = "title: 虚假, image_path: pic/fake.png, desc: 虚假（迷雾区障碍）"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-68ca32f2-6903-4971-aa32-323c09cde8ae"
+position = [
+    -860.0,
+    383.0,
+]
+rotation = 0.0
+order = 131.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-cdcfeb11-e5c9-422a-85e2-eb0563190d96"
+position = [
+    -536.0,
+    383.0,
+]
+rotation = 0.0
+order = 132.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1211
+
+[cards.scene_param]
+instance_id = "1211-冷静-89ef7899-c3d4-4f72-8ef3-be6cfae8d66c"
+position = [
+    -776.0,
+    661.0,
+]
+rotation = -0.5235989
+order = 133.0
+description = "title: 冷静, image_path: pic/cooldown.png, desc: 线索（迷雾区障碍）"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-248b6411-255c-4204-a807-b993f93c59fc"
+position = [
+    -752.0,
+    383.0,
+]
+rotation = 0.0
+order = 134.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1008
+
+[cards.scene_param]
+instance_id = "1008-灵感-81cb4619-41ae-40d7-b827-16bc77430297"
+position = [
+    -1052.0,
+    942.0,
+]
+rotation = -0.5235989
+order = 135.0
+description = "title: 灵感, image_path: pic/inspire.png, desc: 灵感（迷雾区景观）"
+
+[[cards]]
+prefab_id = 1007
+
+[cards.scene_param]
+instance_id = "1007-疑虑-68ea97e5-07a9-46dd-81c0-2ff2e0bb92b7"
+position = [
+    -558.0,
+    1051.0,
 ]
 rotation = -1.5707964
-order = 87.0
-description = "title: 冷静, image_path: pic/cooldown.png, desc: 线索（迷雾区障碍）"
+order = 136.0
+description = "title: 疑虑, image_path: pic/doubt.png, desc: 疑虑（迷雾区景观）"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-bfe94654-e08c-47ee-bd0b-a509495ba5ae"
+position = [
+    -320.0,
+    383.0,
+]
+rotation = 0.0
+order = 137.0
+disable_if = "the-truth-comes-out"
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1212
+
+[cards.scene_param]
+instance_id = "1212-虚假-6685c3c4-92c6-4830-b611-d4e7449fabf5"
+position = [
+    -504.0,
+    930.0,
+]
+rotation = -1.0471976
+order = 138.0
+description = "title: 虚假, image_path: pic/fake.png, desc: 虚假（迷雾区障碍）"
+
+[[cards]]
+prefab_id = 1212
+
+[cards.scene_param]
+instance_id = "1212-虚假-32a287f2-8f7a-4184-8629-9499f6c438eb"
+position = [
+    -352.0,
+    982.0,
+]
+rotation = 1.5707963
+order = 139.0
+description = "title: 虚假, image_path: pic/fake.png, desc: 虚假（迷雾区障碍）"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-5f97c4be-cf68-4620-916d-758856146141"
+position = [
+    -968.0,
+    1238.0,
+]
+rotation = 0.0
+order = 140.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-cac0d619-65f7-47f7-b6c4-445f37ad772f"
+position = [
+    -1076.0,
+    1238.0,
+]
+rotation = 0.0
+order = 141.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1201
+
+[cards.scene_param]
+instance_id = "1201-墙-b45c61f9-036f-4d99-b3c3-cc9a8726264e"
+position = [
+    -1184.0,
+    1238.0,
+]
+rotation = 0.0
+order = 142.0
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+
+[[cards]]
+prefab_id = 1002
+
+[cards.scene_param]
+instance_id = "1002-门-4ca7292f-83d7-4a43-b5bb-e89cc6457781"
+position = [
+    -752.0,
+    1187.0,
+]
+rotation = 0.0
+order = 143.0
+description = "title: 门, image_path: pic/door-inside.png, desc: 门-inside（景观）"
+
+[[cards]]
+prefab_id = 1202
+
+[cards.scene_param]
+instance_id = "1202-门-06a3bde1-c72e-4f5c-a316-95f7d4734a8d"
+position = [
+    -752.0,
+    1187.0,
+]
+rotation = 0.0
+order = 144.0
+disable_if = "the-truth-comes-out"
+description = "title: 门, image_path: pic/door-inside.png, desc: 门-inside"
 
 [[terrains]]
 type = "trap"
@@ -1037,16 +1787,16 @@ path = [
     -129.0,
 ],
     [
-    543.0,
+    1000.0,
     -129.0,
 ],
     [
-    543.0,
-    600.0,
+    1000.0,
+    1000.0,
 ],
     [
     -540.0,
-    600.0,
+    1000.0,
 ],
 ]
 appearance_id = 100014
@@ -1059,6 +1809,40 @@ seed = 3463431405699872120
 position = [
     380.0,
     1453.0,
+]
+rotation = 0.0
+order = 1.0
+
+[[terrains]]
+type = "trap"
+path = [
+    [
+    480.0,
+    420.0,
+],
+    [
+    -1000.0,
+    420.0,
+],
+    [
+    -1000.0,
+    -270.0,
+],
+    [
+    480.0,
+    -270.0,
+],
+]
+appearance_id = 100014
+min_distance = 120.0
+rejection_attempts = 30
+rotation = 0.0
+seed = 6777197602699464998
+
+[terrains.scene_param]
+position = [
+    -631.0,
+    732.0,
 ]
 rotation = 0.0
 order = 1.0

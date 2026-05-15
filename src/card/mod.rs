@@ -1,7 +1,9 @@
 pub mod card_params;
 pub mod specialized;
 
-use crate::card::card_params::{CardAppearanceConfig, CardParam, SpawnCardSystemParams};
+use crate::card::card_params::{
+    CardAppearanceConfig, CardParam, CardRuntimeSpecializedConfig, SpawnCardSystemParams,
+};
 use crate::card::card_params::{CardSceneParam, CardSpecializedParam};
 use crate::config::{CardConfig, GameConfig};
 use crate::editor::EditorRuntimeSpecializedParam;
@@ -299,6 +301,7 @@ pub fn spawn_card_by_card_param(
     commands: &mut Commands,
     spawn_params: &mut SpawnCardSystemParams<'_>,
     card_param: &CardParam,
+    in_editor: bool,
 ) -> Entity {
     let appearance = card_param.load_appearance(&spawn_params.card_presets_config);
     let (instance_id, instance_id_from_param) = card_param.resolved_instance_id(&appearance.title);
@@ -340,6 +343,10 @@ pub fn spawn_card_by_card_param(
             card_kind,
             fill_color,
             specialized: specialized.as_deref(),
+            runtime_specialized_config: match in_editor {
+                true => card_param.runtime_specialized_param.as_ref(),
+                false => None,
+            },
         },
     )
 }
@@ -374,6 +381,7 @@ pub fn spawn_scenery_by_appearance(
             card_kind,
             fill_color,
             specialized: None,
+            runtime_specialized_config: None,
         },
     )
 }
@@ -386,6 +394,7 @@ struct CardSpawnParams<'a> {
     card_kind: CardKind,
     fill_color: Color,
     specialized: Option<&'a dyn CardSpecializedParam>,
+    runtime_specialized_config: Option<&'a CardRuntimeSpecializedConfig>,
 }
 
 fn spawn_card_inner(
@@ -401,6 +410,7 @@ fn spawn_card_inner(
         card_kind,
         fill_color,
         specialized,
+        runtime_specialized_config,
     } = spawn_config;
 
     let should_disable_initially = scene_param.data.enable_if.is_some();
@@ -430,6 +440,10 @@ fn spawn_card_inner(
 
     if let Some(specialized) = specialized {
         specialized.spawn_with(&mut entity, spawn_params);
+
+        if let Some(runtime_param) = runtime_specialized_config {
+            entity.insert(EditorRuntimeSpecializedParam(runtime_param.clone()));
+        }
     }
 
     if should_disable_initially {

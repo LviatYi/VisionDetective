@@ -254,7 +254,7 @@ fn spawn_revealed_card(
         return;
     };
 
-    let entity = spawn_card_by_card_param(commands, spawn_params, target_card_param);
+    let entity = spawn_card_by_card_param(commands, spawn_params, target_card_param, false);
     commands.entity(entity).insert(GameView);
 }
 

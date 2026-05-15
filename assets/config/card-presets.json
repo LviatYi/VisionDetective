@@ -123,6 +123,41 @@
       "background_color_appearance_override": "#5B2D4BFF"
     },
     {
+      "id": 100023,
+      "title": "床",
+      "image_res_path": "pic/bed-left-top.png"
+    },
+    {
+      "id": 100024,
+      "title": "床",
+      "image_res_path": "pic/bed-left-bottom.png"
+    },
+    {
+      "id": 100025,
+      "title": "床",
+      "image_res_path": "pic/bed-right-top.png"
+    },
+    {
+      "id": 100026,
+      "title": "床",
+      "image_res_path": "pic/bed-right-bottom.png"
+    },
+    {
+      "id": 100027,
+      "title": "柜子",
+      "image_res_path": "pic/bedstand.png"
+    },
+    {
+      "id": 100028,
+      "title": "思考",
+      "image_res_path": "pic/thinking.png"
+    },
+    {
+      "id": 100029,
+      "title": "真相",
+      "image_res_path": "pic/truth.png"
+    },
+    {
       "id": 100901,
       "title": "草",
       "background_color_appearance_override": "#4C8A68FF",
@@ -669,6 +704,417 @@
       }
     },
     {
+      "id": 10000208,
+      "type": "obstacle",
+      "params": {
+        "shape_def": {
+          "path": [
+            [
+              -17,
+              10
+            ],
+            [
+              -17,
+              0
+            ],
+            [
+              0,
+              4
+            ],
+            [
+              13,
+              6
+            ],
+            [
+              25,
+              6
+            ],
+            [
+              41,
+              4
+            ],
+            [
+              42,
+              13
+            ],
+            [
+              44,
+              15
+            ],
+            [
+              44,
+              -65
+            ],
+            [
+              33,
+              -76
+            ],
+            [
+              -22,
+              -76
+            ],
+            [
+              -24,
+              -69
+            ],
+            [
+              -24,
+              -8
+            ],
+            [
+              -24,
+              9
+            ],
+            [
+              -20,
+              11
+            ],
+            [
+              -17,
+              10
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": 10000209,
+      "type": "obstacle",
+      "params": {
+        "shape_def": {
+          "path": [
+            [
+              -27,
+              51
+            ],
+            [
+              30,
+              51
+            ],
+            [
+              31,
+              54
+            ],
+            [
+              35,
+              56
+            ],
+            [
+              38,
+              59
+            ],
+            [
+              41,
+              59
+            ],
+            [
+              42,
+              56
+            ],
+            [
+              44,
+              55
+            ],
+            [
+              44,
+              -32
+            ],
+            [
+              39,
+              -33
+            ],
+            [
+              36,
+              -51
+            ],
+            [
+              32,
+              -51
+            ],
+            [
+              30,
+              -32
+            ],
+            [
+              -20,
+              11
+            ],
+            [
+              -21,
+              -2
+            ],
+            [
+              -25,
+              -2
+            ],
+            [
+              -27,
+              12
+            ],
+            [
+              -27,
+              51
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": 10000210,
+      "type": "obstacle",
+      "params": {
+        "shape_def": {
+          "path": [
+            [
+              -37,
+              10
+            ],
+            [
+              -35,
+              12
+            ],
+            [
+              -31,
+              11
+            ],
+            [
+              -30,
+              3
+            ],
+            [
+              -30,
+              -34
+            ],
+            [
+              25,
+              -58
+            ],
+            [
+              27,
+              -50
+            ],
+            [
+              27,
+              -47
+            ],
+            [
+              31,
+              -46
+            ],
+            [
+              33,
+              -48
+            ],
+            [
+              34,
+              -57
+            ],
+            [
+              34,
+              -67
+            ],
+            [
+              33,
+              -76
+            ],
+            [
+              -35,
+              -76
+            ],
+            [
+              -44,
+              -65
+            ],
+            [
+              -44,
+              1
+            ],
+            [
+              -37,
+              10
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": 10000211,
+      "type": "obstacle",
+      "params": {
+        "shape_def": {
+          "path": [
+            [
+              -40,
+              59
+            ],
+            [
+              -38,
+              59
+            ],
+            [
+              -31,
+              54
+            ],
+            [
+              -30,
+              50
+            ],
+            [
+              21,
+              25
+            ],
+            [
+              27,
+              37
+            ],
+            [
+              30,
+              38
+            ],
+            [
+              32,
+              37
+            ],
+            [
+              34,
+              34
+            ],
+            [
+              34,
+              27
+            ],
+            [
+              34,
+              17
+            ],
+            [
+              33,
+              12
+            ],
+            [
+              34,
+              -9
+            ],
+            [
+              34,
+              -23
+            ],
+            [
+              33,
+              -29
+            ],
+            [
+              31,
+              -38
+            ],
+            [
+              27,
+              -38
+            ],
+            [
+              -44,
+              -52
+            ],
+            [
+              -44,
+              55
+            ],
+            [
+              -42,
+              56
+            ],
+            [
+              -40,
+              59
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": 10000212,
+      "type": "obstacle",
+      "params": {
+        "shape_def": {
+          "path": [
+            [
+              13,
+              31
+            ],
+            [
+              30,
+              21
+            ],
+            [
+              30,
+              -44
+            ],
+            [
+              29,
+              -54
+            ],
+            [
+              -16,
+              -60
+            ],
+            [
+              -28,
+              -48
+            ],
+            [
+              -31,
+              -37
+            ],
+            [
+              -31,
+              26
+            ],
+            [
+              13,
+              31
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": 10000213,
+      "type": "obstacle",
+      "params": {
+        "shape_def": {
+          "path": [
+            [
+              16,
+              9
+            ],
+            [
+              0,
+              -42
+            ],
+            [
+              -17,
+              -9
+            ],
+            [
+              0,
+              40
+            ],
+            [
+              16,
+              9
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": 10000500,
+      "type": "interactive",
+      "params": {
+        "type": "dialogue"
+      }
+    },
+    {
       "id": 10000501,
       "type": "interactive",
       "params": {
@@ -688,7 +1134,7 @@
             {
               "id": 3,
               "source": 1,
-              "text": "哦？不要慌，我可是职业侦探，我去看看"
+              "text": "哦？不要慌，我可是职业侦探，我去看看。"
             },
             {
               "id": 4,
@@ -714,7 +1160,12 @@
             {
               "id": 2,
               "source": 1,
-              "text": "四处看看吧"
+              "text": "进门的时候，门锁没有撬动的痕迹。"
+            },
+            {
+              "id": 3,
+              "source": 1,
+              "text": "总之先四处看看吧。"
             }
           ]
         }
@@ -882,28 +1333,28 @@
       "description": "线索（迷雾区景观）"
     },
     {
-      "id": 1500,
-      "appearance_id": 100010,
-      "specialized_id": 10000501,
-      "description": "对话：初遇邻居"
-    },
-    {
       "id": 1104,
       "appearance_id": 100004,
       "specialized_id": 10000101,
       "description": "血滴（线索）"
     },
     {
-      "id": 1199,
-      "appearance_id": 100906,
-      "specialized_id": 10000103,
-      "description": "Test-全视线索"
+      "id": 1105,
+      "appearance_id": 100017,
+      "specialized_id": 10000101,
+      "description": "保险箱（线索）"
     },
     {
       "id": 1106,
       "appearance_id": 100009,
       "specialized_id": 10000502,
       "description": "尸体（交互）"
+    },
+    {
+      "id": 1199,
+      "appearance_id": 100906,
+      "specialized_id": 10000103,
+      "description": "Test-全视线索"
     },
     {
       "id": 1206,
@@ -946,6 +1397,60 @@
       "appearance_id": 100022,
       "specialized_id": 10000207,
       "description": "虚假（迷雾区障碍）"
+    },
+    {
+      "id": 1213,
+      "appearance_id": 100023,
+      "specialized_id": 10000208,
+      "description": "床（左上）"
+    },
+    {
+      "id": 1214,
+      "appearance_id": 100024,
+      "specialized_id": 10000209,
+      "description": "床（左下）"
+    },
+    {
+      "id": 1215,
+      "appearance_id": 100025,
+      "specialized_id": 10000210,
+      "description": "床（右上）"
+    },
+    {
+      "id": 1216,
+      "appearance_id": 100026,
+      "specialized_id": 10000211,
+      "description": "床（右下）"
+    },
+    {
+      "id": 1217,
+      "appearance_id": 100027,
+      "specialized_id": 10000212,
+      "description": "床头柜"
+    },
+    {
+      "id": 1218,
+      "appearance_id": 100029,
+      "specialized_id": 10000213,
+      "description": "真相"
+    },
+    {
+      "id": 1500,
+      "appearance_id": 100010,
+      "specialized_id": 10000500,
+      "description": "空对话"
+    },
+    {
+      "id": 1501,
+      "appearance_id": 100010,
+      "specialized_id": 10000501,
+      "description": "对话：初遇邻居"
+    },
+    {
+      "id": 1502,
+      "appearance_id": 100028,
+      "specialized_id": 10000500,
+      "description": "思考"
     },
     {
       "id": 1701,

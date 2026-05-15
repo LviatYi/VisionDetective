@@ -85,7 +85,7 @@ fn spawn_runtime_scene_cards(
             continue;
         }
 
-        let entity = spawn_card_by_card_param(commands, spawn_params, &runtime_card.param);
+        let entity = spawn_card_by_card_param(commands, spawn_params, &runtime_card.param, false);
         commands.entity(entity).insert(GameView);
         runtime_card.entity = Some(entity);
     }
