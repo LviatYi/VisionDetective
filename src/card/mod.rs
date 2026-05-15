@@ -7,7 +7,7 @@ use crate::config::{CardConfig, GameConfig};
 use crate::editor::EditorRuntimeSpecializedParam;
 use crate::progress::GameProgress;
 use crate::scene::{
-    SceneLayer, Z_OFFSET_CARD_BACKGROUND, Z_OFFSET_CARD_IMAGE, Z_OFFSET_CARD_TITLE,
+    SceneLayer, SceneParam, Z_OFFSET_CARD_BACKGROUND, Z_OFFSET_CARD_IMAGE, Z_OFFSET_CARD_TITLE,
 };
 use crate::tools::Disable;
 use crate::{AppStatus, GameplaySet};
@@ -192,12 +192,14 @@ impl Card {
             .map(|prefab_id| CardParam {
                 scene_param: CardSceneParam {
                     instance_id: self.instance_id.clone(),
-                    position: transform.translation.truncate(),
-                    rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
-                    order: transform.translation.z - SceneLayer::Card.get_layer_base_z(),
-                    enable_if: self.enable_if.clone(),
-                    disable_if: self.disable_if.clone(),
-                    description: String::new(),
+                    data: SceneParam {
+                        position: transform.translation.truncate(),
+                        rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
+                        order: transform.translation.z - SceneLayer::Card.get_layer_base_z(),
+                        enable_if: self.enable_if.clone(),
+                        disable_if: self.disable_if.clone(),
+                        description: String::new(),
+                    },
                 },
                 prefab_id,
                 runtime_specialized_param: runtime.cloned().map(|runtime| runtime.0),
@@ -315,7 +317,12 @@ pub fn spawn_card_by_card_param(
         &appearance,
         specialized
             .as_ref()
-            .map(|specialized| spawn_params.config.cards.fill_color(specialized.kind()))
+            .map(|specialized| {
+                spawn_params
+                    .config
+                    .cards
+                    .card_fill_color(specialized.kind())
+            })
             .unwrap_or_else(|| spawn_params.config.cards.default_fill_color()),
     );
 
@@ -346,8 +353,10 @@ pub fn spawn_scenery_by_appearance(
         scene_param.instance_id.clone()
     };
     let card_kind = CardKind::Scenery;
-    let fill_color =
-        resolve_appearance_fill_color(appearance, spawn_params.config.cards.fill_color(card_kind));
+    let fill_color = resolve_appearance_fill_color(
+        appearance,
+        spawn_params.config.cards.card_fill_color(card_kind),
+    );
 
     spawn_card_inner(
         commands,
@@ -391,18 +400,18 @@ fn spawn_card_inner(
         specialized,
     } = spawn_config;
 
-    let should_disable_initially = scene_param.enable_if.is_some();
-    let z_order = SceneLayer::Card.get_layer_base_z() + scene_param.order;
+    let should_disable_initially = scene_param.data.enable_if.is_some();
+    let z_order = SceneLayer::Card.get_layer_base_z() + scene_param.data.order;
 
     let mut entity = commands.spawn((
-        Transform::from_translation(scene_param.position.extend(z_order))
-            .with_rotation(Quat::from_rotation_z(scene_param.rotation)),
+        Transform::from_translation(scene_param.data.position.extend(z_order))
+            .with_rotation(Quat::from_rotation_z(scene_param.data.rotation)),
         Card {
             instance_id,
             title: appearance.title.clone(),
             according_type,
-            enable_if: scene_param.enable_if,
-            disable_if: scene_param.disable_if,
+            enable_if: scene_param.data.enable_if,
+            disable_if: scene_param.data.disable_if,
         },
         card_kind,
         Pickable::default(),

@@ -568,7 +568,7 @@ prefab_id = 1201
 instance_id = "1201-墙-96302232-9076-4cd8-9a45-462664c5506a"
 position = [
     868.0,
-    1409.0,
+    2308.0,
 ]
 rotation = 0.0
 order = 48.0
@@ -581,7 +581,7 @@ prefab_id = 1201
 instance_id = "1201-墙-371a8985-3746-4f60-819d-6e3db49a33e8"
 position = [
     -104.0,
-    1409.0,
+    2308.0,
 ]
 rotation = 0.0
 order = 49.0
@@ -594,7 +594,7 @@ prefab_id = 1201
 instance_id = "1201-墙-fbedc843-1b66-45b3-891f-6732ef5764e0"
 position = [
     -104.0,
-    1751.0,
+    2650.0,
 ]
 rotation = 0.0
 order = 50.0
@@ -607,7 +607,7 @@ prefab_id = 1201
 instance_id = "1201-墙-932496f9-a911-425b-88ec-2cf43dac4a11"
 position = [
     -104.0,
-    1580.0,
+    2479.0,
 ]
 rotation = 0.0
 order = 51.0
@@ -620,7 +620,7 @@ prefab_id = 1201
 instance_id = "1201-墙-3d6ddb7c-01eb-4f0d-afcf-b9fc0c353ef9"
 position = [
     -104.0,
-    1922.0,
+    2821.0,
 ]
 rotation = 0.0
 order = 52.0
@@ -633,7 +633,7 @@ prefab_id = 1201
 instance_id = "1201-墙-86234149-fd64-4a36-94f0-379e37e3a792"
 position = [
     -50.0,
-    1934.0,
+    2833.0,
 ]
 rotation = -0.5235989
 order = 53.0
@@ -646,7 +646,7 @@ prefab_id = 1201
 instance_id = "1201-墙-7fc065f7-9da5-41b7-8e20-2374eac135a3"
 position = [
     149.0,
-    1922.0,
+    2821.0,
 ]
 rotation = 0.5235989
 order = 54.0
@@ -659,7 +659,7 @@ prefab_id = 1201
 instance_id = "1201-墙-857a3852-7f28-407e-b228-b356621d24a4"
 position = [
     220.0,
-    1922.0,
+    2821.0,
 ]
 rotation = 0.0
 order = 55.0
@@ -672,7 +672,7 @@ prefab_id = 1201
 instance_id = "1201-墙-7278c110-a176-468f-b892-57603ace4171"
 position = [
     328.0,
-    1922.0,
+    2821.0,
 ]
 rotation = 0.0
 order = 56.0
@@ -685,7 +685,7 @@ prefab_id = 1201
 instance_id = "1201-墙-aa69ca14-20e5-4e89-90ec-912874c72cb6"
 position = [
     436.0,
-    1922.0,
+    2821.0,
 ]
 rotation = 0.0
 order = 57.0
@@ -698,7 +698,7 @@ prefab_id = 1201
 instance_id = "1201-墙-e94bc6ad-e034-4f27-a250-a68ad2dd5219"
 position = [
     544.0,
-    1922.0,
+    2821.0,
 ]
 rotation = 0.0
 order = 58.0
@@ -711,7 +711,7 @@ prefab_id = 1201
 instance_id = "1201-墙-2d618ece-5ffa-4c18-9098-bd2cd9d1a362"
 position = [
     868.0,
-    1751.0,
+    2650.0,
 ]
 rotation = 0.0
 order = 59.0
@@ -724,7 +724,7 @@ prefab_id = 1201
 instance_id = "1201-墙-931ca2de-1d04-4e99-9feb-93624d1b1dd7"
 position = [
     760.0,
-    1922.0,
+    2821.0,
 ]
 rotation = 0.0
 order = 60.0
@@ -737,7 +737,7 @@ prefab_id = 1201
 instance_id = "1201-墙-d7dde328-1a6b-4883-8c66-1e75c60d1427"
 position = [
     868.0,
-    1922.0,
+    2821.0,
 ]
 rotation = 0.0
 order = 61.0
@@ -750,7 +750,7 @@ prefab_id = 1201
 instance_id = "1201-墙-a529776c-1e0d-40e8-8352-48823f943658"
 position = [
     868.0,
-    1580.0,
+    2479.0,
 ]
 rotation = 0.0
 order = 62.0
@@ -763,7 +763,7 @@ prefab_id = 1004
 instance_id = "1004-血滴-6ea68b40-fda7-44b4-9633-4f82410151e3"
 position = [
     392.0,
-    1458.0,
+    2357.0,
 ]
 rotation = 1.0471976
 order = 63.0
@@ -776,7 +776,7 @@ prefab_id = 1201
 instance_id = "1201-墙-9469bff4-e7fa-4664-bba0-51f19fa0a7f1"
 position = [
     694.0,
-    2166.0,
+    3065.0,
 ]
 rotation = 1.0471976
 order = 65.0
@@ -789,7 +789,7 @@ prefab_id = 1201
 instance_id = "1201-墙-d2258520-71ff-4ec5-9c88-af5ae2dc39cf"
 position = [
     721.0,
-    2093.0,
+    2992.0,
 ]
 rotation = 0.5235989
 order = 66.0
@@ -802,7 +802,7 @@ prefab_id = 1201
 instance_id = "1201-墙-ccdd952f-9fbd-4a3a-b83c-10d73779be9b"
 position = [
     760.0,
-    2059.0,
+    2958.0,
 ]
 rotation = 0.0
 order = 67.0
@@ -815,7 +815,7 @@ prefab_id = 1500
 instance_id = "1500-对话-977c25b1-d4e4-4f46-b154-f0104deb4c35"
 position = [
     640.0,
-    1807.0,
+    2692.0,
 ]
 rotation = -0.5235989
 order = 68.0
@@ -827,8 +827,8 @@ prefab_id = 1002
 [cards.scene_param]
 instance_id = "1002-门-af512c60-9ccb-45c8-8232-dd644f24f8ed"
 position = [
-    608.0,
-    1902.0,
+    586.0,
+    2758.0,
 ]
 rotation = -0.5235989
 order = 70.0
@@ -840,8 +840,8 @@ prefab_id = 1202
 [cards.scene_param]
 instance_id = "1202-门-bc17adcd-1688-41c0-af15-8c5b65de2f41"
 position = [
-    608.0,
-    1902.0,
+    586.0,
+    2758.0,
 ]
 rotation = -0.5235989
 order = 71.0
@@ -874,38 +874,36 @@ order = 73.0
 description = "title: 桌子, image_path: pic/table-right.png, desc: 沙发（右）"
 
 [[terrains]]
-type = "scenery"
+type = "trap"
 path = [
     [
-        -320.0,
-        -220.0,
+        -525.0,
+        -399.0,
     ],
     [
-        320.0,
-        -220.0,
+        538.0,
+        -402.0,
     ],
     [
-        320.0,
-        220.0,
+        541.0,
+        402.0,
     ],
     [
-        -320.0,
-        220.0,
+        -541.0,
+        386.0,
     ],
 ]
-appearance_id = 100014
-min_distance = 128.0
+min_distance = 120.0
 rejection_attempts = 30
 order_offset = 0.01
 rotation = 0.0
-rotation_jitter = 0.35
+rotation_jitter = 0.0
 seed = 0
 
 [terrains.scene_param]
 position = [
-    627.0,
-    2043.0,
+    372.0,
+    1774.0,
 ]
-rotation = 0.5235989
-order = 69.0
-description = "terrain: 草地"
+rotation = 0.0
+order = 74.0

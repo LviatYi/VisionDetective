@@ -1,4 +1,6 @@
 use bevy::camera::{Camera2d, OrthographicProjection, Projection};
+use bevy::math::Vec2;
+use serde::{Deserialize, Serialize};
 
 pub mod demo_level;
 pub mod terrain;
@@ -42,3 +44,24 @@ pub const Z_OFFSET_CARD_IMAGE: f32 = 0.02;
 pub const Z_OFFSET_CARD_TITLE: f32 = 0.03;
 
 pub const Z_OFFSET_PLAYER_GIZMO_AIMING_MARKER: f32 = 0.01;
+
+/// Scene param for card instance.
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct SceneParam {
+    pub position: Vec2,
+
+    #[serde(default)]
+    pub rotation: f32,
+
+    #[serde(default)]
+    pub order: f32,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enable_if: Option<String>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disable_if: Option<String>,
+
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+}

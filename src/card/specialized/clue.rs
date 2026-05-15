@@ -13,7 +13,7 @@ use crate::editor::{
 };
 use crate::physics::vision::compute_visible_points;
 use crate::progress::GameProgress;
-use crate::scene::SceneLayer;
+use crate::scene::{SceneLayer, SceneParam};
 use crate::tools::Disable;
 use crate::{AppStatus, GameView, register_card_specialized_installer};
 use crate::{GameLoadingSet, GameStatus, GameplaySet, register_card_editor_systems};
@@ -297,7 +297,9 @@ fn update_clue_illumination_visual(
             parent
                 .spawn((
                     Mesh2d(mesh_handle),
-                    MeshMaterial2d(materials.add(config.cards.fill_color(CardKind::Interaction))),
+                    MeshMaterial2d(
+                        materials.add(config.cards.card_fill_color(CardKind::Interaction)),
+                    ),
                     Transform::from_xyz(0.0, 0.0, 0.36),
                     ClueIllumination,
                 ))
@@ -492,13 +494,16 @@ fn editor_clue_target_spawn_param(clue: &ClueCard, clue_transform: &Transform) -
         None => CardParam {
             scene_param: CardSceneParam {
                 instance_id: String::new(),
-                position: clue_transform.translation.truncate() + DEFAULT_EDITOR_CLUE_TARGET_OFFSET,
-                rotation: 0.0,
-                order: clue_transform.translation.z - SceneLayer::Card.get_layer_base_z()
-                    + EDITOR_CLUE_TARGET_ORDER_OFFSET,
-                enable_if: None,
-                disable_if: None,
-                description: String::new(),
+                data: SceneParam {
+                    position: clue_transform.translation.truncate()
+                        + DEFAULT_EDITOR_CLUE_TARGET_OFFSET,
+                    rotation: 0.0,
+                    order: clue_transform.translation.z - SceneLayer::Card.get_layer_base_z()
+                        + EDITOR_CLUE_TARGET_ORDER_OFFSET,
+                    enable_if: None,
+                    disable_if: None,
+                    description: String::new(),
+                },
             },
             prefab_id: DEFAULT_EDITOR_CLUE_TARGET_PREFAB_ID,
             runtime_specialized_param: None,
@@ -635,10 +640,10 @@ mod tests {
             .expect("target card param should parse");
         assert_eq!(target_card_param.prefab_id, 1005);
         assert_eq!(
-            target_card_param.scene_param.position,
+            target_card_param.scene_param.data.position,
             Vec2::new(105.0, -20.0)
         );
-        assert_eq!(target_card_param.scene_param.rotation, -0.12);
-        assert_eq!(target_card_param.scene_param.order, 0.85);
+        assert_eq!(target_card_param.scene_param.data.rotation, -0.12);
+        assert_eq!(target_card_param.scene_param.data.order, 0.85);
     }
 }

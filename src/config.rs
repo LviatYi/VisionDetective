@@ -230,13 +230,22 @@ pub struct CardConfig {
 }
 
 impl CardConfig {
-    pub fn fill_color(&self, kind: crate::card::CardKind) -> Color {
+    pub fn card_fill_color(&self, kind: crate::card::CardKind) -> Color {
         match kind {
             crate::card::CardKind::Scenery => Srgba::hex(&self.scenery_fill_color),
             crate::card::CardKind::Obstacle => Srgba::hex(&self.obstacle_fill_color),
             crate::card::CardKind::Interaction => Srgba::hex(&self.interaction_fill_color),
             crate::card::CardKind::Clue => Srgba::hex(&self.clue_fill_color),
             crate::card::CardKind::Trap => Srgba::hex(&self.trap_fill_color),
+        }
+        .map(|c| Color::Srgba(c))
+        .unwrap_or_else(|_| self.default_fill_color())
+    }
+
+    pub fn terrain_fill_color(&self, kind: crate::scene::terrain::TerrainType) -> Color {
+        match kind {
+            crate::scene::terrain::TerrainType::Scenery => Srgba::hex(&self.scenery_fill_color),
+            crate::scene::terrain::TerrainType::Trap => Srgba::hex(&self.trap_fill_color),
         }
         .map(|c| Color::Srgba(c))
         .unwrap_or_else(|_| self.default_fill_color())

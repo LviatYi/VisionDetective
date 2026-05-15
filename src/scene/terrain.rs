@@ -5,16 +5,24 @@ use crate::card::spawn_scenery_by_appearance;
 use crate::card::specialized::trap::is_covered_by_higher_card;
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinBehaviorStatus, PlayerCoinState};
+use crate::config::GameConfig;
 use crate::physics::area::Area;
-use crate::scene::SceneLayer;
+use crate::scene::{SceneLayer, SceneParam};
 use crate::tools::Disable;
+use bevy::asset::RenderAssetUsages;
 use bevy::math::Vec2;
+use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::{
-    Color, Commands, Component, Deref, Entity, Gizmos, GlobalTransform, Mut, Quat, Query,
-    Transform, With, Without,
+    Assets, ChildSpawnerCommands, Color, ColorMaterial, Commands, Component, Deref, Entity, Gizmos,
+    GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, Mut, Quat, Query, Res, ResMut, Transform,
+    Visibility, With, Without,
 };
+use bevy::utils::default;
 use fast_poisson::Poisson2D;
 use serde::{Deserialize, Serialize};
+
+const TERRAIN_BOUNDARY_WIDTH: f32 = 4.0;
+const TERRAIN_BOUNDARY_Z_OFFSET: f32 = 0.05;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerrainParam {
@@ -24,8 +32,8 @@ pub struct TerrainParam {
     #[serde(default)]
     pub path: Vec<Vec2>,
 
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub appearance_id: Option<u32>,
+    #[serde(default)]
+    pub appearance_id: u32,
 
     #[serde(default = "default_min_distance")]
     pub min_distance: f32,
@@ -57,7 +65,7 @@ impl Default for TerrainParam {
         Self {
             terrain_type: TerrainType::default(),
             path: Vec::new(),
-            appearance_id: None,
+            appearance_id: default_appearance_id(),
             min_distance: default_min_distance(),
             rejection_attempts: default_rejection_attempts(),
             max_cards: None,
@@ -78,24 +86,20 @@ pub enum TerrainType {
     Scenery,
 }
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub struct TerrainSceneParam {
-    pub position: Vec2,
+#[derive(Default, Debug, Clone, Deref, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct TerrainSceneParam(pub SceneParam);
 
-    #[serde(default)]
-    pub rotation: f32,
+impl From<SceneParam> for TerrainSceneParam {
+    fn from(scene_param: SceneParam) -> Self {
+        Self(scene_param)
+    }
+}
 
-    #[serde(default)]
-    pub order: f32,
-
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub enable_if: Option<String>,
-
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub disable_if: Option<String>,
-
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub description: String,
+impl From<TerrainSceneParam> for SceneParam {
+    fn from(terrain_scene_param: TerrainSceneParam) -> Self {
+        terrain_scene_param.0
+    }
 }
 
 pub fn spawn_terrain(
@@ -110,14 +114,35 @@ pub fn spawn_terrain(
 
     spawn_terrain_fill(commands, spawn_params, terrain);
 
+    let mut entity = commands.spawn((
+        terrain_transform(terrain),
+        TerrainBoundary::new(terrain.path.clone(), terrain.terrain_type),
+        Visibility::Visible,
+        GameView,
+    ));
+
     if terrain.terrain_type == TerrainType::Trap {
-        commands.spawn((
-            terrain_transform(terrain),
-            TrapTerrain::new(terrain.path.clone()),
-            GameView,
-        ));
+        entity.insert(TrapTerrain::new(terrain.path.clone()));
     }
 }
+
+#[derive(Component, Clone)]
+pub struct TerrainBoundary {
+    pub area: Area,
+    pub terrain_type: TerrainType,
+}
+
+impl TerrainBoundary {
+    pub fn new(local_path: Vec<Vec2>, terrain_type: TerrainType) -> Self {
+        Self {
+            area: Area::new(local_path),
+            terrain_type,
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct TerrainBoundaryMeshSpawned;
 
 #[derive(Component, Clone, Deref)]
 pub struct TrapTerrain {
@@ -163,20 +188,41 @@ pub fn handle_player_trap_terrain_collision(
     }
 }
 
-pub fn draw_trap_terrain_paths(
+pub fn draw_terrain_paths(
     mut gizmos: Gizmos,
-    trap_terrain_query: Query<(&Transform, &TrapTerrain)>,
+    config: Res<GameConfig>,
+    terrain_query: Query<(&Transform, &TerrainBoundary)>,
 ) {
-    for (transform, terrain) in &trap_terrain_query {
-        draw_path(
-            &mut gizmos,
-            &terrain.world_path(transform),
-            Color::srgb(0.95, 0.24, 0.24),
-        );
+    for (transform, terrain) in &terrain_query {
+        let color = config.cards.terrain_fill_color(terrain.terrain_type);
+        draw_path_by_gizmo(&mut gizmos, &terrain.area.world_path(transform), color);
     }
 }
 
-pub fn draw_path(gizmos: &mut Gizmos, world_path: &[Vec2], color: Color) {
+pub fn spawn_terrain_boundary_meshes(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    terrain_query: Query<(Entity, &TerrainBoundary), Without<TerrainBoundaryMeshSpawned>>,
+) {
+    for (entity, terrain) in &terrain_query {
+        let color = config.cards.terrain_fill_color(terrain.terrain_type);
+        let mut entity_commands = commands.entity(entity);
+        entity_commands.with_children(|parent| {
+            spawn_terrain_boundary(
+                parent,
+                meshes.as_mut(),
+                materials.as_mut(),
+                &terrain.area.local_path,
+                color,
+            );
+        });
+        entity_commands.insert(TerrainBoundaryMeshSpawned);
+    }
+}
+
+fn draw_path_by_gizmo(gizmos: &mut Gizmos, world_path: &[Vec2], color: Color) {
     if world_path.len() < 2 {
         return;
     }
@@ -187,6 +233,61 @@ pub fn draw_path(gizmos: &mut Gizmos, world_path: &[Vec2], color: Color) {
         gizmos.line_2d(a, b, color);
         gizmos.circle_2d(a, 3.0, color);
     }
+}
+
+fn spawn_terrain_boundary(
+    parent: &mut ChildSpawnerCommands<'_>,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<ColorMaterial>,
+    local_path: &[Vec2],
+    color: Color,
+) {
+    let Some(mesh) = terrain_boundary_mesh(local_path, TERRAIN_BOUNDARY_WIDTH) else {
+        return;
+    };
+
+    parent.spawn((
+        Mesh2d(meshes.add(mesh)),
+        MeshMaterial2d(materials.add(color)),
+        Transform::from_xyz(0.0, 0.0, TERRAIN_BOUNDARY_Z_OFFSET),
+    ));
+}
+
+fn terrain_boundary_mesh(local_path: &[Vec2], width: f32) -> Option<Mesh> {
+    let mut positions = Vec::with_capacity(local_path.len() * 4);
+    let mut uvs = Vec::with_capacity(local_path.len() * 4);
+    let mut indices = Vec::with_capacity(local_path.len() * 6);
+    let half_width = width * 0.5;
+
+    for index in 0..local_path.len() {
+        let start = local_path[index];
+        let end = local_path[(index + 1) % local_path.len()];
+        let edge = end - start;
+        if edge.length_squared() <= f32::EPSILON {
+            continue;
+        }
+
+        let normal = Vec2::new(-edge.y, edge.x).normalize() * half_width;
+        let base = positions.len() as u32;
+        let vertices = [start + normal, end + normal, end - normal, start - normal];
+
+        positions.extend(vertices.map(|point| [point.x, point.y, 0.0]));
+        uvs.extend([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]);
+        indices.extend_from_slice(&[base, base + 1, base + 2, base, base + 2, base + 3]);
+    }
+
+    if positions.is_empty() {
+        return None;
+    }
+
+    let mut mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    );
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh.insert_indices(Indices::U32(indices));
+    Some(mesh)
 }
 
 fn sample_poisson_disk_in_area(
@@ -225,9 +326,6 @@ fn spawn_terrain_fill(
     spawn_params: &mut SpawnCardSystemParams<'_>,
     terrain: &TerrainParam,
 ) {
-    let Some(appearance_id) = terrain.appearance_id else {
-        return;
-    };
     if terrain.min_distance <= 0.0 {
         return;
     }
@@ -236,10 +334,10 @@ fn spawn_terrain_fill(
         .card_presets_config
         .appearances
         .iter()
-        .find(|appearance| appearance.id == appearance_id)
+        .find(|appearance| appearance.id == terrain.appearance_id)
         .cloned()
     else {
-        bevy::log::warn!("terrain appearance {} is not found", appearance_id);
+        bevy::log::warn!("terrain appearance {} is not found", terrain.appearance_id);
         return;
     };
 
@@ -271,14 +369,17 @@ fn spawn_terrain_fill(
             spawn_params,
             &appearance,
             CardSceneParam {
-                position: world_position,
-                rotation,
-                order: terrain.scene_param.order
-                    + terrain.order_offset
-                    + index as f32 * inner_z_offset,
-                enable_if: terrain.scene_param.enable_if.clone(),
-                disable_if: terrain.scene_param.disable_if.clone(),
-                ..Default::default()
+                data: SceneParam {
+                    position: world_position,
+                    rotation,
+                    order: terrain.scene_param.order
+                        + terrain.order_offset
+                        + index as f32 * inner_z_offset,
+                    enable_if: terrain.scene_param.enable_if.clone(),
+                    disable_if: terrain.scene_param.disable_if.clone(),
+                    ..default()
+                },
+                ..default()
             },
         );
         commands.entity(entity).insert(GameView);
@@ -297,6 +398,10 @@ fn terrain_transform(terrain: &TerrainParam) -> Transform {
 
 fn default_min_distance() -> f32 {
     120.0
+}
+
+fn default_appearance_id() -> u32 {
+    100014
 }
 
 fn default_rejection_attempts() -> usize {

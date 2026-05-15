@@ -9,8 +9,10 @@ use crate::config::card_config::CardPresetsConfig;
 use crate::editor::editor_view::{EditorView, setup_editor_view};
 use crate::game_view::main_view::cleanup_view;
 use crate::physics::vision::{build_vision_mesh, compute_visible_points};
-use crate::scene::SceneLayer;
-use crate::scene::terrain::{TerrainParam, TerrainSceneParam, TerrainType, TrapTerrain, draw_path};
+use crate::scene::terrain::{
+    TerrainBoundary, TerrainParam, TerrainSceneParam, TerrainType, TrapTerrain,
+};
+use crate::scene::{SceneLayer, SceneParam};
 use crate::tools::Disable;
 use bevy::camera::Projection;
 use bevy::input::ButtonInput;
@@ -48,9 +50,6 @@ const EDITOR_CAMERA_MAX_ZOOM: f32 = 4.0;
 const EDITOR_CAMERA_ZOOM_BASE: f32 = 1.12;
 const EDITOR_BOX_SELECT_MIN_SIZE: f32 = 4.0;
 const TERRAIN_CLOSE_DISTANCE: f32 = 12.0;
-const EDITOR_TERRAIN_MIN_DISTANCE: f32 = 120.0;
-const EDITOR_TERRAIN_REJECTION_ATTEMPTS: usize = 30;
-const EDITOR_TERRAIN_ORDER_OFFSET: f32 = 0.01;
 
 pub struct EditorPlugin;
 
@@ -646,12 +645,14 @@ fn prefab_preview_items(
             let card_param = CardParam {
                 scene_param: CardSceneParam {
                     instance_id: String::new(),
-                    position: Vec2::ZERO,
-                    rotation: 0.0,
-                    order: 0.0,
-                    enable_if: None,
-                    disable_if: None,
-                    description: String::new(),
+                    data: SceneParam {
+                        position: Vec2::ZERO,
+                        rotation: 0.0,
+                        order: 0.0,
+                        enable_if: None,
+                        disable_if: None,
+                        description: String::new(),
+                    },
                 },
                 prefab_id: prefab.id,
                 runtime_specialized_param: None,
@@ -921,12 +922,14 @@ fn handle_prefab_drag_start(
             &CardParam {
                 scene_param: CardSceneParam {
                     instance_id: String::new(),
-                    position: start_position,
-                    rotation: 0.0,
-                    order: 0.0,
-                    enable_if: None,
-                    disable_if: None,
-                    description: String::new(),
+                    data: SceneParam {
+                        position: start_position,
+                        rotation: 0.0,
+                        order: 0.0,
+                        enable_if: None,
+                        disable_if: None,
+                        description: String::new(),
+                    },
                 },
                 prefab_id: preview_button.prefab_id,
                 runtime_specialized_param: None,
@@ -2209,7 +2212,7 @@ fn draw_editor_gizmos(
     if let Some(drawing) = state.terrain_drawing.as_ref() {
         let mut preview_path = drawing.points.clone();
         preview_path.push(drawing.current_position);
-        draw_path(&mut gizmos, &preview_path, Color::srgb(0.95, 0.24, 0.24));
+        draw_path_by_gizmo(&mut gizmos, &preview_path, Color::srgb(0.95, 0.24, 0.24));
     }
 }
 
@@ -2337,60 +2340,30 @@ fn normalize_editor_rotation(rotation: f32) -> f32 {
     if normalized == -PI { PI } else { normalized }
 }
 
-fn normalize_editor_scene_param(scene_param: &CardSceneParam) -> CardSceneParam {
+fn normalize_editor_scene_param(param: &SceneParam) -> SceneParam {
+    SceneParam {
+        position: normalize_editor_position(param.position),
+        rotation: normalize_editor_rotation(param.rotation),
+        order: normalize_editor_order(param.order),
+        enable_if: param.enable_if.clone(),
+        disable_if: param.disable_if.clone(),
+        description: param.description.clone(),
+    }
+}
+
+fn normalize_editor_card_scene_param(param: &CardSceneParam) -> CardSceneParam {
     CardSceneParam {
-        instance_id: scene_param.instance_id.clone(),
-        position: normalize_editor_position(scene_param.position),
-        rotation: normalize_editor_rotation(scene_param.rotation),
-        order: normalize_editor_order(scene_param.order),
-        enable_if: scene_param.enable_if.clone(),
-        disable_if: scene_param.disable_if.clone(),
-        description: String::new(),
+        instance_id: param.instance_id.clone(),
+        data: normalize_editor_scene_param(&param.data),
     }
 }
 
-fn normalize_editor_export_scene_param(scene_param: &CardSceneParam) -> CardSceneParam {
-    let csp = CardSceneParam {
-        instance_id: scene_param.instance_id.clone(),
-        position: Vec2::new(
-            scene_param.position.x.round(),
-            scene_param.position.y.round(),
-        ),
-        rotation: normalize_editor_rotation(scene_param.rotation),
-        order: normalize_editor_order(scene_param.order),
-        enable_if: scene_param.enable_if.clone(),
-        disable_if: scene_param.disable_if.clone(),
-        description: scene_param.description.clone(),
-    };
-
-    csp
-}
-
-fn normalize_editor_terrain_scene_param(scene_param: &TerrainSceneParam) -> TerrainSceneParam {
-    TerrainSceneParam {
-        position: normalize_editor_position(scene_param.position),
-        rotation: normalize_editor_rotation(scene_param.rotation),
-        order: normalize_editor_order(scene_param.order),
-        enable_if: scene_param.enable_if.clone(),
-        disable_if: scene_param.disable_if.clone(),
-        description: scene_param.description.clone(),
-    }
+fn normalize_editor_terrain_scene_param(param: &TerrainSceneParam) -> TerrainSceneParam {
+    TerrainSceneParam(normalize_editor_scene_param(&param.0))
 }
 
 fn normalize_editor_order(order: f32) -> f32 {
     order.round().max(0.0)
-}
-
-fn default_editor_terrain_min_distance() -> f32 {
-    EDITOR_TERRAIN_MIN_DISTANCE
-}
-
-fn default_editor_terrain_rejection_attempts() -> usize {
-    EDITOR_TERRAIN_REJECTION_ATTEMPTS
-}
-
-fn default_editor_terrain_order_offset() -> f32 {
-    EDITOR_TERRAIN_ORDER_OFFSET
 }
 
 fn editor_local_order_from_transform(transform: &Transform) -> f32 {
@@ -2399,6 +2372,19 @@ fn editor_local_order_from_transform(transform: &Transform) -> f32 {
 
 fn editor_global_z_from_order(order: f32) -> f32 {
     SceneLayer::Card.get_layer_base_z() + normalize_editor_order(order)
+}
+
+pub fn draw_path_by_gizmo(gizmos: &mut Gizmos, world_path: &[Vec2], color: Color) {
+    if world_path.len() < 2 {
+        return;
+    }
+
+    for index in 0..world_path.len() {
+        let a = world_path[index];
+        let b = world_path[(index + 1) % world_path.len()];
+        gizmos.line_2d(a, b, color);
+        gizmos.circle_2d(a, 3.0, color);
+    }
 }
 
 enum CardOrderChange {
@@ -2736,7 +2722,7 @@ pub fn spawn_editor_card(
     card_param: &CardParam,
 ) -> Entity {
     let normalized_card_param = CardParam {
-        scene_param: normalize_editor_scene_param(&card_param.scene_param),
+        scene_param: normalize_editor_card_scene_param(&card_param.scene_param),
         prefab_id: card_param.prefab_id,
         runtime_specialized_param: card_param.runtime_specialized_param.clone(),
     };
@@ -2764,6 +2750,7 @@ fn spawn_editor_terrain(commands: &mut Commands, terrain: &TerrainParam) -> Enti
         )
         .with_rotation(Quat::from_rotation_z(normalized_scene_param.rotation)),
         EditorTerrainData(terrain.clone()),
+        TerrainBoundary::new(terrain.path.clone(), terrain.terrain_type),
         EditorPlacedTerrain,
         EditorView,
     ));
@@ -2784,24 +2771,13 @@ fn terrain_param_from_world_path(world_path: Vec<Vec2>, order: f32) -> TerrainPa
         .collect();
 
     TerrainParam {
-        terrain_type: TerrainType::Trap,
         path: local_path,
-        appearance_id: None,
-        min_distance: default_editor_terrain_min_distance(),
-        rejection_attempts: default_editor_terrain_rejection_attempts(),
-        max_cards: None,
-        order_offset: default_editor_terrain_order_offset(),
-        rotation: 0.0,
-        rotation_jitter: 0.0,
-        seed: 0,
-        scene_param: TerrainSceneParam {
+        scene_param: TerrainSceneParam(SceneParam {
             position: center,
-            rotation: 0.0,
             order,
-            enable_if: None,
-            disable_if: None,
-            description: String::new(),
-        },
+            ..default()
+        }),
+        ..default()
     }
 }
 
@@ -2814,14 +2790,14 @@ fn editor_terrain_to_scene_terrain(
     if let Some(trap_terrain) = trap_terrain {
         terrain.path = trap_terrain.local_path.clone();
     }
-    terrain.scene_param = normalize_editor_terrain_scene_param(&TerrainSceneParam {
+    terrain.scene_param = normalize_editor_terrain_scene_param(&TerrainSceneParam(SceneParam {
         position: transform.translation.truncate(),
         rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
         order: editor_local_order_from_transform(transform),
         enable_if: terrain.scene_param.enable_if.clone(),
         disable_if: terrain.scene_param.disable_if.clone(),
         description: terrain.scene_param.description.clone(),
-    });
+    }));
     terrain
 }
 
@@ -2889,8 +2865,9 @@ fn collect_editor_scene_snapshot<F: bevy::ecs::query::QueryFilter>(
     cards.sort_by(|(entity_a, card_a), (entity_b, card_b)| {
         card_a
             .scene_param
+            .data
             .order
-            .partial_cmp(&card_b.scene_param.order)
+            .partial_cmp(&card_b.scene_param.data.order)
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| entity_a.index().cmp(&entity_b.index()))
     });
@@ -3066,8 +3043,9 @@ fn save_scene_to_path(
     cards.sort_by(|(entity_a, card_a), (entity_b, card_b)| {
         card_a
             .scene_param
+            .data
             .order
-            .partial_cmp(&card_b.scene_param.order)
+            .partial_cmp(&card_b.scene_param.data.order)
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| entity_a.index().cmp(&entity_b.index()))
     });
@@ -3076,8 +3054,8 @@ fn save_scene_to_path(
         cards: cards
             .into_iter()
             .map(|(_, mut card)| {
-                card.scene_param = normalize_editor_export_scene_param(&card.scene_param);
-                card.scene_param.description = make_description(&card, card_presets_config);
+                card.scene_param = normalize_editor_card_scene_param(&card.scene_param);
+                card.scene_param.data.description = make_description(&card, card_presets_config);
                 card
             })
             .collect(),
@@ -3131,14 +3109,16 @@ fn editor_card_to_scene_card(
     }
 
     let mut card_param = card.to_card_param(transform, runtime)?;
-    card_param.scene_param = normalize_editor_scene_param(&CardSceneParam {
+    card_param.scene_param = normalize_editor_card_scene_param(&CardSceneParam {
         instance_id: card_param.scene_param.instance_id.clone(),
-        position: transform.translation.truncate(),
-        rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
-        order: editor_local_order_from_transform(transform),
-        enable_if: card_param.scene_param.enable_if.clone(),
-        disable_if: card_param.scene_param.disable_if.clone(),
-        description: String::new(),
+        data: SceneParam {
+            position: transform.translation.truncate(),
+            rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
+            order: editor_local_order_from_transform(transform),
+            enable_if: card_param.scene_param.data.enable_if.clone(),
+            disable_if: card_param.scene_param.data.disable_if.clone(),
+            description: String::new(),
+        },
     });
     Some(card_param)
 }

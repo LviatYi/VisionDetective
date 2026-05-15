@@ -1,10 +1,10 @@
 use crate::card::{CardKind, CardSpecializedRegistry};
 use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
+use crate::scene::SceneParam;
 use anyhow::Result;
 use bevy::color::{Color, Srgba};
 use bevy::ecs::system::{EntityCommands, SystemParam};
-use bevy::math::Vec2;
 use bevy::prelude::{AssetServer, Assets, ColorMaterial, Mesh, Res, ResMut};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -93,7 +93,7 @@ impl CardParam {
         }
         .or_else(|| {
             self.load_specialized_config(card_presets_config, registry)
-                .map(|item| config.cards.fill_color(item.kind()))
+                .map(|item| config.cards.card_fill_color(item.kind()))
         })
         .unwrap_or_else(|| config.cards.default_fill_color())
     }
@@ -117,21 +117,8 @@ pub struct CardSceneParam {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub instance_id: String,
 
-    pub position: Vec2,
-
-    pub rotation: f32,
-
-    #[serde(default)]
-    pub order: f32,
-
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub enable_if: Option<String>,
-
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub disable_if: Option<String>,
-
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub description: String,
+    #[serde(flatten)]
+    pub data: SceneParam,
 }
 
 pub fn make_card_instance_id(prefab_id: u32, title: &str) -> String {
@@ -257,6 +244,7 @@ mod tests {
     use super::*;
     use crate::card::CardKind;
     use crate::config::card_config::CardPresetsConfig;
+    use bevy::math::Vec2;
 
     #[test]
     fn registry_can_find_and_deserialize_obstacle_specialized_param() {
@@ -332,12 +320,14 @@ mod tests {
         let card_param = CardParam {
             scene_param: CardSceneParam {
                 instance_id: String::new(),
-                position: Vec2::new(10.0, 20.0),
-                rotation: 0.25,
-                order: 3.0,
-                enable_if: None,
-                disable_if: None,
-                description: String::new(),
+                data: SceneParam {
+                    position: Vec2::new(10.0, 20.0),
+                    rotation: 0.25,
+                    order: 3.0,
+                    enable_if: None,
+                    disable_if: None,
+                    description: String::new(),
+                },
             },
             prefab_id: 2003,
             runtime_specialized_param: None,

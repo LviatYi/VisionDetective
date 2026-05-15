@@ -3,7 +3,9 @@ use crate::card::specialized::trap::draw_trap_paths;
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinBehaviorStatus, PlayerCoinState};
 use crate::config::GameConfig;
-use crate::scene::terrain::{draw_trap_terrain_paths, handle_player_trap_terrain_collision};
+use crate::scene::terrain::{
+    draw_terrain_paths, handle_player_trap_terrain_collision, spawn_terrain_boundary_meshes,
+};
 use crate::tools::Disable;
 use crate::{AppStatus, GameplaySet};
 use bevy::math::{Vec2, Vec3};
@@ -31,12 +33,12 @@ impl Plugin for PhysicsPlugin {
         )
         .add_systems(
             Update,
-            (
-                draw_obstacle_paths,
-                draw_trap_paths,
-                draw_trap_terrain_paths,
-            )
+            (draw_obstacle_paths, draw_trap_paths, draw_terrain_paths)
                 .run_if(in_state(AppStatus::Editor)),
+        )
+        .add_systems(
+            Update,
+            spawn_terrain_boundary_meshes.run_if(in_state(AppStatus::Game)),
         );
     }
 }
