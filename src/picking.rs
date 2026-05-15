@@ -2,6 +2,8 @@ use crate::AppStatus;
 use crate::card::Card;
 use crate::coin::player::PlayerCoin;
 use crate::config::GameConfig;
+use crate::editor::editor_view::EditorView;
+use crate::scene::terrain::TerrainBoundary;
 use crate::tools::Disable;
 use bevy::picking::backend::prelude::*;
 use bevy::prelude::*;
@@ -30,6 +32,15 @@ fn update_scene_pointer_hits(
         Option<&Disable>,
     )>,
     player_query: Query<(Entity, &GlobalTransform, Option<&InheritedVisibility>), With<PlayerCoin>>,
+    terrain_query: Query<
+        (
+            Entity,
+            &TerrainBoundary,
+            &GlobalTransform,
+            Option<&InheritedVisibility>,
+        ),
+        With<EditorView>,
+    >,
     mut pointer_hits_writer: MessageWriter<PointerHits>,
 ) {
     let Some((camera_entity, camera, camera_transform, projection)) = camera_query
@@ -64,6 +75,27 @@ fn update_scene_pointer_hits(
                     entity,
                     HitData::new(camera_entity, depth, Some(position), None),
                 ));
+            }
+        }
+
+        if app_view.get() == &AppStatus::Editor {
+            for (entity, terrain, transform, visibility) in &terrain_query {
+                if visibility.is_some_and(|visibility| !visibility.get()) {
+                    continue;
+                }
+                let local_position = transform
+                    .affine()
+                    .inverse()
+                    .transform_point3(world_position.extend(0.0))
+                    .truncate();
+                if terrain.area.contains_local_point(local_position) {
+                    let position = world_position.extend(transform.translation().z);
+                    let depth = picking_depth(camera_transform, projection, position);
+                    picks.push((
+                        entity,
+                        HitData::new(camera_entity, depth, Some(position), None),
+                    ));
+                }
             }
         }
 

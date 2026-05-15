@@ -3,6 +3,7 @@ use crate::card::card_params::{
     CardParam, CardRuntimeSpecializedConfig, CardSceneParam, SpawnCardSystemParams,
 };
 use crate::card::specialized::obstacle::Obstacle;
+use crate::card::specialized::trap::Trap;
 use crate::card::{Card, CardSpecializedRegistry, spawn_card_by_card_param};
 use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
@@ -10,17 +11,21 @@ use crate::editor::editor_view::{EditorView, setup_editor_view};
 use crate::game_view::main_view::cleanup_view;
 use crate::physics::vision::{build_vision_mesh, compute_visible_points};
 use crate::scene::terrain::{
-    TerrainBoundary, TerrainParam, TerrainSceneParam, TerrainType, TrapTerrain, random_terrain_seed,
+    TerrainBoundary, TerrainParam, TerrainSceneParam, TerrainType, random_terrain_seed,
 };
 use crate::scene::{SCENE_ROTATION_STEP, SceneLayer, SceneParam};
 use crate::tools::Disable;
+use bevy::asset::RenderAssetUsages;
 use bevy::camera::Projection;
 use bevy::input::ButtonInput;
+use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::picking::pointer::PointerButton;
 use bevy::picking::prelude::{Drag, Move, Out, Over, Pointer, Press, Release, Scroll};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use bevy::window::{PrimaryWindow, Window};
+use geo::TriangulateEarcut;
+use geo::{Coord as GeoCoord, LineString as GeoLineString, Polygon as GeoPolygon};
 use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
@@ -44,6 +49,7 @@ const DRAG_PREVIEW_ORDER: f32 = 20.0;
 const ORDER_LABEL_FONT_SIZE: f32 = 13.0;
 const EDITOR_ROTATION_STEP: f32 = SCENE_ROTATION_STEP;
 const EDITOR_SNAP_DISTANCE: f32 = 8.0;
+const EDITOR_TERRAIN_PICK_ALPHA: f32 = 0.01;
 const EDITOR_CAMERA_DEFAULT_ZOOM: f32 = 1.0;
 const EDITOR_CAMERA_MIN_ZOOM: f32 = 0.35;
 const EDITOR_CAMERA_MAX_ZOOM: f32 = 4.0;
@@ -250,7 +256,10 @@ struct PrefabListContent;
 struct EditorDragPreview;
 
 #[derive(Component)]
-struct EditorCardOrderText;
+struct EditorOrderText;
+
+#[derive(Component)]
+struct EditorTerrainOrderOverlayAttached;
 
 #[derive(Component)]
 struct EditorVisionPreview;
@@ -363,6 +372,7 @@ impl Plugin for EditorPlugin {
                     handle_scene_editing,
                     handle_card_order_wheel,
                     handle_card_order_shortcuts,
+                    append_editor_terrain_order_overlays,
                     update_editor_card_order_text,
                     update_editor_camera_reset_button_visibility,
                     update_editor_vision_preview,
@@ -411,7 +421,7 @@ fn open_last_editor_scene(
         (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
     >,
     terrain_query: Query<
-        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
     mut spawn_deps: SpawnCardSystemParams<'_>,
@@ -609,7 +619,7 @@ fn setup_editor_ui(
 
                     sidebar.spawn((
                         Text::new(
-                            "操作说明\n1. 直接按住卡牌预览并拖到主场景，松开后会克隆一张。\n2. 点击“绘制陷阱地形”后左键逐点绘制，点击起点附近或按 Enter 完成。\n3. 左键拖动卡牌位置，空白处左键拖动可框选多张卡牌。\n4. 拖动选中卡牌可整体移动，按住 Shift 仅横向或纵向移动。\n5. 右键拖动主场景可平移编辑器视角，空白处滚轮调整视角高度。\n6. 拖动右上角旋转控制点，角度按 30° 粒度吸附。\n7. 鼠标悬浮卡牌时滚轮调整其在相交卡牌组内的层级。\n8. Delete 删除选中卡牌。\n9. Ctrl+Z 撤销，Ctrl+Shift+Z 重做。\n10. Ctrl+E 导出，Ctrl+I 导入。",
+                            "操作说明\n1. 直接按住卡牌预览并拖到主场景，松开后会克隆一张。\n2. 点击“绘制陷阱地形”后左键逐点绘制，点击起点附近或按 Enter 完成。\n3. 左键拖动卡牌位置，空白处左键拖动可框选多张卡牌。\n4. 拖动选中卡牌可整体移动，按住 Shift 仅横向或纵向移动。\n5. 右键拖动主场景可平移编辑器视角，空白处滚轮调整视角高度。\n6. 拖动右上角旋转控制点，角度按 30° 粒度吸附。\n7. 鼠标悬浮卡牌时滚轮调整其在相交卡牌组内的层级，PageUp/PageDown 调整选中对象层级。\n8. Delete 删除选中对象。\n9. Ctrl+Z 撤销，Ctrl+Shift+Z 重做。\n10. Ctrl+E 导出，Ctrl+I 导入。",
                         ),
                         TextFont {
                             font: ui_font.clone(),
@@ -779,7 +789,7 @@ fn handle_toolbar_buttons(
         (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
     >,
     terrain_query: Query<
-        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
     mut camera_query: Query<
@@ -894,7 +904,7 @@ fn handle_prefab_drag_start(
         (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
     >,
     terrain_query: Query<
-        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
     mut spawn_deps: SpawnCardSystemParams<'_>,
@@ -1116,7 +1126,7 @@ fn handle_prefab_drop(
         (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
     >,
     terrain_query: Query<
-        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
     mut state: ResMut<EditorInteractionState>,
@@ -1201,9 +1211,10 @@ fn handle_terrain_drawing(
         (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
     >,
     terrain_query: Query<
-        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
+    mut spawn_deps: SpawnCardSystemParams<'_>,
     mut state: ResMut<EditorInteractionState>,
     mut history: ResMut<EditorUndoHistory>,
 ) {
@@ -1264,6 +1275,7 @@ fn handle_terrain_drawing(
                 &mut commands,
                 &card_query,
                 &terrain_query,
+                &mut spawn_deps,
                 &mut state,
                 &mut history,
             );
@@ -1291,6 +1303,7 @@ fn handle_terrain_drawing(
             &mut commands,
             &card_query,
             &terrain_query,
+            &mut spawn_deps,
             &mut state,
             &mut history,
         );
@@ -1310,9 +1323,10 @@ fn finish_terrain_drawing<F: bevy::ecs::query::QueryFilter>(
         F,
     >,
     terrain_query: &Query<
-        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
+    spawn_deps: &mut SpawnCardSystemParams<'_>,
     state: &mut EditorInteractionState,
     history: &mut EditorUndoHistory,
 ) {
@@ -1329,7 +1343,12 @@ fn finish_terrain_drawing<F: bevy::ecs::query::QueryFilter>(
         terrain_query.iter().map(|(_, transform, _, _)| transform),
     );
     let terrain = terrain_param_from_world_path(drawing.points, order);
-    spawn_editor_terrain(commands, &terrain);
+    spawn_editor_terrain(
+        commands,
+        &terrain,
+        spawn_deps.meshes.as_mut(),
+        spawn_deps.materials.as_mut(),
+    );
     record_editor_undo(history, drawing.before_scene);
     state.terrain_draw_mode = false;
     state.clear_exit_confirmation();
@@ -1499,7 +1518,7 @@ fn handle_scene_editing(
     )>,
     linked_entities_query: Query<&EditorLinkedEntities>,
     terrain_query: Query<
-        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
     reset_button_query: Query<(), With<EditorResetCameraButton>>,
@@ -1525,6 +1544,7 @@ fn handle_scene_editing(
         state.clear_exit_confirmation();
         let mut start_rotation = None;
         let mut start_move = None;
+        let mut start_terrain_selection = None;
         let mut start_box_selection = false;
         {
             let card_query = card_queries.p0();
@@ -1543,6 +1563,10 @@ fn handle_scene_editing(
                     transform.translation.truncate() - cursor_world_position,
                     transform.translation.truncate(),
                 ));
+            } else if let Some(entity) =
+                terrain_entity_at_world_position(cursor_world_position, &terrain_query)
+            {
+                start_terrain_selection = Some(entity);
             } else if !keyboard_input.pressed(KeyCode::ControlLeft)
                 && !keyboard_input.pressed(KeyCode::ControlRight)
             {
@@ -1598,6 +1622,12 @@ fn handle_scene_editing(
                 changed: false,
             });
             state.status_message = format!("已选中卡牌 #{entity:?}，拖动中");
+        } else if let Some(entity) = start_terrain_selection {
+            state.set_selection(vec![entity]);
+            state.rotating_entity = None;
+            state.moving_entity = None;
+            state.box_selection = None;
+            state.status_message = format!("已选中地形 #{entity:?}");
         } else if start_box_selection {
             state.rotating_entity = None;
             state.moving_entity = None;
@@ -1725,7 +1755,7 @@ fn handle_scene_editing(
         state.rotating_entity = None;
         state.box_selection = None;
         state.clear_exit_confirmation();
-        state.status_message = "已删除选中卡牌".into();
+        state.status_message = "已删除选中对象".into();
     }
 }
 
@@ -1762,7 +1792,7 @@ fn handle_editor_shortcuts(
         (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
     >,
     terrain_query: Query<
-        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
     mut spawn_deps: SpawnCardSystemParams<'_>,
@@ -1886,10 +1916,10 @@ fn handle_card_order_shortcuts(
             (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
         >,
     )>,
-    terrain_query: Query<
-        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
-        With<EditorPlacedTerrain>,
-    >,
+    mut terrain_queries: ParamSet<(
+        Query<(Entity, &mut Transform), (With<EditorPlacedTerrain>, Without<EditorDragPreview>)>,
+        Query<(Entity, &Transform, &EditorTerrainData, Option<&Trap>), With<EditorPlacedTerrain>>,
+    )>,
     mut state: ResMut<EditorInteractionState>,
     mut history: ResMut<EditorUndoHistory>,
 ) {
@@ -1906,10 +1936,14 @@ fn handle_card_order_shortcuts(
     } else if keyboard_input.just_pressed(KeyCode::PageDown) {
         Some(CardOrderChange::Step(-CARD_ORDER_STEP))
     } else if keyboard_input.just_pressed(KeyCode::End) {
-        max_card_order_mut(&card_queries.p0())
+        let max_card_order = max_card_order_mut(&card_queries.p0());
+        let max_terrain_order = max_terrain_order_mut(&terrain_queries.p0());
+        max_optional_order(max_card_order, max_terrain_order)
             .map(|order| CardOrderChange::Set(order + CARD_ORDER_STEP))
     } else if keyboard_input.just_pressed(KeyCode::Home) {
-        min_card_order_mut(&card_queries.p0())
+        let min_card_order = min_card_order_mut(&card_queries.p0());
+        let min_terrain_order = min_terrain_order_mut(&terrain_queries.p0());
+        min_optional_order(min_card_order, min_terrain_order)
             .map(|order| CardOrderChange::Set(order - CARD_ORDER_STEP))
     } else {
         None
@@ -1921,33 +1955,45 @@ fn handle_card_order_shortcuts(
 
     let before_scene = {
         let snapshot_query = card_queries.p1();
-        collect_editor_scene_snapshot(&snapshot_query, &terrain_query)
+        let terrain_snapshot_query = terrain_queries.p1();
+        collect_editor_scene_snapshot(&snapshot_query, &terrain_snapshot_query)
     };
 
     let mut card_query = card_queries.p0();
-    let Ok((_, mut transform)) = card_query.get_mut(selected_entity) else {
+    if let Ok((_, mut transform)) = card_query.get_mut(selected_entity) {
+        let old_order = editor_local_order_from_transform(&transform);
+        apply_editor_order_change(&mut transform, order_delta);
+        let new_order = editor_local_order_from_transform(&transform);
+        if (old_order - new_order).abs() <= f32::EPSILON {
+            state.status_message = "卡牌层级未变化".into();
+            return;
+        }
+
+        record_editor_undo(&mut history, before_scene);
+        state.clear_exit_confirmation();
+        state.status_message = format!("卡牌层级已更新为 {:.0}", new_order);
+        return;
+    }
+    drop(card_query);
+
+    let mut terrain_query = terrain_queries.p0();
+    let Ok((_, mut transform)) = terrain_query.get_mut(selected_entity) else {
         state.clear_selection();
-        state.status_message = "调整层级失败：选中卡牌不存在".into();
+        state.status_message = "调整层级失败：选中对象不存在".into();
         return;
     };
 
     let old_order = editor_local_order_from_transform(&transform);
-    match order_delta {
-        CardOrderChange::Step(delta) => {
-            let next_order = editor_local_order_from_transform(&transform) + delta;
-            transform.translation.z = editor_global_z_from_order(next_order);
-        }
-        CardOrderChange::Set(order) => transform.translation.z = editor_global_z_from_order(order),
-    }
+    apply_editor_order_change(&mut transform, order_delta);
     let new_order = editor_local_order_from_transform(&transform);
     if (old_order - new_order).abs() <= f32::EPSILON {
-        state.status_message = "卡牌层级未变化".into();
+        state.status_message = "地形层级未变化".into();
         return;
     }
 
     record_editor_undo(&mut history, before_scene);
     state.clear_exit_confirmation();
-    state.status_message = format!("卡牌层级已更新为 {:.0}", new_order);
+    state.status_message = format!("地形层级已更新为 {:.0}", new_order);
 }
 
 fn handle_card_order_wheel(
@@ -1977,7 +2023,7 @@ fn handle_card_order_wheel(
         >,
     )>,
     terrain_query: Query<
-        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
     mut state: ResMut<EditorInteractionState>,
@@ -2062,11 +2108,11 @@ fn handle_card_order_wheel(
 }
 
 fn update_editor_card_order_text(
-    card_query: Query<&Transform, With<Card>>,
-    mut text_query: Query<(&ChildOf, &mut Text2d), With<EditorCardOrderText>>,
+    transform_query: Query<&Transform>,
+    mut order_text_query: Query<(&ChildOf, &mut Text2d), With<EditorOrderText>>,
 ) {
-    for (parent, mut text) in &mut text_query {
-        let Ok(transform) = card_query.get(parent.parent()) else {
+    for (parent, mut text) in &mut order_text_query {
+        let Ok(transform) = transform_query.get(parent.parent()) else {
             continue;
         };
         **text = format!("order {:.0}", editor_local_order_from_transform(transform));
@@ -2155,7 +2201,7 @@ fn update_editor_status_text(
         [] => "当前选中: 无".into(),
         [entity] => format!("当前选中: #{entity:?}"),
         entities => format!(
-            "当前选中: {} 张卡牌，主选中 #{:?}",
+            "当前选中: {} 个对象，主选中 #{:?}",
             entities.len(),
             entities[0]
         ),
@@ -2305,6 +2351,58 @@ fn selection_rect_intersects_card(min: Vec2, max: Vec2, transform: &Transform) -
     oriented_rectangles_intersect(&selection_corners, &obstacle_card_corners(transform))
 }
 
+fn terrain_entity_at_world_position<F: bevy::ecs::query::QueryFilter>(
+    world_position: Vec2,
+    terrain_query: &Query<(Entity, &Transform, &EditorTerrainData, Option<&Trap>), F>,
+) -> Option<Entity> {
+    terrain_query
+        .iter()
+        .filter_map(|(entity, transform, terrain_data, trap_terrain)| {
+            let contains = trap_terrain
+                .map(|terrain| terrain.contains_world_point(transform, world_position))
+                .unwrap_or_else(|| {
+                    let local_position = transform
+                        .to_matrix()
+                        .inverse()
+                        .transform_point3(world_position.extend(0.0))
+                        .truncate();
+                    path_contains_point(local_position, &terrain_data.0.path)
+                });
+            contains.then_some((entity, editor_local_order_from_transform(transform)))
+        })
+        .max_by(|(_, order_a), (_, order_b)| {
+            order_a
+                .partial_cmp(order_b)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(|(entity, _)| entity)
+}
+
+fn path_contains_point(point: Vec2, path: &[Vec2]) -> bool {
+    if path.len() < 3 {
+        return false;
+    }
+
+    let mut inside = false;
+    let mut previous = path.len() - 1;
+
+    for current in 0..path.len() {
+        let current_point = path[current];
+        let previous_point = path[previous];
+        let intersects = (current_point.y > point.y) != (previous_point.y > point.y)
+            && point.x
+                < (previous_point.x - current_point.x) * (point.y - current_point.y)
+                    / (previous_point.y - current_point.y)
+                    + current_point.x;
+        if intersects {
+            inside = !inside;
+        }
+        previous = current;
+    }
+
+    inside
+}
+
 pub fn cursor_is_over_scene(window: &Window, cursor_position: Vec2) -> bool {
     cursor_position.x > SIDEBAR_WIDTH && cursor_position.y < window.height() - TOOLBAR_HEIGHT
 }
@@ -2367,11 +2465,11 @@ fn normalize_editor_order(order: f32) -> f32 {
 }
 
 fn editor_local_order_from_transform(transform: &Transform) -> f32 {
-    normalize_editor_order(transform.translation.z - SceneLayer::Card.get_layer_base_z())
+    normalize_editor_order(transform.translation.z - SceneLayer::SceneObjects.get_layer_base_z())
 }
 
 fn editor_global_z_from_order(order: f32) -> f32 {
-    SceneLayer::Card.get_layer_base_z() + normalize_editor_order(order)
+    SceneLayer::SceneObjects.get_layer_base_z() + normalize_editor_order(order)
 }
 
 pub fn draw_path_by_gizmo(gizmos: &mut Gizmos, world_path: &[Vec2], color: Color) {
@@ -2387,6 +2485,7 @@ pub fn draw_path_by_gizmo(gizmos: &mut Gizmos, world_path: &[Vec2], color: Color
     }
 }
 
+#[derive(Clone, Copy)]
 enum CardOrderChange {
     Step(f32),
     Set(f32),
@@ -2575,6 +2674,15 @@ fn min_card_order_mut<F: bevy::ecs::query::QueryFilter>(
         .reduce(f32::min)
 }
 
+fn min_terrain_order_mut<F: bevy::ecs::query::QueryFilter>(
+    query: &Query<(Entity, &mut Transform), F>,
+) -> Option<f32> {
+    query
+        .iter()
+        .map(|(_, transform)| editor_local_order_from_transform(transform))
+        .reduce(f32::min)
+}
+
 fn max_card_order_mut<F: bevy::ecs::query::QueryFilter>(
     query: &Query<(Entity, &mut Transform), F>,
 ) -> Option<f32> {
@@ -2582,6 +2690,41 @@ fn max_card_order_mut<F: bevy::ecs::query::QueryFilter>(
         .iter()
         .map(|(_, transform)| editor_local_order_from_transform(transform))
         .reduce(f32::max)
+}
+
+fn max_terrain_order_mut<F: bevy::ecs::query::QueryFilter>(
+    query: &Query<(Entity, &mut Transform), F>,
+) -> Option<f32> {
+    query
+        .iter()
+        .map(|(_, transform)| editor_local_order_from_transform(transform))
+        .reduce(f32::max)
+}
+
+fn min_optional_order(a: Option<f32>, b: Option<f32>) -> Option<f32> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(a.min(b)),
+        (Some(order), None) | (None, Some(order)) => Some(order),
+        (None, None) => None,
+    }
+}
+
+fn max_optional_order(a: Option<f32>, b: Option<f32>) -> Option<f32> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(a.max(b)),
+        (Some(order), None) | (None, Some(order)) => Some(order),
+        (None, None) => None,
+    }
+}
+
+fn apply_editor_order_change(transform: &mut Transform, order_delta: CardOrderChange) {
+    match order_delta {
+        CardOrderChange::Step(delta) => {
+            let next_order = editor_local_order_from_transform(transform) + delta;
+            transform.translation.z = editor_global_z_from_order(next_order);
+        }
+        CardOrderChange::Set(order) => transform.translation.z = editor_global_z_from_order(order),
+    }
 }
 
 fn collect_card_order_snapshots<F: bevy::ecs::query::QueryFilter>(
@@ -2740,7 +2883,12 @@ pub fn spawn_editor_card(
     entity
 }
 
-fn spawn_editor_terrain(commands: &mut Commands, terrain: &TerrainParam) -> Entity {
+fn spawn_editor_terrain(
+    commands: &mut Commands,
+    terrain: &TerrainParam,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<ColorMaterial>,
+) -> Entity {
     let normalized_scene_param = normalize_editor_terrain_scene_param(&terrain.scene_param);
     let mut entity = commands.spawn((
         Transform::from_translation(
@@ -2755,11 +2903,63 @@ fn spawn_editor_terrain(commands: &mut Commands, terrain: &TerrainParam) -> Enti
         EditorView,
     ));
 
+    if let Some(mesh) = editor_terrain_pick_mesh(&terrain.path) {
+        entity.insert((
+            Mesh2d(meshes.add(mesh)),
+            MeshMaterial2d(materials.add(Color::srgba(1.0, 1.0, 1.0, EDITOR_TERRAIN_PICK_ALPHA))),
+            Pickable::default(),
+        ));
+    }
+
     if terrain.terrain_type == TerrainType::Trap {
-        entity.insert(TrapTerrain::new(terrain.path.clone()));
+        entity.insert(Trap::new(terrain.path.clone()));
     }
 
     entity.id()
+}
+
+fn editor_terrain_pick_mesh(local_path: &[Vec2]) -> Option<Mesh> {
+    if local_path.len() < 3 {
+        return None;
+    }
+
+    let mut coordinates = local_path
+        .iter()
+        .map(|point| GeoCoord {
+            x: point.x,
+            y: point.y,
+        })
+        .collect::<Vec<_>>();
+    coordinates.push(GeoCoord {
+        x: local_path[0].x,
+        y: local_path[0].y,
+    });
+    let polygon = GeoPolygon::new(GeoLineString::from(coordinates), vec![]);
+
+    let mut positions = Vec::new();
+    let mut uvs = Vec::new();
+    let mut indices = Vec::new();
+    for triangle in polygon.earcut_triangles() {
+        let base = positions.len() as u32;
+        for point in [triangle.v1(), triangle.v2(), triangle.v3()] {
+            positions.push([point.x, point.y, 0.0]);
+            uvs.push([0.0, 0.0]);
+        }
+        indices.extend_from_slice(&[base, base + 1, base + 2]);
+    }
+
+    if positions.is_empty() {
+        return None;
+    }
+
+    let mut mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    );
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh.insert_indices(Indices::U32(indices));
+    Some(mesh)
 }
 
 fn terrain_param_from_world_path(world_path: Vec<Vec2>, order: f32) -> TerrainParam {
@@ -2785,7 +2985,7 @@ fn terrain_param_from_world_path(world_path: Vec<Vec2>, order: f32) -> TerrainPa
 fn editor_terrain_to_scene_terrain(
     transform: &Transform,
     terrain_data: &EditorTerrainData,
-    trap_terrain: Option<&TrapTerrain>,
+    trap_terrain: Option<&Trap>,
 ) -> TerrainParam {
     let mut terrain = terrain_data.0.clone();
     if let Some(trap_terrain) = trap_terrain {
@@ -2833,10 +3033,45 @@ fn append_editor_card_overlays(
             TextColor(Color::srgb(0.88, 0.94, 1.0)),
             Anchor::BOTTOM_RIGHT,
             Transform::from_xyz(Card::SIZE.x * 0.5 - 6.0, -Card::SIZE.y * 0.5 + 6.0, 0.36),
-            EditorCardOrderText,
+            EditorOrderText,
             EditorView,
         ));
     });
+}
+
+fn append_editor_terrain_order_overlays(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    config: Res<GameConfig>,
+    terrain_query: Query<
+        (Entity, &EditorTerrainData),
+        (
+            With<EditorPlacedTerrain>,
+            Without<EditorTerrainOrderOverlayAttached>,
+        ),
+    >,
+) {
+    for (entity, terrain) in &terrain_query {
+        let (_, max) = path_bounds(&terrain.0.path).unwrap_or((Vec2::ZERO, Vec2::ZERO));
+        commands
+            .entity(entity)
+            .insert(EditorTerrainOrderOverlayAttached)
+            .with_children(|parent| {
+                parent.spawn((
+                    Text2d::new("order 0"),
+                    TextFont {
+                        font: asset_server.load(config.assets.default_font.clone()),
+                        font_size: ORDER_LABEL_FONT_SIZE,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.88, 0.94, 1.0)),
+                    Anchor::BOTTOM_RIGHT,
+                    Transform::from_xyz(max.x, max.y, 0.36),
+                    EditorOrderText,
+                    EditorView,
+                ));
+            });
+    }
 }
 
 fn collect_editor_scene_snapshot<F: bevy::ecs::query::QueryFilter>(
@@ -2851,7 +3086,7 @@ fn collect_editor_scene_snapshot<F: bevy::ecs::query::QueryFilter>(
         F,
     >,
     terrain_query: &Query<
-        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
 ) -> EditorSceneFile {
@@ -2916,7 +3151,7 @@ fn undo_editor_operation(
         (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
     >,
     terrain_query: &Query<
-        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
     mut spawn_deps: SpawnCardSystemParams<'_>,
@@ -2952,7 +3187,7 @@ fn redo_editor_operation(
         (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
     >,
     terrain_query: &Query<
-        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
     mut spawn_deps: SpawnCardSystemParams<'_>,
@@ -2988,7 +3223,7 @@ fn restore_editor_scene(
         (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
     >,
     terrain_query: &Query<
-        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
     spawn_deps: &mut SpawnCardSystemParams<'_>,
@@ -3006,7 +3241,12 @@ fn restore_editor_scene(
         commands.entity(entity).insert(EditorPlacedCard);
     }
     for terrain in &scene.terrains {
-        spawn_editor_terrain(commands, terrain);
+        spawn_editor_terrain(
+            commands,
+            terrain,
+            spawn_deps.meshes.as_mut(),
+            spawn_deps.materials.as_mut(),
+        );
     }
 }
 
@@ -3028,7 +3268,7 @@ fn save_scene_to_path(
         (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
     >,
     terrain_query: &Query<
-        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
     path: &Path,
@@ -3151,7 +3391,7 @@ fn load_scene_from_path(
         (Without<EditorPlacedTerrain>, Without<EditorDragPreview>),
     >,
     terrain_query: &Query<
-        (Entity, &Transform, &EditorTerrainData, Option<&TrapTerrain>),
+        (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
     spawn_deps: &mut SpawnCardSystemParams<'_>,
@@ -3190,7 +3430,12 @@ fn load_scene_from_path(
         commands.entity(entity).insert(EditorPlacedCard);
     }
     for terrain in &terrains {
-        spawn_editor_terrain(commands, terrain);
+        spawn_editor_terrain(
+            commands,
+            terrain,
+            spawn_deps.meshes.as_mut(),
+            spawn_deps.materials.as_mut(),
+        );
     }
 
     format!(

@@ -195,7 +195,8 @@ impl Card {
                     data: SceneParam {
                         position: transform.translation.truncate(),
                         rotation: transform.rotation.to_euler(EulerRot::XYZ).2,
-                        order: transform.translation.z - SceneLayer::Card.get_layer_base_z(),
+                        order: transform.translation.z
+                            - SceneLayer::SceneObjects.get_layer_base_z(),
                         enable_if: self.enable_if.clone(),
                         disable_if: self.disable_if.clone(),
                         description: String::new(),
@@ -401,7 +402,7 @@ fn spawn_card_inner(
     } = spawn_config;
 
     let should_disable_initially = scene_param.data.enable_if.is_some();
-    let z_order = SceneLayer::Card.get_layer_base_z() + scene_param.data.order;
+    let z_order = SceneLayer::SceneObjects.get_layer_base_z() + scene_param.data.order;
 
     let mut entity = commands.spawn((
         Transform::from_translation(scene_param.data.position.extend(z_order))

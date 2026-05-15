@@ -8,8 +8,7 @@ pub mod terrain;
 #[derive(Debug, Copy, Clone)]
 pub enum SceneLayer {
     TerrainBackground,
-    Card,
-    TerrainBoundary,
+    SceneObjects,
     PlayerVision,
     PlayerCoin,
     GizmoAimingMarker,
@@ -20,8 +19,7 @@ impl SceneLayer {
     pub fn get_layer_base_z(&self) -> f32 {
         match self {
             SceneLayer::TerrainBackground => 10000.0,
-            SceneLayer::Card => 20000.0,
-            SceneLayer::TerrainBoundary => 39999.0,
+            SceneLayer::SceneObjects => 20000.0,
             SceneLayer::PlayerVision => 40000.0,
             SceneLayer::PlayerCoin => 40001.0,
             SceneLayer::GizmoAimingMarker => {
@@ -43,9 +41,16 @@ pub fn get_layered_game_scene_camera2d_bundle() -> (Camera2d, Projection) {
     )
 }
 
-pub const Z_OFFSET_CARD_BACKGROUND: f32 = 0.01;
-pub const Z_OFFSET_CARD_IMAGE: f32 = 0.02;
-pub const Z_OFFSET_CARD_TITLE: f32 = 0.03;
+//region Card Range Z [0,0.001)
+pub const Z_OFFSET_CARD_BACKGROUND: f32 = 0.0001;
+pub const Z_OFFSET_CARD_IMAGE: f32 = 0.0002;
+pub const Z_OFFSET_CARD_TITLE: f32 = 0.0003;
+//endregion
+
+//region Terrain Range [-0.5,0]
+pub const Z_OFFSET_CARD_OF_TERRAIN: f32 = -0.5;
+pub const Z_OFFSET_TERRAIN_BOUNDARY: f32 = 0.99;
+//endregion
 
 pub const Z_OFFSET_PLAYER_GIZMO_AIMING_MARKER: f32 = 0.01;
 

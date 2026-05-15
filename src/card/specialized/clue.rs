@@ -498,7 +498,8 @@ fn editor_clue_target_spawn_param(clue: &ClueCard, clue_transform: &Transform) -
                     position: clue_transform.translation.truncate()
                         + DEFAULT_EDITOR_CLUE_TARGET_OFFSET,
                     rotation: 0.0,
-                    order: clue_transform.translation.z - SceneLayer::Card.get_layer_base_z()
+                    order: clue_transform.translation.z
+                        - SceneLayer::SceneObjects.get_layer_base_z()
                         + EDITOR_CLUE_TARGET_ORDER_OFFSET,
                     enable_if: None,
                     disable_if: None,

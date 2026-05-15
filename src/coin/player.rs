@@ -24,7 +24,7 @@ pub mod controller {
     use bevy::prelude::{
         Assets, Camera, Camera2d, Circle, ColorMaterial, Commands, Component, DetectChanges,
         Entity, Gizmos, GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, MessageReader, Pickable,
-        Query, Ref, Res, ResMut, Resource, Transform, Visibility, With,
+        Query, Res, ResMut, Resource, Transform, Visibility, With,
     };
     use std::collections::HashSet;
     use std::ops::{Deref, DerefMut};
@@ -179,17 +179,7 @@ pub mod controller {
         }
     }
 
-    pub trait RefPlayerCoinStateExt {
-        fn just_eject_finished(&self) -> bool;
-
-        fn just_initialized(&self) -> bool;
-
-        fn just_eject_finished_or_initialized(&self) -> bool {
-            self.just_eject_finished() || self.just_initialized()
-        }
-    }
-
-    impl<'w> RefPlayerCoinStateExt for Ref<'w, PlayerCoinState> {
+    pub trait RefPlayerCoinStateExt: Deref<Target = PlayerCoinState> + DetectChanges {
         fn just_eject_finished(&self) -> bool {
             self.is_changed()
                 && matches!(self.state, PlayerCoinBehaviorStatus::Idle)
@@ -201,7 +191,26 @@ pub mod controller {
                 && self.state.is_idle()
                 && self.last.is_some_and(|s| s.is_initialized())
         }
+
+        fn just_eject_finished_or_initialized(&self) -> bool {
+            self.just_eject_finished() || self.just_initialized()
+        }
+
+        fn just_on_ground(&self) -> bool {
+            self.is_changed()
+                && matches!(
+                    self.state,
+                    PlayerCoinBehaviorStatus::Idle
+                        | PlayerCoinBehaviorStatus::Contact { .. }
+                        | PlayerCoinBehaviorStatus::Slide
+                )
+                && self
+                    .last
+                    .is_some_and(|s| matches!(s, PlayerCoinBehaviorStatus::Upspring { .. }))
+        }
     }
+
+    impl<T> RefPlayerCoinStateExt for T where T: Deref<Target = PlayerCoinState> + DetectChanges {}
 
     #[derive(Resource, Default)]
     pub struct CursorWorldPosition(pub Option<Vec2>);

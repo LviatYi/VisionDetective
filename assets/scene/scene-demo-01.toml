@@ -995,7 +995,7 @@ type = "trap"
 path = [
     [
         -540.0,
-        -126.0,
+        -129.0,
     ],
     [
         543.0,
@@ -1013,7 +1013,6 @@ path = [
 appearance_id = 100014
 min_distance = 120.0
 rejection_attempts = 30
-order_offset = 0.01
 rotation = 0.0
 seed = 3463431405699872120
 
@@ -1023,4 +1022,4 @@ position = [
     1453.0,
 ]
 rotation = 0.0
-order = 1
+order = 1.0

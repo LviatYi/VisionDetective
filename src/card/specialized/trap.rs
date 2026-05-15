@@ -1,7 +1,9 @@
 use crate::card::card_params::{CardSpecializedParam, SpawnCardSystemParams};
 use crate::card::{Card, CardKind, CardSpecializedInstaller};
 use crate::coin::player::PlayerCoin;
-use crate::coin::player::controller::{PlayerCoinBehaviorStatus, PlayerCoinState};
+use crate::coin::player::controller::{
+    PlayerCoinBehaviorStatus, PlayerCoinState, RefPlayerCoinStateExt,
+};
 use crate::physics::area::{Area, ShapeType};
 use crate::tools::Disable;
 use crate::{GameplaySet, register_card_specialized_installer};
@@ -84,7 +86,7 @@ fn handle_player_trap_collision(
     card_query: Query<(Entity, &Card, &GlobalTransform), Without<Disable>>,
 ) {
     for (mut player_state, player_transform) in &mut player_query {
-        if !player_state.is_on_ground() {
+        if !player_state.just_on_ground() {
             continue;
         }
 

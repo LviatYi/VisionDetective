@@ -81,7 +81,7 @@ stop_speed = 8.0
 # Vertical acceleration used by the pseudo-3D jump arc.
 gravity = -9.8
 # Number of ground contacts before the coin starts pure sliding.
-max_ground_bounce_count = 2
+max_ground_bounce_count = 1
 
 [vision]
 # Visibility radius centered on the player.

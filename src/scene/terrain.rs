@@ -1,21 +1,19 @@
 use crate::GameView;
-use crate::card::Card;
 use crate::card::card_params::{CardSceneParam, SpawnCardSystemParams};
 use crate::card::spawn_scenery_by_appearance;
-use crate::card::specialized::trap::is_covered_by_higher_card;
-use crate::coin::player::PlayerCoin;
-use crate::coin::player::controller::{PlayerCoinBehaviorStatus, PlayerCoinState};
+use crate::card::specialized::trap::Trap;
 use crate::config::GameConfig;
 use crate::physics::area::Area;
-use crate::scene::{SCENE_ROTATION_STEP, SceneLayer, SceneParam};
-use crate::tools::Disable;
+use crate::scene::{
+    SCENE_ROTATION_STEP, SceneLayer, SceneParam, Z_OFFSET_CARD_OF_TERRAIN,
+    Z_OFFSET_TERRAIN_BOUNDARY,
+};
 use bevy::asset::RenderAssetUsages;
 use bevy::math::Vec2;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::{
     Assets, ChildSpawnerCommands, Color, ColorMaterial, Commands, Component, Deref, Entity, Gizmos,
-    GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, Mut, Quat, Query, Res, ResMut, Transform,
-    Visibility, With, Without,
+    Mesh, Mesh2d, MeshMaterial2d, Quat, Query, Res, ResMut, Transform, Visibility, Without,
 };
 use bevy::utils::default;
 use fast_poisson::Poisson2D;
@@ -45,9 +43,6 @@ pub struct TerrainParam {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_cards: Option<usize>,
 
-    #[serde(default = "default_order_offset")]
-    pub order_offset: f32,
-
     #[serde(default)]
     pub rotation: f32,
 
@@ -67,7 +62,6 @@ impl Default for TerrainParam {
             min_distance: default_min_distance(),
             rejection_attempts: default_rejection_attempts(),
             max_cards: None,
-            order_offset: default_order_offset(),
             rotation: 0.0,
             seed: 0,
             scene_param: TerrainSceneParam::default(),
@@ -119,7 +113,7 @@ pub fn spawn_terrain(
     ));
 
     if terrain.terrain_type == TerrainType::Trap {
-        entity.insert(TrapTerrain::new(terrain.path.clone()));
+        entity.insert(Trap::new(terrain.path.clone()));
     }
 }
 
@@ -140,50 +134,6 @@ impl TerrainBoundary {
 
 #[derive(Component)]
 pub struct TerrainBoundaryMeshSpawned;
-
-#[derive(Component, Clone, Deref)]
-pub struct TrapTerrain {
-    pub area: Area,
-}
-
-impl TrapTerrain {
-    pub fn new(local_path: Vec<Vec2>) -> Self {
-        Self {
-            area: Area::new(local_path),
-        }
-    }
-}
-
-pub fn handle_player_trap_terrain_collision(
-    mut player_query: Query<(Mut<PlayerCoinState>, &Transform), With<PlayerCoin>>,
-    trap_terrain_query: Query<(Entity, &Transform, &TrapTerrain), Without<Disable>>,
-    card_query: Query<(Entity, &Card, &GlobalTransform), Without<Disable>>,
-) {
-    for (mut player_state, player_transform) in &mut player_query {
-        if !player_state.is_on_ground() {
-            continue;
-        }
-
-        let player_position = player_transform.translation.truncate();
-        let falls_into_trap = trap_terrain_query
-            .iter()
-            .filter(|(_, terrain_transform, terrain)| {
-                terrain.contains_world_point(terrain_transform, player_position)
-            })
-            .any(|(terrain_entity, terrain_transform, _)| {
-                !is_covered_by_higher_card(
-                    terrain_entity,
-                    terrain_transform.translation.z,
-                    player_position,
-                    &card_query,
-                )
-            });
-
-        if falls_into_trap {
-            player_state.set_state(PlayerCoinBehaviorStatus::Death);
-        }
-    }
-}
 
 pub fn draw_editor_terrain_paths(
     mut gizmos: Gizmos,
@@ -246,7 +196,7 @@ fn spawn_terrain_boundary(
     parent.spawn((
         Mesh2d(meshes.add(mesh)),
         MeshMaterial2d(materials.add(color)),
-        Transform::from_xyz(0.0, 0.0, 0.0),
+        Transform::default(),
     ));
 }
 
@@ -352,7 +302,8 @@ fn spawn_terrain_fill(
 
     let transform = terrain_transform(terrain);
     let points_count = points.len();
-    let inner_z_offset = 1.0 / points_count as f32;
+    let inner_z_start_at = Z_OFFSET_CARD_OF_TERRAIN;
+    let inner_z_offset = Z_OFFSET_CARD_OF_TERRAIN.abs() / points_count as f32;
 
     for (index, point) in points.into_iter().enumerate() {
         let world_position = transform.transform_point(point.extend(0.0)).truncate();
@@ -369,7 +320,7 @@ fn spawn_terrain_fill(
                     position: world_position,
                     rotation,
                     order: terrain.scene_param.order
-                        + terrain.order_offset
+                        + inner_z_start_at
                         + index as f32 * inner_z_offset,
                     enable_if: terrain.scene_param.enable_if.clone(),
                     disable_if: terrain.scene_param.disable_if.clone(),
@@ -387,7 +338,7 @@ fn terrain_transform(terrain: &TerrainParam) -> Transform {
         terrain
             .scene_param
             .position
-            .extend(SceneLayer::TerrainBoundary.get_layer_base_z() + terrain.scene_param.order),
+            .extend(SceneLayer::SceneObjects.get_layer_base_z() + terrain.scene_param.order),
     )
     .with_rotation(Quat::from_rotation_z(terrain.scene_param.rotation))
 }
@@ -402,10 +353,6 @@ fn default_appearance_id() -> u32 {
 
 fn default_rejection_attempts() -> usize {
     30
-}
-
-fn default_order_offset() -> f32 {
-    0.01
 }
 
 pub fn random_terrain_seed() -> u64 {
