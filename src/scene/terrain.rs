@@ -4,10 +4,7 @@ use crate::card::spawn_scenery_by_appearance;
 use crate::card::specialized::trap::Trap;
 use crate::config::GameConfig;
 use crate::physics::area::Area;
-use crate::scene::{
-    SCENE_ROTATION_STEP, SceneLayer, SceneParam, Z_OFFSET_CARD_OF_TERRAIN,
-    Z_OFFSET_TERRAIN_BOUNDARY,
-};
+use crate::scene::{SCENE_ROTATION_STEP, SceneLayer, SceneParam, Z_OFFSET_CARD_OF_TERRAIN};
 use bevy::asset::RenderAssetUsages;
 use bevy::math::Vec2;
 use bevy::mesh::{Indices, PrimitiveTopology};

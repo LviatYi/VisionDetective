@@ -12,7 +12,7 @@ clear_color = [0.06, 0.09, 0.11]
 
 [visuals]
 # Player coin radius in world units.
-player_radius = 22.0
+player_radius = 28.0
 player_color = [0.90, 0.84, 0.35]
 # Cursor marker radius in world units.
 pointer_radius = 10.0

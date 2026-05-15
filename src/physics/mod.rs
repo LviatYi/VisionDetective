@@ -1,3 +1,4 @@
+use crate::card::Card;
 use crate::card::specialized::obstacle::{Obstacle, draw_obstacle_paths};
 use crate::card::specialized::trap::draw_trap_paths;
 use crate::coin::player::PlayerCoin;
@@ -16,6 +17,8 @@ pub struct PhysicsPlugin;
 
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct Velocity(Vec3);
+
+const PLAYER_COIN_GROUND_RING_SAMPLE_COUNT: usize = 8;
 
 impl Plugin for PhysicsPlugin {
     fn build(&self, app: &mut App) {
@@ -47,6 +50,7 @@ pub fn move_player_coin_transform(
         With<PlayerCoin>,
     >,
     obstacle_query: Query<(&Transform, &Obstacle), (Without<PlayerCoin>, Without<Disable>)>,
+    card_query: Query<(&GlobalTransform, &Card), Without<Disable>>,
 ) {
     for (mut player_state, mut transform, mut velocity) in transform_query.iter_mut() {
         if player_state.is_stop() {
@@ -66,14 +70,21 @@ pub fn move_player_coin_transform(
 
                 if player_state.sim_z() <= 0.0 {
                     player_state.set_sim_z(0.0);
-                    velocity.x *= config.physics.landing_speed_loss;
-                    velocity.y *= config.physics.landing_speed_loss;
+                    let landing_speed_loss = sample_player_coin_ground_value(
+                        &config,
+                        transform.translation.truncate(),
+                        &card_query,
+                        config.physics.landing_speed_loss,
+                        |card| card.landing_speed_loss,
+                    );
+                    velocity.x *= landing_speed_loss;
+                    velocity.y *= landing_speed_loss;
 
                     if player_state.contact_count() >= config.physics.max_ground_bounce_count {
                         player_state.set_state(PlayerCoinBehaviorStatus::Slide);
                         velocity.z = 0.0;
                     } else {
-                        velocity.z = -velocity.z * config.physics.landing_speed_loss;
+                        velocity.z = -velocity.z * landing_speed_loss;
                         let new_contact_count = player_state.contact_count() + 1;
                         player_state.set_state(PlayerCoinBehaviorStatus::Contact {
                             save_velocity: velocity.clone(),
@@ -103,7 +114,14 @@ pub fn move_player_coin_transform(
                     velocity.y = 0.0;
                     player_state.set_state(PlayerCoinBehaviorStatus::Idle);
                 } else {
-                    let friction_delta = config.physics.sliding_friction * dt;
+                    let friction = sample_player_coin_ground_value(
+                        &config,
+                        transform.translation.truncate(),
+                        &card_query,
+                        config.physics.sliding_friction,
+                        |card| card.friction,
+                    );
+                    let friction_delta = friction * dt;
                     let next_speed = (planar_speed - friction_delta).max(0.0);
                     let next_planar_velocity = planar_velocity.normalize() * next_speed;
 
@@ -114,6 +132,59 @@ pub fn move_player_coin_transform(
             _ => {}
         }
     }
+}
+
+fn sample_player_coin_ground_value(
+    config: &GameConfig,
+    player_position: Vec2,
+    card_query: &Query<(&GlobalTransform, &Card), Without<Disable>>,
+    fallback: f32,
+    get_card_value: fn(&Card) -> Option<f32>,
+) -> f32 {
+    let half_radius = config.visuals.player_radius * 0.5;
+    let mut value_sum =
+        sample_ground_value_at_point(player_position, card_query, fallback, get_card_value);
+
+    for index in 0..PLAYER_COIN_GROUND_RING_SAMPLE_COUNT {
+        let angle =
+            std::f32::consts::TAU * index as f32 / PLAYER_COIN_GROUND_RING_SAMPLE_COUNT as f32;
+        let sample_offset = Vec2::new(angle.cos(), angle.sin()) * half_radius;
+        value_sum += sample_ground_value_at_point(
+            player_position + sample_offset,
+            card_query,
+            fallback,
+            get_card_value,
+        );
+    }
+
+    value_sum / (PLAYER_COIN_GROUND_RING_SAMPLE_COUNT as f32 + 1.0)
+}
+
+fn sample_ground_value_at_point(
+    point: Vec2,
+    card_query: &Query<(&GlobalTransform, &Card), Without<Disable>>,
+    fallback: f32,
+    get_card_value: fn(&Card) -> Option<f32>,
+) -> f32 {
+    let mut sampled_card: Option<(f32, f32)> = None;
+
+    for (card_transform, card) in card_query.iter() {
+        if !card.contains_point(card_transform, point) {
+            continue;
+        }
+
+        let card_z = card_transform.translation().z;
+        let card_value = get_card_value(card).unwrap_or(fallback);
+
+        if sampled_card
+            .map(|(sampled_z, _)| card_z > sampled_z)
+            .unwrap_or(true)
+        {
+            sampled_card = Some((card_z, card_value));
+        }
+    }
+
+    sampled_card.map(|(_, value)| value).unwrap_or(fallback)
 }
 
 fn resolve_obstacle_collisions(

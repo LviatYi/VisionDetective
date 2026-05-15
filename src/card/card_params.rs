@@ -133,6 +133,12 @@ pub struct CardAppearanceConfig {
     /// Optional override of the background color.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub background_color_appearance_override: String,
+    /// Optional sliding friction override for player coin ground sampling.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub friction: Option<f32>,
+    /// Optional landing speed loss override for player coin ground sampling.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub landing_speed_loss: Option<f32>,
     pub image_res_path: String,
 }
 
@@ -142,6 +148,8 @@ impl CardAppearanceConfig {
             id: 0,
             title: "Placeholder".to_string(),
             background_color_appearance_override: "".to_string(),
+            friction: None,
+            landing_speed_loss: None,
             image_res_path: String::new(),
         }
     }

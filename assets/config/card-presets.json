@@ -68,7 +68,8 @@
     {
       "id": 100014,
       "title": "疑云",
-      "image_res_path": "pic/doubt-puzzle.png"
+      "image_res_path": "pic/doubt-puzzle.png",
+      "background_color_appearance_override": "#383838FF"
     },
     {
       "id": 100015,
@@ -89,17 +90,23 @@
       "id": 100018,
       "title": "疑虑",
       "image_res_path": "pic/doubt.png",
+      "friction": 360,
+      "landing_speed_loss": 0.6,
       "background_color_appearance_override": "#402C0EFF"
     },
     {
       "id": 100019,
       "title": "灵感",
       "image_res_path": "pic/inspire.png",
+      "friction": 540,
+      "landing_speed_loss": 0.2,
       "background_color_appearance_override": "#FFC400FF"
     },
     {
       "id": 100020,
       "title": "线索",
+      "friction": 480,
+      "landing_speed_loss": 0.4,
       "image_res_path": "pic/clue.png",
       "background_color_appearance_override": "#4C1300FF"
     },

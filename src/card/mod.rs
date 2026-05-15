@@ -61,6 +61,8 @@ pub struct Card {
     pub instance_id: String,
     pub title: String,
     pub according_type: CardAccordingType,
+    pub friction: Option<f32>,
+    pub landing_speed_loss: Option<f32>,
     pub enable_if: Option<String>,
     pub disable_if: Option<String>,
 }
@@ -411,6 +413,8 @@ fn spawn_card_inner(
             instance_id,
             title: appearance.title.clone(),
             according_type,
+            friction: appearance.friction,
+            landing_speed_loss: appearance.landing_speed_loss,
             enable_if: scene_param.data.enable_if,
             disable_if: scene_param.data.disable_if,
         },
