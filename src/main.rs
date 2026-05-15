@@ -56,10 +56,11 @@ pub enum GameplaySet {
     PlayerRespawn,
     SceneModifiedCardLogic,
     PlayerPhysics,
+    PlayerDeathCheck,
+    PlayerRecordProgress,
     InteractiveCardLogic,
     PlayerInput,
     Visual,
-    PlayerDeath,
     InteractiveCardCheck,
 }
 
@@ -104,7 +105,7 @@ fn main() {
                 GameplaySet::InteractiveCardLogic,
                 GameplaySet::PlayerInput,
                 GameplaySet::Visual,
-                GameplaySet::PlayerDeath,
+                GameplaySet::PlayerDeathCheck,
             )
                 .chain()
                 .run_if(in_state(GameStatus::InGame)),

@@ -95,7 +95,7 @@ prefab_id = 1005
 [cards.scene_param]
 instance_id = "1005-血-b05dc14c-cb71-43db-8d1a-290d8cead221"
 position = [
-    232.0,
+    149.0,
     693.0,
 ]
 rotation = 1.5707963
@@ -108,7 +108,7 @@ prefab_id = 1208
 [cards.scene_param]
 instance_id = "1208-沙发-00915117-2f16-496a-a443-4fcc37d60185"
 position = [
-    586.0,
+    627.0,
     588.0,
 ]
 rotation = 0.0
@@ -167,8 +167,8 @@ prefab_id = 1005
 [cards.scene_param]
 instance_id = "1005-血-40fbd426-79ae-4d8f-aeeb-3d964b3f7e83"
 position = [
-    350.0,
-    607.0,
+    257.0,
+    588.0,
 ]
 rotation = 2.6179936
 order = 18.0
@@ -180,8 +180,8 @@ prefab_id = 1104
 [cards.scene_param]
 instance_id = "1104-血滴-ea6abc96-6592-4d11-b167-52da09de06be"
 position = [
-    436.0,
-    829.0,
+    392.0,
+    759.0,
 ]
 rotation = -0.5235989
 order = 19.0
@@ -214,8 +214,8 @@ prefab_id = 1206
 [cards.scene_param]
 instance_id = "1206-椅子-4954af29-cbca-487a-9f8e-ef570f6ad26d"
 position = [
-    415.0,
-    701.0,
+    350.0,
+    657.0,
 ]
 rotation = 0.5235989
 order = 20.0
@@ -227,8 +227,8 @@ prefab_id = 1106
 [cards.scene_param]
 instance_id = "1106-尸体-35a5c01e-9c3c-4c3b-9dc6-40fe2d91603d"
 position = [
-    296.0,
-    663.0,
+    203.0,
+    639.0,
 ]
 rotation = 2.094395
 order = 21.0
@@ -240,8 +240,8 @@ prefab_id = 1206
 [cards.scene_param]
 instance_id = "1206-椅子-ab5b20da-c7fa-4162-b239-a3e2115da669"
 position = [
-    338.0,
-    787.0,
+    274.0,
+    743.0,
 ]
 rotation = -2.0943952
 order = 22.0
@@ -462,7 +462,7 @@ prefab_id = 1002
 instance_id = "1002-门-2a7a7e82-7b5e-4353-aa31-2fbdf91ca81f"
 position = [
     544.0,
-    1214.0,
+    1263.0,
 ]
 rotation = 0.0
 order = 39.0
@@ -515,7 +515,7 @@ prefab_id = 1202
 instance_id = "1202-门-8b74f488-680a-419d-bce2-6ac7b5679e4a"
 position = [
     544.0,
-    1214.0,
+    1263.0,
 ]
 rotation = 0.0
 order = 44.0
@@ -567,8 +567,8 @@ prefab_id = 1201
 [cards.scene_param]
 instance_id = "1201-墙-96302232-9076-4cd8-9a45-462664c5506a"
 position = [
-    868.0,
-    2308.0,
+    -212.0,
+    2069.0,
 ]
 rotation = 0.0
 order = 48.0
@@ -580,8 +580,8 @@ prefab_id = 1201
 [cards.scene_param]
 instance_id = "1201-墙-371a8985-3746-4f60-819d-6e3db49a33e8"
 position = [
-    -104.0,
-    2308.0,
+    -212.0,
+    1409.0,
 ]
 rotation = 0.0
 order = 49.0
@@ -593,8 +593,8 @@ prefab_id = 1201
 [cards.scene_param]
 instance_id = "1201-墙-fbedc843-1b66-45b3-891f-6732ef5764e0"
 position = [
-    -104.0,
-    2650.0,
+    -212.0,
+    1751.0,
 ]
 rotation = 0.0
 order = 50.0
@@ -606,8 +606,8 @@ prefab_id = 1201
 [cards.scene_param]
 instance_id = "1201-墙-932496f9-a911-425b-88ec-2cf43dac4a11"
 position = [
-    -104.0,
-    2479.0,
+    -212.0,
+    1580.0,
 ]
 rotation = 0.0
 order = 51.0
@@ -619,8 +619,8 @@ prefab_id = 1201
 [cards.scene_param]
 instance_id = "1201-墙-3d6ddb7c-01eb-4f0d-afcf-b9fc0c353ef9"
 position = [
-    -104.0,
-    2821.0,
+    -428.0,
+    2070.0,
 ]
 rotation = 0.0
 order = 52.0
@@ -632,10 +632,10 @@ prefab_id = 1201
 [cards.scene_param]
 instance_id = "1201-墙-86234149-fd64-4a36-94f0-379e37e3a792"
 position = [
-    -50.0,
-    2833.0,
+    -320.0,
+    2069.0,
 ]
-rotation = -0.5235989
+rotation = 0.0
 order = 53.0
 description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 
@@ -645,8 +645,8 @@ prefab_id = 1201
 [cards.scene_param]
 instance_id = "1201-墙-7fc065f7-9da5-41b7-8e20-2374eac135a3"
 position = [
-    149.0,
-    2821.0,
+    -1333.0,
+    2546.0,
 ]
 rotation = 0.5235989
 order = 54.0
@@ -658,8 +658,8 @@ prefab_id = 1201
 [cards.scene_param]
 instance_id = "1201-墙-857a3852-7f28-407e-b228-b356621d24a4"
 position = [
-    220.0,
-    2821.0,
+    -1262.0,
+    2546.0,
 ]
 rotation = 0.0
 order = 55.0
@@ -671,8 +671,8 @@ prefab_id = 1201
 [cards.scene_param]
 instance_id = "1201-墙-7278c110-a176-468f-b892-57603ace4171"
 position = [
-    328.0,
-    2821.0,
+    -1154.0,
+    2546.0,
 ]
 rotation = 0.0
 order = 56.0
@@ -684,8 +684,8 @@ prefab_id = 1201
 [cards.scene_param]
 instance_id = "1201-墙-aa69ca14-20e5-4e89-90ec-912874c72cb6"
 position = [
-    436.0,
-    2821.0,
+    -1046.0,
+    2546.0,
 ]
 rotation = 0.0
 order = 57.0
@@ -697,8 +697,8 @@ prefab_id = 1201
 [cards.scene_param]
 instance_id = "1201-墙-e94bc6ad-e034-4f27-a250-a68ad2dd5219"
 position = [
-    544.0,
-    2821.0,
+    -938.0,
+    2546.0,
 ]
 rotation = 0.0
 order = 58.0
@@ -710,8 +710,8 @@ prefab_id = 1201
 [cards.scene_param]
 instance_id = "1201-墙-2d618ece-5ffa-4c18-9098-bd2cd9d1a362"
 position = [
-    868.0,
-    2650.0,
+    -320.0,
+    1238.0,
 ]
 rotation = 0.0
 order = 59.0
@@ -723,8 +723,8 @@ prefab_id = 1201
 [cards.scene_param]
 instance_id = "1201-墙-931ca2de-1d04-4e99-9feb-93624d1b1dd7"
 position = [
-    760.0,
-    2821.0,
+    -536.0,
+    1238.0,
 ]
 rotation = 0.0
 order = 60.0
@@ -736,8 +736,8 @@ prefab_id = 1201
 [cards.scene_param]
 instance_id = "1201-墙-d7dde328-1a6b-4883-8c66-1e75c60d1427"
 position = [
-    868.0,
-    2821.0,
+    -428.0,
+    1238.0,
 ]
 rotation = 0.0
 order = 61.0
@@ -749,8 +749,8 @@ prefab_id = 1201
 [cards.scene_param]
 instance_id = "1201-墙-a529776c-1e0d-40e8-8352-48823f943658"
 position = [
-    868.0,
-    2479.0,
+    -212.0,
+    1238.0,
 ]
 rotation = 0.0
 order = 62.0
@@ -762,8 +762,8 @@ prefab_id = 1004
 [cards.scene_param]
 instance_id = "1004-血滴-6ea68b40-fda7-44b4-9633-4f82410151e3"
 position = [
-    392.0,
-    2357.0,
+    -1090.0,
+    2082.0,
 ]
 rotation = 1.0471976
 order = 63.0
@@ -775,10 +775,10 @@ prefab_id = 1201
 [cards.scene_param]
 instance_id = "1201-墙-9469bff4-e7fa-4664-bba0-51f19fa0a7f1"
 position = [
-    694.0,
-    3065.0,
+    -536.0,
+    2070.0,
 ]
-rotation = 1.0471976
+rotation = 0.0
 order = 65.0
 description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 
@@ -788,10 +788,10 @@ prefab_id = 1201
 [cards.scene_param]
 instance_id = "1201-墙-d2258520-71ff-4ec5-9c88-af5ae2dc39cf"
 position = [
-    721.0,
-    2992.0,
+    -644.0,
+    2070.0,
 ]
-rotation = 0.5235989
+rotation = 0.0
 order = 66.0
 description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 
@@ -801,8 +801,8 @@ prefab_id = 1201
 [cards.scene_param]
 instance_id = "1201-墙-ccdd952f-9fbd-4a3a-b83c-10d73779be9b"
 position = [
-    760.0,
-    2958.0,
+    -752.0,
+    2070.0,
 ]
 rotation = 0.0
 order = 67.0
@@ -814,8 +814,8 @@ prefab_id = 1500
 [cards.scene_param]
 instance_id = "1500-对话-977c25b1-d4e4-4f46-b154-f0104deb4c35"
 position = [
-    640.0,
-    2692.0,
+    -842.0,
+    2417.0,
 ]
 rotation = -0.5235989
 order = 68.0
@@ -827,8 +827,8 @@ prefab_id = 1002
 [cards.scene_param]
 instance_id = "1002-门-af512c60-9ccb-45c8-8232-dd644f24f8ed"
 position = [
-    586.0,
-    2758.0,
+    -896.0,
+    2483.0,
 ]
 rotation = -0.5235989
 order = 70.0
@@ -840,8 +840,8 @@ prefab_id = 1202
 [cards.scene_param]
 instance_id = "1202-门-bc17adcd-1688-41c0-af15-8c5b65de2f41"
 position = [
-    586.0,
-    2758.0,
+    -896.0,
+    2483.0,
 ]
 rotation = -0.5235989
 order = 71.0
@@ -853,8 +853,8 @@ prefab_id = 1209
 [cards.scene_param]
 instance_id = "1209-桌子-bd0e1d6e-f2be-4652-83ee-bc786864a6cd"
 position = [
-    58.0,
-    1043.0,
+    30.0,
+    930.0,
 ]
 rotation = 0.0
 order = 72.0
@@ -867,7 +867,7 @@ prefab_id = 1210
 instance_id = "1210-桌子-37706640-4c05-4295-b799-f604e7ae4176"
 position = [
     166.0,
-    1043.0,
+    951.0,
 ]
 rotation = 0.0
 order = 73.0
@@ -879,7 +879,7 @@ prefab_id = 1009
 [cards.scene_param]
 instance_id = "1009-线索-6bc5a9df-ea6a-404c-8b47-f4bc6d4d622c"
 position = [
-    652.0,
+    667.0,
     1483.0,
 ]
 rotation = -0.5235989
@@ -944,24 +944,11 @@ prefab_id = 1211
 [cards.scene_param]
 instance_id = "1211-冷静-97f40320-a2c0-4187-be5b-18e58eb3802a"
 position = [
-    149.0,
-    1526.0,
+    138.0,
+    1544.0,
 ]
 rotation = 0.5235989
 order = 80.0
-description = "title: 冷静, image_path: pic/cooldown.png, desc: 线索（迷雾区障碍）"
-
-[[cards]]
-prefab_id = 1211
-
-[cards.scene_param]
-instance_id = "1211-冷静-f4e8b11a-5cca-4597-98b6-6ac9201f083d"
-position = [
-    274.0,
-    1483.0,
-]
-rotation = -1.5707964
-order = 81.0
 description = "title: 冷静, image_path: pic/cooldown.png, desc: 线索（迷雾区障碍）"
 
 [[cards]]
@@ -990,25 +977,77 @@ rotation = -0.5235989
 order = 83.0
 description = "title: 线索, image_path: pic/clue.png, desc: 线索（迷雾区景观）"
 
+[[cards]]
+prefab_id = 1211
+
+[cards.scene_param]
+instance_id = "1211-冷静-a6b3e729-7aa9-488f-85b4-9a31f3d4a05a"
+position = [
+    910.0,
+    1740.0,
+]
+rotation = 0.5235989
+order = 84.0
+description = "title: 冷静, image_path: pic/cooldown.png, desc: 线索（迷雾区障碍）"
+
+[[cards]]
+prefab_id = 1211
+
+[cards.scene_param]
+instance_id = "1211-冷静-8ae0f19d-3f9c-44e9-b63e-9b4caae3fe12"
+position = [
+    856.0,
+    1841.0,
+]
+rotation = -2.0943952
+order = 85.0
+description = "title: 冷静, image_path: pic/cooldown.png, desc: 线索（迷雾区障碍）"
+
+[[cards]]
+prefab_id = 1212
+
+[cards.scene_param]
+instance_id = "1212-虚假-0b6e10dd-7c78-4be2-8f03-65b8804081c9"
+position = [
+    328.0,
+    1483.0,
+]
+rotation = -1.0471976
+order = 86.0
+description = "title: 虚假, image_path: pic/fake.png, desc: 虚假（迷雾区障碍）"
+
+[[cards]]
+prefab_id = 1211
+
+[cards.scene_param]
+instance_id = "1211-冷静-8b12c0ba-da12-4a48-8c25-9ea0e20c7aca"
+position = [
+    -78.0,
+    1984.0,
+]
+rotation = -1.5707964
+order = 87.0
+description = "title: 冷静, image_path: pic/cooldown.png, desc: 线索（迷雾区障碍）"
+
 [[terrains]]
 type = "trap"
 path = [
     [
-        -540.0,
-        -129.0,
-    ],
+    -540.0,
+    -129.0,
+],
     [
-        543.0,
-        -129.0,
-    ],
+    543.0,
+    -129.0,
+],
     [
-        543.0,
-        600.0,
-    ],
+    543.0,
+    600.0,
+],
     [
-        -540.0,
-        600.0,
-    ],
+    -540.0,
+    600.0,
+],
 ]
 appearance_id = 100014
 min_distance = 120.0

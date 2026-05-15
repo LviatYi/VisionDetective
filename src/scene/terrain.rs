@@ -100,7 +100,7 @@ pub fn spawn_terrain(
         return;
     }
 
-    spawn_terrain_fill(commands, spawn_params, terrain);
+    spawn_terrain_fill_card(commands, spawn_params, terrain);
 
     let mut entity = commands.spawn((
         terrain_transform(terrain),
@@ -265,7 +265,7 @@ fn sample_poisson_disk_in_area(
         .collect()
 }
 
-fn spawn_terrain_fill(
+fn spawn_terrain_fill_card(
     commands: &mut Commands,
     spawn_params: &mut SpawnCardSystemParams<'_>,
     terrain: &TerrainParam,

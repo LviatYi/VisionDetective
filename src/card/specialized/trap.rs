@@ -27,9 +27,7 @@ impl CardSpecializedInstaller for TrapCardSpecializedInstaller {
     fn install(app: &mut App) {
         app.add_systems(
             Update,
-            handle_player_trap_collision
-                .after(crate::physics::move_player_coin_transform)
-                .in_set(GameplaySet::PlayerDeath),
+            handle_player_trap_collision.in_set(GameplaySet::PlayerDeathCheck),
         );
     }
 }
@@ -86,7 +84,7 @@ fn handle_player_trap_collision(
     card_query: Query<(Entity, &Card, &GlobalTransform), Without<Disable>>,
 ) {
     for (mut player_state, player_transform) in &mut player_query {
-        if !player_state.just_on_ground() {
+        if !player_state.just_on_ground() && !player_state.just_eject_finished() {
             continue;
         }
 

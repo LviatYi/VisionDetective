@@ -41,10 +41,10 @@ pub fn get_layered_game_scene_camera2d_bundle() -> (Camera2d, Projection) {
     )
 }
 
-//region Card Range Z [0,0.001)
-pub const Z_OFFSET_CARD_BACKGROUND: f32 = 0.0001;
-pub const Z_OFFSET_CARD_IMAGE: f32 = 0.0002;
-pub const Z_OFFSET_CARD_TITLE: f32 = 0.0003;
+//region Card Range Z [0,0.0000001)
+pub const Z_OFFSET_CARD_BACKGROUND: f32 = 0.00000001;
+pub const Z_OFFSET_CARD_IMAGE: f32 = 0.00000002;
+pub const Z_OFFSET_CARD_TITLE: f32 = 0.00000003;
 //endregion
 
 //region Terrain Range [-0.5,0]

@@ -36,9 +36,7 @@ impl Plugin for GameProgressPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GameProgress>().add_systems(
             Update,
-            record_player_stop_position
-                .after(crate::physics::move_player_coin_transform)
-                .in_set(GameplaySet::PlayerPhysics),
+            record_player_stop_position.in_set(GameplaySet::PlayerRecordProgress),
         );
     }
 }
