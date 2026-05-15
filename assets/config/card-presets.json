@@ -88,17 +88,26 @@
     {
       "id": 100018,
       "title": "疑虑",
-      "image_res_path": "pic/doubt.png"
+      "image_res_path": "pic/doubt.png",
+      "background_color_appearance_override": "#402C0EFF"
     },
     {
       "id": 100019,
       "title": "灵感",
-      "image_res_path": "pic/inspire.png"
+      "image_res_path": "pic/inspire.png",
+      "background_color_appearance_override": "#FFC400FF"
     },
     {
       "id": 100020,
       "title": "线索",
-      "image_res_path": "pic/clue.png"
+      "image_res_path": "pic/clue.png",
+      "background_color_appearance_override": "#4C1300FF"
+    },
+    {
+      "id": 100021,
+      "title": "冷静",
+      "image_res_path": "pic/cooldown.png",
+      "background_color_appearance_override": "#CBCACAFF"
     },
     {
       "id": 100901,
@@ -145,6 +154,10 @@
       "id": 10000001,
       "type": "scenery",
       "params": {}
+    },
+    {
+      "id": 10000002,
+      "type": "scenery"
     },
     {
       "id": 10000101,
@@ -708,6 +721,24 @@
       "description": "尸体"
     },
     {
+      "id": 1007,
+      "appearance_id": 100018,
+      "specialized_id": 10000001,
+      "description": "疑虑（迷雾区景观）"
+    },
+    {
+      "id": 1008,
+      "appearance_id": 100019,
+      "specialized_id": 10000001,
+      "description": "灵感（迷雾区景观）"
+    },
+    {
+      "id": 1009,
+      "appearance_id": 100020,
+      "specialized_id": 10000001,
+      "description": "线索（迷雾区景观）"
+    },
+    {
       "id": 1500,
       "appearance_id": 100010,
       "specialized_id": 10000501,
@@ -760,6 +791,12 @@
       "appearance_id": 100012,
       "specialized_id": 10000206,
       "description": "沙发（右）"
+    },
+    {
+      "id": 1211,
+      "appearance_id": 100021,
+      "specialized_id": 10000201,
+      "description": "线索（迷雾区障碍）"
     },
     {
       "id": 1701,

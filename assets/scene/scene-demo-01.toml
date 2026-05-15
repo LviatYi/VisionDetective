@@ -95,8 +95,8 @@ prefab_id = 1005
 [cards.scene_param]
 instance_id = "1005-血-b05dc14c-cb71-43db-8d1a-290d8cead221"
 position = [
-    166.0,
-    715.0,
+    232.0,
+    693.0,
 ]
 rotation = 1.5707963
 order = 13.0
@@ -167,8 +167,8 @@ prefab_id = 1005
 [cards.scene_param]
 instance_id = "1005-血-40fbd426-79ae-4d8f-aeeb-3d964b3f7e83"
 position = [
-    284.0,
-    629.0,
+    350.0,
+    607.0,
 ]
 rotation = 2.6179936
 order = 18.0
@@ -203,10 +203,10 @@ state_key = "first_discover_blood_drop_on_the_ground"
 instance_id = "1904-对话交互卡-80049e1a-e53e-4cf4-96b0-a481ab2f1949"
 order = 64.0
 position = [
-    640.0,
-    896.0,
+    532.0,
+    1067.0,
 ]
-rotation = -0.0
+rotation = 1.0471975803375244
 
 [[cards]]
 prefab_id = 1206
@@ -227,8 +227,8 @@ prefab_id = 1106
 [cards.scene_param]
 instance_id = "1106-尸体-35a5c01e-9c3c-4c3b-9dc6-40fe2d91603d"
 position = [
-    230.0,
-    685.0,
+    296.0,
+    663.0,
 ]
 rotation = 2.094395
 order = 21.0
@@ -509,17 +509,18 @@ disable_if = "first_encounter_with_the_neighbor"
 description = "title: 门, image_path: pic/door-outside.png, desc: 门-outside"
 
 [[cards]]
-prefab_id = 1201
+prefab_id = 1202
 
 [cards.scene_param]
-instance_id = "1201-墙-e8cc6654-d858-4e29-ba78-19608f7e876e"
+instance_id = "1202-门-8b74f488-680a-419d-bce2-6ac7b5679e4a"
 position = [
-    652.0,
-    1238.0,
+    544.0,
+    1214.0,
 ]
 rotation = 0.0
 order = 44.0
-description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
+disable_if = "first_discover_blood_drop_on_the_ground"
+description = "title: 门, image_path: pic/door-inside.png, desc: 门-inside"
 
 [[cards]]
 prefab_id = 1201
@@ -535,18 +536,17 @@ order = 45.0
 description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 
 [[cards]]
-prefab_id = 1202
+prefab_id = 1201
 
 [cards.scene_param]
-instance_id = "1202-门-8b74f488-680a-419d-bce2-6ac7b5679e4a"
+instance_id = "1201-墙-e8cc6654-d858-4e29-ba78-19608f7e876e"
 position = [
-    544.0,
-    1214.0,
+    652.0,
+    1238.0,
 ]
 rotation = 0.0
 order = 46.0
-disable_if = "first_discover_blood_drop_on_the_ground"
-description = "title: 门, image_path: pic/door-inside.png, desc: 门-inside"
+description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 
 [[cards]]
 prefab_id = 1201
@@ -873,37 +873,154 @@ rotation = 0.0
 order = 73.0
 description = "title: 桌子, image_path: pic/table-right.png, desc: 沙发（右）"
 
+[[cards]]
+prefab_id = 1009
+
+[cards.scene_param]
+instance_id = "1009-线索-6bc5a9df-ea6a-404c-8b47-f4bc6d4d622c"
+position = [
+    652.0,
+    1483.0,
+]
+rotation = -0.5235989
+order = 74.0
+description = "title: 线索, image_path: pic/clue.png, desc: 线索（迷雾区景观）"
+
+[[cards]]
+prefab_id = 1007
+
+[cards.scene_param]
+instance_id = "1007-疑虑-7c76933c-635c-46eb-80e0-417b9b182dde"
+position = [
+    573.0,
+    1913.0,
+]
+rotation = -1.5707964
+order = 76.0
+description = "title: 疑虑, image_path: pic/doubt.png, desc: 疑虑（迷雾区景观）"
+
+[[cards]]
+prefab_id = 1008
+
+[cards.scene_param]
+instance_id = "1008-灵感-d6191dcb-3bb6-4850-ad63-a8268c86c4d9"
+position = [
+    404.0,
+    1715.0,
+]
+rotation = -0.5235989
+order = 77.0
+description = "title: 灵感, image_path: pic/inspire.png, desc: 灵感（迷雾区景观）"
+
+[[cards]]
+prefab_id = 1004
+
+[cards.scene_param]
+instance_id = "1004-血滴-5cc54a61-f77f-4e56-9f54-0bd1cdd2ac1f"
+position = [
+    802.0,
+    1727.0,
+]
+rotation = 0.5235989
+order = 78.0
+description = "title: 血滴, image_path: pic/blood-drop.png, desc: 血滴"
+
+[[cards]]
+prefab_id = 1004
+
+[cards.scene_param]
+instance_id = "1004-血滴-f0b138c3-f205-4dd5-82da-453d007449ac"
+position = [
+    257.0,
+    1569.0,
+]
+rotation = 1.0471976
+order = 79.0
+description = "title: 血滴, image_path: pic/blood-drop.png, desc: 血滴"
+
+[[cards]]
+prefab_id = 1211
+
+[cards.scene_param]
+instance_id = "1211-冷静-97f40320-a2c0-4187-be5b-18e58eb3802a"
+position = [
+    149.0,
+    1526.0,
+]
+rotation = 0.5235989
+order = 80.0
+description = "title: 冷静, image_path: pic/cooldown.png, desc: 线索（迷雾区障碍）"
+
+[[cards]]
+prefab_id = 1211
+
+[cards.scene_param]
+instance_id = "1211-冷静-f4e8b11a-5cca-4597-98b6-6ac9201f083d"
+position = [
+    274.0,
+    1483.0,
+]
+rotation = -1.5707964
+order = 81.0
+description = "title: 冷静, image_path: pic/cooldown.png, desc: 线索（迷雾区障碍）"
+
+[[cards]]
+prefab_id = 1004
+
+[cards.scene_param]
+instance_id = "1004-血滴-e6ac86f4-2e97-41e2-a28c-d6852c3414a6"
+position = [
+    -104.0,
+    1898.0,
+]
+rotation = 2.094395
+order = 82.0
+description = "title: 血滴, image_path: pic/blood-drop.png, desc: 血滴"
+
+[[cards]]
+prefab_id = 1009
+
+[cards.scene_param]
+instance_id = "1009-线索-f69ac680-552a-48e5-8abb-9ec02aa809c9"
+position = [
+    112.0,
+    1801.0,
+]
+rotation = -0.5235989
+order = 83.0
+description = "title: 线索, image_path: pic/clue.png, desc: 线索（迷雾区景观）"
+
 [[terrains]]
 type = "trap"
 path = [
     [
-        -534.0,
-        -390.0,
+        -540.0,
+        -126.0,
     ],
     [
-        541.0,
-        -378.0,
+        543.0,
+        -129.0,
     ],
     [
-        541.0,
-        383.0,
+        543.0,
+        600.0,
     ],
     [
-        -541.0,
-        390.0,
+        -540.0,
+        600.0,
     ],
 ]
+appearance_id = 100014
 min_distance = 120.0
 rejection_attempts = 30
 order_offset = 0.01
 rotation = 0.0
-rotation_jitter = 0.0
-seed = 0
+seed = 3463431405699872120
 
 [terrains.scene_param]
 position = [
-    376.0,
-    1740.0,
+    380.0,
+    1453.0,
 ]
 rotation = 0.0
-order = 74.0
+order = 1
