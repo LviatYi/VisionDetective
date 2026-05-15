@@ -1547,6 +1547,11 @@ source = 1
 text = "而你却说，「卧室里死了个人」！"
 
 [[cards.runtime_specialized_param.params.params.nodes]]
+id = 9
+source = 1
+text = "人无法知晓视限之外的事，而你怎么知道受害者是在卧室中死去的呢？"
+
+[[cards.runtime_specialized_param.params.params.nodes]]
 id = 10
 source = 2
 text = "好吧，好吧...我坦白，是他先炫耀他的宝贝钻石...我是一时昏头了。"
@@ -1783,21 +1788,21 @@ description = "title: 门, image_path: pic/door-inside.png, desc: 门-inside"
 type = "trap"
 path = [
     [
-    -540.0,
-    -129.0,
-],
+        -540.0,
+        -129.0,
+    ],
     [
-    1000.0,
-    -129.0,
-],
+        1000.0,
+        -129.0,
+    ],
     [
-    1000.0,
-    1000.0,
-],
+        1000.0,
+        1000.0,
+    ],
     [
-    -540.0,
-    1000.0,
-],
+        -540.0,
+        1000.0,
+    ],
 ]
 appearance_id = 100014
 min_distance = 120.0
@@ -1817,21 +1822,21 @@ order = 1.0
 type = "trap"
 path = [
     [
-    480.0,
-    420.0,
-],
+        480.0,
+        420.0,
+    ],
     [
-    -1000.0,
-    420.0,
-],
+        -1000.0,
+        420.0,
+    ],
     [
-    -1000.0,
-    -270.0,
-],
+        -1000.0,
+        -270.0,
+    ],
     [
-    480.0,
-    -270.0,
-],
+        480.0,
+        -270.0,
+    ],
 ]
 appearance_id = 100014
 min_distance = 120.0
