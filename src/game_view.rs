@@ -38,8 +38,8 @@ pub mod main_view {
     use bevy::prelude::{
         Camera, ColorMaterial, Commands, Component, Entity, Font, GlobalTransform, Justify,
         KeyCode, Mesh, Mesh2d, MeshMaterial2d, MessageWriter, MouseButton, NextState, Pickable,
-        Query, Res, ResMut, Resource, State, Text2d, TextColor, TextFont, TextLayout, Time,
-        Transform, Vec2, With, Without, default,
+        Query, Res, ResMut, Resource, Sprite, State, Text2d, TextColor, TextFont, TextLayout, Time,
+        Transform, Vec2, Vec3, With, Without, default,
     };
     use bevy::sprite::Anchor;
     use bevy::window::{PrimaryWindow, Window};
@@ -51,15 +51,37 @@ pub mod main_view {
 
     #[derive(Resource, Default)]
     pub struct MainMenuSelection {
+        phase: MainMenuPhase,
         pending_action: Option<MainMenuAction>,
         elapsed: f32,
+    }
+
+    #[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
+    enum MainMenuPhase {
+        #[default]
+        Banner,
+        Dealing,
+        Idle,
+        Collecting,
     }
 
     #[derive(Component)]
     pub(super) struct MainMenuButton {
         action: MainMenuAction,
         enabled: bool,
+        delay: f32,
+        deal_start: Transform,
+        idle_transform: Transform,
     }
+
+    #[derive(Component)]
+    pub(super) struct MainMenuTitle {
+        start_translation: Vec3,
+        idle_translation: Vec3,
+    }
+
+    #[derive(Component)]
+    pub(super) struct MainMenuBanner;
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     enum MainMenuAction {
@@ -94,6 +116,19 @@ pub mod main_view {
         commands.spawn((Camera2d, Transform::from_xyz(0.0, 0.0, 0.0), MainMenuView));
 
         commands.spawn((
+            Sprite {
+                image: asset_server.load("pic/built-with-rust-bevy-banner.png"),
+                custom_size: Some(MAIN_MENU_BANNER_SIZE),
+                color: Color::srgba(1.0, 1.0, 1.0, 0.0),
+                ..default()
+            },
+            Transform::from_xyz(0.0, 0.0, MAIN_MENU_BANNER_Z),
+            Pickable::IGNORE,
+            MainMenuBanner,
+            MainMenuView,
+        ));
+
+        commands.spawn((
             Mesh2d(meshes.add(rectangle_mesh(MAIN_MENU_BACKGROUND_SIZE))),
             MeshMaterial2d(materials.add(Color::srgba(0.05, 0.06, 0.08, 0.96))),
             Transform::from_xyz(0.0, 0.0, MAIN_MENU_BACKGROUND_Z),
@@ -111,8 +146,12 @@ pub mod main_view {
             TextColor(Color::WHITE),
             TextLayout::new_with_justify(Justify::Center),
             Anchor::CENTER,
-            Transform::from_xyz(0.0, 215.0, MAIN_MENU_TEXT_Z),
+            Transform::from_translation(MAIN_MENU_TITLE_START),
             Pickable::IGNORE,
+            MainMenuTitle {
+                start_translation: MAIN_MENU_TITLE_START,
+                idle_translation: MAIN_MENU_TITLE_IDLE,
+            },
             MainMenuView,
         ));
 
@@ -121,18 +160,20 @@ pub mod main_view {
                 "开始游戏",
                 MainMenuAction::NewGame,
                 true,
-                (-120.0, 60.0, -30.0),
+                (210.0, 60.0, -30.0),
             ),
             (
                 "继续游戏",
                 MainMenuAction::ContinueGame,
                 has_save,
-                (-150.0, -150.0, 45.0),
+                (180.0, -150.0, 45.0),
             ),
-            ("编辑器", MainMenuAction::Editor, true, (300.0, 100.0, 15.0)),
-            ("退出", MainMenuAction::Exit, true, (320.0, -120.0, -25.0)),
+            ("编辑器", MainMenuAction::Editor, true, (380.0, 100.0, 15.0)),
+            ("退出", MainMenuAction::Exit, true, (440.0, -120.0, -25.0)),
         ];
-        for (label, action, enabled, (x, y, rotation_angle)) in cards {
+        for (index, (label, action, enabled, (x, y, rotation_angle))) in
+            cards.into_iter().enumerate()
+        {
             spawn_main_menu_card(
                 &mut commands,
                 meshes.as_mut(),
@@ -145,6 +186,7 @@ pub mod main_view {
                 x,
                 y,
                 rotation_angle,
+                index as f32 * MAIN_MENU_CARD_DEAL_INTERVAL,
             );
         }
     }
@@ -161,6 +203,7 @@ pub mod main_view {
         x: f32,
         y: f32,
         rotation_angle: f32,
+        delay: f32,
     ) {
         let text_color = if enabled {
             Color::srgb(0.10, 0.08, 0.05)
@@ -173,14 +216,27 @@ pub mod main_view {
             Color::srgb(0.42, 0.39, 0.34)
         };
 
+        let idle_transform = Transform::from_xyz(x, y, MAIN_MENU_CARD_Z)
+            .with_rotation(Quat::from_rotation_z(rotation_angle.to_radians()));
+        let deal_start = Transform::from_xyz(
+            MAIN_MENU_CARD_DECK_POSITION.x,
+            MAIN_MENU_CARD_DECK_POSITION.y,
+            MAIN_MENU_CARD_Z,
+        );
+
         commands
             .spawn((
                 Mesh2d(meshes.add(Card::card_rounded_mesh(&config.cards))),
                 MeshMaterial2d(materials.add(background_color)),
-                Transform::from_xyz(x, y, MAIN_MENU_CARD_Z)
-                    .with_rotation(Quat::from_rotation_z(rotation_angle.to_radians())),
+                deal_start,
                 Pickable::default(),
-                MainMenuButton { action, enabled },
+                MainMenuButton {
+                    action,
+                    enabled,
+                    delay,
+                    deal_start,
+                    idle_transform,
+                },
                 MainMenuView,
             ))
             .with_children(|card| {
@@ -207,6 +263,9 @@ pub mod main_view {
         button_query: Query<(&MainMenuButton, &GlobalTransform)>,
         mut selection: ResMut<MainMenuSelection>,
     ) {
+        if selection.phase != MainMenuPhase::Idle {
+            return;
+        }
         if selection.pending_action.is_some() {
             return;
         }
@@ -242,6 +301,7 @@ pub mod main_view {
 
             selection.pending_action = Some(button.action);
             selection.elapsed = 0.0;
+            selection.phase = MainMenuPhase::Collecting;
             break;
         }
     }
@@ -259,43 +319,134 @@ pub mod main_view {
     pub(super) fn update_main_menu_selection(
         time: Res<Time>,
         mut selection: ResMut<MainMenuSelection>,
-        mut view_query: Query<&mut Transform, (With<MainMenuView>, Without<Camera2d>)>,
+        mut title_query: Query<(&MainMenuTitle, &mut Transform), Without<MainMenuButton>>,
+        mut button_query: Query<(&MainMenuButton, &mut Transform), Without<MainMenuTitle>>,
+        mut banner_query: Query<
+            (&mut Sprite, &mut Transform),
+            (
+                With<MainMenuBanner>,
+                Without<MainMenuTitle>,
+                Without<MainMenuButton>,
+            ),
+        >,
         mut progress: ResMut<GameProgress>,
         mut next_screen: ResMut<NextState<AppStatus>>,
         mut exit: MessageWriter<AppExit>,
     ) {
-        let Some(action) = selection.pending_action else {
-            return;
-        };
-
         selection.elapsed += time.delta_secs();
-        let progress_value = (selection.elapsed / MAIN_MENU_EXIT_DURATION).clamp(0.0, 1.0);
-        let eased = smoothstep(progress_value);
-        for mut transform in &mut view_query {
-            transform.translation.x += MAIN_MENU_EXIT_SPEED * eased * time.delta_secs();
+
+        match selection.phase {
+            MainMenuPhase::Banner => {
+                let alpha = banner_alpha(selection.elapsed);
+                for (mut sprite, mut transform) in &mut banner_query {
+                    sprite.color = Color::srgba(1.0, 1.0, 1.0, alpha);
+                    transform.scale = Vec3::splat(
+                        1.0 + 0.025
+                            * smoothstep(
+                                (selection.elapsed / MAIN_MENU_BANNER_DURATION).clamp(0.0, 1.0),
+                            ),
+                    );
+                }
+
+                if selection.elapsed >= MAIN_MENU_BANNER_DURATION {
+                    selection.phase = MainMenuPhase::Dealing;
+                    selection.elapsed = 0.0;
+                }
+            }
+            MainMenuPhase::Dealing => {
+                let title_progress =
+                    (selection.elapsed / MAIN_MENU_TITLE_DEAL_DURATION).clamp(0.0, 1.0);
+                let title_eased = smoothstep(title_progress);
+                for (title, mut transform) in &mut title_query {
+                    transform.translation = title
+                        .start_translation
+                        .lerp(title.idle_translation, title_eased);
+                }
+
+                let mut all_done = title_progress >= 1.0;
+                for (button, mut transform) in &mut button_query {
+                    let card_progress = ((selection.elapsed - button.delay)
+                        / MAIN_MENU_CARD_DEAL_DURATION)
+                        .clamp(0.0, 1.0);
+                    if card_progress < 1.0 {
+                        all_done = false;
+                    }
+                    let card_eased = smoothstep(card_progress);
+                    transform.translation = button
+                        .deal_start
+                        .translation
+                        .lerp(button.idle_transform.translation, card_eased);
+                    transform.rotation = button
+                        .deal_start
+                        .rotation
+                        .slerp(button.idle_transform.rotation, card_eased);
+                }
+
+                if all_done {
+                    selection.phase = MainMenuPhase::Idle;
+                    selection.elapsed = 0.0;
+                }
+            }
+            MainMenuPhase::Idle => {}
+            MainMenuPhase::Collecting => {
+                let progress_value =
+                    (selection.elapsed / MAIN_MENU_COLLECT_DURATION).clamp(0.0, 1.0);
+                let eased = smoothstep(progress_value);
+                for (title, mut transform) in &mut title_query {
+                    transform.translation =
+                        title.idle_translation.lerp(title.start_translation, eased);
+                }
+                for (button, mut transform) in &mut button_query {
+                    transform.translation = button
+                        .idle_transform
+                        .translation
+                        .lerp(button.deal_start.translation, eased);
+                    transform.rotation = button
+                        .idle_transform
+                        .rotation
+                        .slerp(button.deal_start.rotation, eased);
+                }
+
+                if selection.elapsed < MAIN_MENU_COLLECT_DURATION {
+                    return;
+                }
+
+                let Some(action) = selection.pending_action else {
+                    return;
+                };
+                selection.pending_action = None;
+                selection.elapsed = 0.0;
+
+                match action {
+                    MainMenuAction::NewGame => {
+                        *progress = GameProgress::default();
+                        GameProgress::delete_save();
+                        next_screen.set(AppStatus::Game);
+                    }
+                    MainMenuAction::ContinueGame => {
+                        *progress = GameProgress::load();
+                        next_screen.set(AppStatus::Game);
+                    }
+                    MainMenuAction::Editor => next_screen.set(AppStatus::Editor),
+                    MainMenuAction::Exit => {
+                        exit.write(AppExit::Success);
+                    }
+                }
+            }
         }
+    }
 
-        if selection.elapsed < MAIN_MENU_EXIT_DURATION {
-            return;
-        }
-
-        selection.pending_action = None;
-        selection.elapsed = 0.0;
-
-        match action {
-            MainMenuAction::NewGame => {
-                *progress = GameProgress::default();
-                GameProgress::delete_save();
-                next_screen.set(AppStatus::Game);
-            }
-            MainMenuAction::ContinueGame => {
-                *progress = GameProgress::load();
-                next_screen.set(AppStatus::Game);
-            }
-            MainMenuAction::Editor => next_screen.set(AppStatus::Editor),
-            MainMenuAction::Exit => {
-                exit.write(AppExit::Success);
-            }
+    fn banner_alpha(elapsed: f32) -> f32 {
+        if elapsed < MAIN_MENU_BANNER_FADE_IN {
+            smoothstep((elapsed / MAIN_MENU_BANNER_FADE_IN).clamp(0.0, 1.0))
+        } else if elapsed > MAIN_MENU_BANNER_DURATION - MAIN_MENU_BANNER_FADE_OUT {
+            1.0 - smoothstep(
+                ((elapsed - (MAIN_MENU_BANNER_DURATION - MAIN_MENU_BANNER_FADE_OUT))
+                    / MAIN_MENU_BANNER_FADE_OUT)
+                    .clamp(0.0, 1.0),
+            )
+        } else {
+            1.0
         }
     }
 
@@ -370,11 +521,21 @@ pub mod main_view {
         mesh
     }
 
-    const MAIN_MENU_EXIT_DURATION: f32 = 0.55;
-    const MAIN_MENU_EXIT_SPEED: f32 = 3200.0;
     const MAIN_MENU_BACKGROUND_SIZE: Vec2 = Vec2::new(4000.0, 3000.0);
     const MAIN_MENU_BACKGROUND_Z: f32 = -10.0;
+    const MAIN_MENU_BANNER_SIZE: Vec2 = Vec2::new(760.0, 320.0);
+    const MAIN_MENU_BANNER_Z: f32 = 4.0;
     const MAIN_MENU_CARD_Z: f32 = 0.0;
     const MAIN_MENU_TEXT_Z: f32 = 2.0;
     const MAIN_MENU_TEXT_Z_OFFSET: f32 = 0.3;
+    const MAIN_MENU_BANNER_DURATION: f32 = 2.0;
+    const MAIN_MENU_BANNER_FADE_IN: f32 = 0.35;
+    const MAIN_MENU_BANNER_FADE_OUT: f32 = 0.45;
+    const MAIN_MENU_TITLE_START: Vec3 = Vec3::new(-1920.0, 245.0, MAIN_MENU_TEXT_Z);
+    const MAIN_MENU_TITLE_IDLE: Vec3 = Vec3::new(-300.0, 245.0, MAIN_MENU_TEXT_Z);
+    const MAIN_MENU_TITLE_DEAL_DURATION: f32 = 0.75;
+    const MAIN_MENU_CARD_DECK_POSITION: Vec2 = Vec2::new(760.0, -80.0);
+    const MAIN_MENU_CARD_DEAL_DURATION: f32 = 0.52;
+    const MAIN_MENU_CARD_DEAL_INTERVAL: f32 = 0.12;
+    const MAIN_MENU_COLLECT_DURATION: f32 = 0.55;
 }
