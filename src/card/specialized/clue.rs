@@ -50,7 +50,7 @@ impl CardSpecializedInstaller for ClueCardSpecializedInstaller {
         );
         app.add_systems(
             Update,
-            (reveal_clues, debug_log_clue_children_z).in_set(GameplaySet::SceneModifiedCardLogic),
+            reveal_clues.in_set(GameplaySet::SceneModifiedCardLogic),
         );
     }
 }
@@ -274,79 +274,6 @@ fn reveal_clues(
                 &mut illumination_mesh_query,
                 card_spawn_params.meshes.as_mut(),
                 card_spawn_params.materials.as_mut(),
-            );
-        }
-    }
-}
-
-fn debug_log_clue_children_z(
-    clue_query: Query<
-        (Entity, &Children),
-        (With<ClueCard>, Or<(Added<ClueCard>, Changed<Children>)>),
-    >,
-    child_query: Query<(
-        Entity,
-        Option<&Transform>,
-        Option<&GlobalTransform>,
-        Option<&Mesh2d>,
-        Option<&Text2d>,
-        Option<&Sprite>,
-        Option<&ClueQuestionMark>,
-        Option<&ClueIllumination>,
-    )>,
-) {
-    for (clue_entity, children) in &clue_query {
-        info!(
-            "debug clue children z: clue={clue_entity:?}, child_count={}",
-            children.len()
-        );
-
-        for child in children.iter() {
-            let Ok((
-                child_entity,
-                transform,
-                global_transform,
-                mesh,
-                text,
-                sprite,
-                question_mark,
-                illumination,
-            )) = child_query.get(child)
-            else {
-                info!("  child={child:?}, missing query data");
-                continue;
-            };
-
-            let local_z = transform
-                .map(|transform| transform.translation.z)
-                .unwrap_or_default();
-            let global_z = global_transform
-                .map(|transform| transform.translation().z)
-                .unwrap_or_default();
-            let mut types = Vec::new();
-
-            if mesh.is_some() {
-                types.push("Mesh2d");
-            }
-            if text.is_some() {
-                types.push("Text2d");
-            }
-            if sprite.is_some() {
-                types.push("Sprite");
-            }
-            if question_mark.is_some() {
-                types.push("ClueQuestionMark");
-            }
-            if illumination.is_some() {
-                types.push("ClueIllumination");
-            }
-            if types.is_empty() {
-                types.push("Unknown");
-            }
-
-            info!(
-                "  child={child_entity:?}, local_z={local_z:.8}, global_z={global_z:.8}, types={}",
-                types.join("|")
             );
         }
     }

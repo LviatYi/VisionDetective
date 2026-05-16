@@ -1,5 +1,7 @@
+use crate::card::normalize_asset_path;
 use crate::card::specialized::interactive::CardInteractionEntered;
 use crate::config::GameConfig;
+use crate::config::character_config::{CharacterConfig, CharacterDefinition};
 use crate::register_card_interaction;
 use crate::{GameStatus, GameView};
 use bevy::app::{App, Update};
@@ -8,15 +10,20 @@ use bevy::input::ButtonInput;
 use bevy::picking::pointer::PointerButton;
 use bevy::picking::prelude::{Click, Pointer};
 use bevy::prelude::{
-    BackgroundColor, Color, Commands, Component, Entity, IntoScheduleConfigs, KeyCode,
+    BackgroundColor, Color, Commands, Component, Entity, ImageNode, IntoScheduleConfigs, KeyCode,
     MessageReader, Node, On, Pickable, PositionType, Query, Res, ResMut, Resource, Text, TextColor,
-    TextFont, UiRect, With, Without, default, in_state, percent, px,
+    TextFont, UiRect, Val, With, Without, default, in_state, percent, px,
 };
 use serde::{Deserialize, Serialize};
 
 const DIALOGUE_PANEL_HEIGHT: f32 = 168.0;
 const DIALOGUE_PANEL_PADDING_X: f32 = 34.0;
 const DIALOGUE_PANEL_PADDING_Y: f32 = 22.0;
+const DIALOGUE_PORTRAIT_ASPECT_RATIO: f32 = 995.0 / 1580.0;
+const DIALOGUE_PORTRAIT_GUTTER_RATIO: f32 = 0.78;
+const DIALOGUE_PORTRAIT_HEIGHT_RATIO: f32 = 2.0;
+const DIALOGUE_PORTRAIT_OFFSET_X: f32 = 30.0;
+const DIALOGUE_PORTRAIT_OFFSET_Y: f32 = -170.0;
 const DIALOGUE_NAME_FONT_SIZE: f32 = 20.0;
 const DIALOGUE_TEXT_FONT_SIZE: f32 = 26.0;
 
@@ -99,6 +106,9 @@ struct DialogueSpeakerText;
 
 #[derive(Component)]
 struct DialogueBodyText;
+
+#[derive(Component)]
+struct DialoguePortraitImage;
 //endregion
 
 fn insert_dialogue_interaction(entity: &mut EntityCommands<'_>, params: DialogueInteractionParams) {
@@ -156,10 +166,12 @@ fn sync_dialogue_ui(
     mut commands: Commands,
     asset_server: Res<bevy::prelude::AssetServer>,
     config: Res<GameConfig>,
+    character_config: Res<CharacterConfig>,
     state: Res<DialogueState>,
     root_query: Query<Entity, With<DialogueUiRoot>>,
     mut speaker_query: Query<&mut Text, (With<DialogueSpeakerText>, Without<DialogueUiRoot>)>,
     mut body_query: Query<&mut Text, (With<DialogueBodyText>, Without<DialogueSpeakerText>)>,
+    mut portrait_query: Query<&mut ImageNode, With<DialoguePortraitImage>>,
 ) {
     let root = root_query.iter().next();
 
@@ -173,16 +185,30 @@ fn sync_dialogue_ui(
     let Some(node) = state.current_node() else {
         return;
     };
+    let character = character_config.get(node.source);
 
     if root.is_none() {
-        spawn_dialogue_ui(&mut commands, asset_server.as_ref(), &config, node);
+        spawn_dialogue_ui(
+            &mut commands,
+            asset_server.as_ref(),
+            &config,
+            character,
+            node,
+        );
     }
 
     for mut text in &mut speaker_query {
-        **text = format!("角色 {}", node.source);
+        **text = dialogue_speaker_name(character, node.source);
     }
     for mut text in &mut body_query {
         **text = node.text.clone();
+    }
+    for mut image in &mut portrait_query {
+        if let Some(character) = character {
+            image.image = asset_server.load(normalize_asset_path(
+                &character.dialogue_portrait_image_path,
+            ));
+        }
     }
 }
 
@@ -190,9 +216,16 @@ fn spawn_dialogue_ui(
     commands: &mut Commands,
     asset_server: &bevy::prelude::AssetServer,
     config: &GameConfig,
+    character: Option<&CharacterDefinition>,
     node: &DialogueNode,
 ) {
     let font = asset_server.load(config.assets.default_font.clone());
+    let portrait_path = character
+        .map(|character| normalize_asset_path(&character.dialogue_portrait_image_path))
+        .unwrap_or_default();
+    let portrait_height = DIALOGUE_PANEL_HEIGHT * DIALOGUE_PORTRAIT_HEIGHT_RATIO;
+    let portrait_width = portrait_height * DIALOGUE_PORTRAIT_ASPECT_RATIO;
+    let portrait_gutter_width = portrait_width * DIALOGUE_PORTRAIT_GUTTER_RATIO;
 
     commands
         .spawn((
@@ -222,16 +255,28 @@ fn spawn_dialogue_ui(
                             px(DIALOGUE_PANEL_PADDING_X),
                             px(DIALOGUE_PANEL_PADDING_Y),
                         ),
+                        column_gap: px(20.0),
                         ..default()
                     },
                     BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.5)),
                     Pickable::default(),
                 ))
                 .with_children(|panel| {
+                    if !portrait_path.is_empty() {
+                        panel.spawn((
+                            Node {
+                                width: px(portrait_gutter_width),
+                                height: percent(100.0),
+                                ..default()
+                            },
+                            Pickable::IGNORE,
+                        ));
+                    }
                     panel
                         .spawn((
                             Node {
-                                width: percent(100.0),
+                                width: Val::Auto,
+                                flex_grow: 1.0,
                                 height: percent(100.0),
                                 flex_direction: bevy::prelude::FlexDirection::Column,
                                 row_gap: px(12.0),
@@ -241,7 +286,7 @@ fn spawn_dialogue_ui(
                         ))
                         .with_children(|content| {
                             content.spawn((
-                                Text::new(format!("角色 {}", node.source)),
+                                Text::new(dialogue_speaker_name(character, node.source)),
                                 TextFont {
                                     font: font.clone(),
                                     font_size: DIALOGUE_NAME_FONT_SIZE,
@@ -264,7 +309,29 @@ fn spawn_dialogue_ui(
                             ));
                         });
                 });
+
+            if !portrait_path.is_empty() {
+                modal.spawn((
+                    ImageNode::new(asset_server.load(portrait_path.clone())),
+                    Node {
+                        width: px(portrait_width),
+                        height: px(portrait_height),
+                        position_type: PositionType::Absolute,
+                        left: px(DIALOGUE_PORTRAIT_OFFSET_X),
+                        bottom: px(DIALOGUE_PORTRAIT_OFFSET_Y),
+                        ..default()
+                    },
+                    DialoguePortraitImage,
+                    Pickable::IGNORE,
+                ));
+            }
         });
+}
+
+fn dialogue_speaker_name(character: Option<&CharacterDefinition>, source: u32) -> String {
+    character
+        .map(|character| character.name.clone())
+        .unwrap_or_else(|| format!("角色 {source}"))
 }
 //endregion
 

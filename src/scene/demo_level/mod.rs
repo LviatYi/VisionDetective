@@ -1,6 +1,8 @@
 use crate::GameView;
 use crate::card::card_params::{CardParam, SpawnCardSystemParams};
 use crate::card::spawn_card_by_card_param;
+use crate::coin::character::{CharacterCoinParam, spawn_character_coin};
+use crate::config::character_config::CharacterConfig;
 use crate::progress::GameProgress;
 use crate::scene::terrain::{TerrainParam, spawn_terrain};
 use bevy::prelude::*;
@@ -17,6 +19,9 @@ struct SceneFile {
 
     #[serde(default)]
     terrains: Vec<TerrainParam>,
+
+    #[serde(default)]
+    character_coins: Vec<CharacterCoinParam>,
 }
 
 #[derive(Resource, Default)]
@@ -42,6 +47,7 @@ pub fn load_demo_scene(
     spawn_params: &mut SpawnCardSystemParams<'_>,
     _progress: &GameProgress,
     runtime_cards: &mut RuntimeSceneCards,
+    character_config: &CharacterConfig,
 ) {
     runtime_cards.cards.clear();
 
@@ -72,6 +78,19 @@ pub fn load_demo_scene(
 
     for terrain in &scene.terrains {
         spawn_terrain(commands, spawn_params, terrain);
+    }
+
+    for character_coin in &scene.character_coins {
+        spawn_character_coin(
+            commands,
+            spawn_params.asset_server.as_ref(),
+            spawn_params.meshes.as_mut(),
+            spawn_params.materials.as_mut(),
+            &*spawn_params.config,
+            character_config,
+            character_coin,
+            GameView,
+        );
     }
 }
 

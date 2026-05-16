@@ -14,8 +14,10 @@ pub struct PlayerCoin;
 pub struct PlayerPlugin;
 
 pub mod controller {
+    use crate::coin::character::{COIN_GOLD_COLOR, spawn_coin_visual_layers};
     use crate::coin::player::PlayerCoin;
     use crate::config::GameConfig;
+    use crate::config::character_config::CharacterConfig;
     use crate::physics::Velocity;
     use crate::progress::GameProgress;
     use crate::scene::SceneLayer;
@@ -283,6 +285,7 @@ pub mod controller {
         mut commands: Commands,
         asset_server: Res<AssetServer>,
         config: Res<GameConfig>,
+        character_config: Res<CharacterConfig>,
         progress: Res<GameProgress>,
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<ColorMaterial>>,
@@ -296,20 +299,29 @@ pub mod controller {
             ],
         });
 
-        commands.spawn((
-            Mesh2d(meshes.add(Circle::new(config.visuals.player_radius))),
-            MeshMaterial2d(materials.add(config.visuals.player_color())),
-            Transform::from_translation(Vec3::new(
-                player_position.x,
-                player_position.y,
-                SceneLayer::PlayerCoin.get_layer_base_z(),
-            )),
-            PlayerCoin::default(),
-            Velocity::default(),
-            Pickable::default(),
-            crate::GameView,
-            PlayerCoinState::default(),
-        ));
+        let player_entity = commands
+            .spawn((
+                Mesh2d(meshes.add(Circle::new(config.visuals.player_radius))),
+                MeshMaterial2d(materials.add(COIN_GOLD_COLOR)),
+                Transform::from_translation(Vec3::new(
+                    player_position.x,
+                    player_position.y,
+                    SceneLayer::PlayerCoin.get_layer_base_z(),
+                )),
+                PlayerCoin::default(),
+                Velocity::default(),
+                Pickable::default(),
+                crate::GameView,
+                PlayerCoinState::default(),
+            ))
+            .id();
+
+        if let Some(character) = character_config.get(PLAYER_CHARACTER_ID) {
+            let image_path = crate::card::normalize_asset_path(&character.coin_portrait_image_path);
+            commands.entity(player_entity).with_children(|parent| {
+                spawn_coin_visual_layers(parent, asset_server.as_ref(), &config, &image_path);
+            });
+        }
 
         commands.spawn((
             Mesh2d(meshes.add(Circle::new(config.visuals.pointer_radius))),
@@ -709,6 +721,8 @@ pub mod controller {
             duration: 0.8,
         },
     ];
+
+    const PLAYER_CHARACTER_ID: u32 = 1;
 }
 
 impl Plugin for PlayerPlugin {

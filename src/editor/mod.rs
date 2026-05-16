@@ -5,8 +5,12 @@ use crate::card::card_params::{
 use crate::card::specialized::obstacle::Obstacle;
 use crate::card::specialized::trap::Trap;
 use crate::card::{Card, CardSpecializedRegistry, spawn_card_by_card_param};
+use crate::coin::character::{
+    CharacterCoin, CharacterCoinParam, character_coin_to_param, spawn_character_coin,
+};
 use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
+use crate::config::character_config::CharacterConfig;
 use crate::editor::editor_view::{EditorView, setup_editor_view};
 use crate::game_view::main_view::cleanup_view;
 use crate::physics::vision::{build_vision_mesh, compute_visible_points};
@@ -297,6 +301,9 @@ struct EditorSceneFile {
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub terrains: Vec<TerrainParam>,
+
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub character_coins: Vec<CharacterCoinParam>,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -424,7 +431,9 @@ fn open_last_editor_scene(
         (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
+    character_coin_query: Query<(Entity, &CharacterCoin, &Transform), With<EditorView>>,
     mut spawn_deps: SpawnCardSystemParams<'_>,
+    character_config: Res<CharacterConfig>,
     mut state: ResMut<EditorInteractionState>,
     mut history: ResMut<EditorUndoHistory>,
     file_state: Res<EditorFileState>,
@@ -441,7 +450,9 @@ fn open_last_editor_scene(
         &mut commands,
         &card_query,
         &terrain_query,
+        &character_coin_query,
         &mut spawn_deps,
+        &character_config,
         path,
     );
     if state.status_message.starts_with("已从") {
@@ -792,6 +803,7 @@ fn handle_toolbar_buttons(
         (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
+    character_coin_query: Query<(Entity, &CharacterCoin, &Transform), With<EditorView>>,
     mut camera_query: Query<
         (&mut Transform, &mut Projection),
         (
@@ -799,9 +811,11 @@ fn handle_toolbar_buttons(
             With<EditorView>,
             Without<Card>,
             Without<EditorPlacedTerrain>,
+            Without<CharacterCoin>,
         ),
     >,
     mut spawn_deps: SpawnCardSystemParams<'_>,
+    character_config: Res<CharacterConfig>,
     mut state: ResMut<EditorInteractionState>,
     mut history: ResMut<EditorUndoHistory>,
     mut file_state: ResMut<EditorFileState>,
@@ -822,6 +836,7 @@ fn handle_toolbar_buttons(
                             let message = save_scene_to_path(
                                 &card_query,
                                 &terrain_query,
+                                &character_coin_query,
                                 &path,
                                 &spawn_deps.card_presets_config,
                             );
@@ -843,7 +858,9 @@ fn handle_toolbar_buttons(
                                 &mut commands,
                                 &card_query,
                                 &terrain_query,
+                                &character_coin_query,
                                 &mut spawn_deps,
+                                &character_config,
                                 &path,
                             );
                             if message.starts_with("已从") {
@@ -1795,7 +1812,9 @@ fn handle_editor_shortcuts(
         (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
+    character_coin_query: Query<(Entity, &CharacterCoin, &Transform), With<EditorView>>,
     mut spawn_deps: SpawnCardSystemParams<'_>,
+    character_config: Res<CharacterConfig>,
     mut state: ResMut<EditorInteractionState>,
     mut history: ResMut<EditorUndoHistory>,
     mut file_state: ResMut<EditorFileState>,
@@ -1838,6 +1857,7 @@ fn handle_editor_shortcuts(
                     let message = save_scene_to_path(
                         &card_query,
                         &terrain_query,
+                        &character_coin_query,
                         &path,
                         &spawn_deps.card_presets_config,
                     );
@@ -1860,6 +1880,7 @@ fn handle_editor_shortcuts(
         state.status_message = save_scene_to_path(
             &card_query,
             &terrain_query,
+            &character_coin_query,
             &path,
             &spawn_deps.card_presets_config,
         );
@@ -1878,7 +1899,9 @@ fn handle_editor_shortcuts(
                         &mut commands,
                         &card_query,
                         &terrain_query,
+                        &character_coin_query,
                         &mut spawn_deps,
+                        &character_config,
                         &path,
                     );
                     if message.starts_with("已从") {
@@ -3129,6 +3152,7 @@ fn collect_editor_scene_snapshot<F: bevy::ecs::query::QueryFilter>(
     EditorSceneFile {
         cards: cards.into_iter().map(|(_, card)| card).collect(),
         terrains: terrains.into_iter().map(|(_, terrain)| terrain).collect(),
+        character_coins: Vec::new(),
     }
 }
 
@@ -3271,6 +3295,7 @@ fn save_scene_to_path(
         (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
+    character_coin_query: &Query<(Entity, &CharacterCoin, &Transform), With<EditorView>>,
     path: &Path,
     card_presets_config: &CardPresetsConfig,
 ) -> String {
@@ -3309,6 +3334,7 @@ fn save_scene_to_path(
                 terrain
             })
             .collect(),
+        character_coins: collect_editor_character_coins(character_coin_query),
     };
 
     if let Some(parent) = path.parent()
@@ -3330,13 +3356,40 @@ fn save_scene_to_path(
 
     match result {
         Ok(()) => format!(
-            "已导出 {} 张卡牌、{} 个地形到 {}",
+            "已导出 {} 张卡牌、{} 个地形、{} 个角色硬币到 {}",
             scene.cards.len(),
             scene.terrains.len(),
+            scene.character_coins.len(),
             path.display()
         ),
         Err(error) => format!("导出失败 {}: {error}", path.display()),
     }
+}
+
+fn collect_editor_character_coins(
+    character_coin_query: &Query<(Entity, &CharacterCoin, &Transform), With<EditorView>>,
+) -> Vec<CharacterCoinParam> {
+    let mut character_coins = character_coin_query
+        .iter()
+        .map(|(entity, coin, transform)| (entity, character_coin_to_param(coin, transform)))
+        .collect::<Vec<_>>();
+
+    character_coins.sort_by(|(entity_a, coin_a), (entity_b, coin_b)| {
+        coin_a
+            .scene_param
+            .order
+            .partial_cmp(&coin_b.scene_param.order)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| entity_a.index().cmp(&entity_b.index()))
+    });
+
+    character_coins
+        .into_iter()
+        .map(|(_, mut coin)| {
+            coin.scene_param.description.clear();
+            coin
+        })
+        .collect()
 }
 
 fn editor_card_to_scene_card(
@@ -3394,7 +3447,9 @@ fn load_scene_from_path(
         (Entity, &Transform, &EditorTerrainData, Option<&Trap>),
         With<EditorPlacedTerrain>,
     >,
+    character_coin_query: &Query<(Entity, &CharacterCoin, &Transform), With<EditorView>>,
     spawn_deps: &mut SpawnCardSystemParams<'_>,
+    character_config: &CharacterConfig,
     path: &Path,
 ) -> String {
     let format = match scene_file_format_from_path(path) {
@@ -3422,9 +3477,13 @@ fn load_scene_from_path(
     for (entity, _, _, _) in terrain_query.iter() {
         commands.entity(entity).try_despawn();
     }
+    for (entity, _, _) in character_coin_query.iter() {
+        commands.entity(entity).try_despawn();
+    }
 
     let cards = scene.cards;
     let terrains = scene.terrains;
+    let character_coins = scene.character_coins;
     for card in &cards {
         let entity = spawn_editor_card(commands, spawn_deps, card);
         commands.entity(entity).insert(EditorPlacedCard);
@@ -3437,12 +3496,25 @@ fn load_scene_from_path(
             spawn_deps.materials.as_mut(),
         );
     }
+    for character_coin in &character_coins {
+        spawn_character_coin(
+            commands,
+            spawn_deps.asset_server.as_ref(),
+            spawn_deps.meshes.as_mut(),
+            spawn_deps.materials.as_mut(),
+            &*spawn_deps.config,
+            character_config,
+            character_coin,
+            EditorView,
+        );
+    }
 
     format!(
-        "已从 {} 导入 {} 张卡牌、{} 个地形",
+        "已从 {} 导入 {} 张卡牌、{} 个地形、{} 个角色硬币",
         path.display(),
         cards.len(),
-        terrains.len()
+        terrains.len(),
+        character_coins.len()
     )
 }
 

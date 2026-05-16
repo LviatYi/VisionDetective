@@ -20,6 +20,7 @@ use crate::coin::player::PlayerPlugin;
 use crate::coin::player::controller::{PlayerCoinBehaviorStatus, PlayerCoinState};
 use crate::config::GameConfig;
 use crate::config::card_config::CardPresetsConfig;
+use crate::config::character_config::CharacterConfig;
 use crate::editor::EditorPlugin;
 use crate::game_view::GameViewPlugin;
 use crate::game_view::main_view::{cleanup_view, handle_esc_to_main_menu};
@@ -75,11 +76,13 @@ pub enum GameLoadingSet {
 fn main() {
     let config = GameConfig::load();
     let card_presets_config = CardPresetsConfig::load();
+    let character_config = CharacterConfig::load();
 
     App::new()
         .insert_resource(ClearColor(config.window.clear_color()))
         .insert_resource(config.clone())
         .insert_resource(card_presets_config.clone())
+        .insert_resource(character_config)
         .init_resource::<GameplayInputBlocker>()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -172,6 +175,7 @@ fn setup_game_scene(
     mut card_spawn_params: SpawnCardSystemParams<'_>,
     progress: Res<GameProgress>,
     mut scene_cards: ResMut<scene::demo_level::RuntimeSceneCards>,
+    character_config: Res<CharacterConfig>,
 ) {
     commands.spawn((
         get_layered_game_scene_camera2d_bundle(),
@@ -184,6 +188,7 @@ fn setup_game_scene(
         &mut card_spawn_params,
         &progress,
         &mut scene_cards,
+        &*character_config,
     );
 
     let ui_font = font::load_assets(
