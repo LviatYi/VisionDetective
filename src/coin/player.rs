@@ -14,6 +14,7 @@ pub struct PlayerCoin;
 pub struct PlayerPlugin;
 
 pub mod controller {
+    use crate::GameStatus;
     use crate::coin::character::{COIN_GOLD_COLOR, spawn_coin_visual_layers};
     use crate::coin::player::PlayerCoin;
     use crate::config::GameConfig;
@@ -27,8 +28,8 @@ pub mod controller {
     use bevy::prelude::{
         AssetServer, Assets, Camera, Camera2d, Circle, ColorMaterial, Commands, Component,
         DetectChanges, Entity, Gizmos, GlobalTransform, Mesh, Mesh2d, MeshMaterial2d,
-        MessageReader, Pickable, Quat, Query, Ref, Res, ResMut, Resource, Sprite, Time, Transform,
-        Visibility, With,
+        MessageReader, NextState, Pickable, Quat, Query, Ref, Res, ResMut, Resource, Sprite, Time,
+        Transform, Visibility, With,
     };
     use rand::Rng;
     use std::collections::HashSet;
@@ -276,6 +277,11 @@ pub mod controller {
         duration: f32,
     }
 
+    #[derive(Component, Default)]
+    pub struct PlayerEnteringAnimation {
+        elapsed: f32,
+    }
+
     #[derive(Resource, Clone)]
     pub struct PlayerLandingAshAnimationAssets {
         textures: [bevy::prelude::Handle<bevy::prelude::Image>; PLAYER_LANDING_ASH_IMAGE_COUNT],
@@ -286,11 +292,9 @@ pub mod controller {
         asset_server: Res<AssetServer>,
         config: Res<GameConfig>,
         character_config: Res<CharacterConfig>,
-        progress: Res<GameProgress>,
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<ColorMaterial>>,
     ) {
-        let player_position = progress.last_player_stop_position.unwrap_or(Vec2::ZERO);
         commands.insert_resource(PlayerLandingAshAnimationAssets {
             textures: [
                 asset_server.load("pic/ash-01.png"),
@@ -298,6 +302,12 @@ pub mod controller {
                 asset_server.load("pic/ash-03.png"),
             ],
         });
+
+        let player_position = PLAYER_ENTRY_START_POSITION;
+        let entry_planar_velocity = (Vec2::ZERO - player_position) / PLAYER_ENTRY_DURATION;
+        let entry_vertical_velocity = -0.5 * config.physics.gravity * PLAYER_ENTRY_DURATION;
+        let mut player_state = PlayerCoinState::default();
+        player_state.set_state(PlayerCoinBehaviorStatus::new_upspring());
 
         let player_entity = commands
             .spawn((
@@ -309,10 +319,11 @@ pub mod controller {
                     SceneLayer::PlayerCoin.get_layer_base_z(),
                 )),
                 PlayerCoin::default(),
-                Velocity::default(),
+                Velocity::new(entry_planar_velocity.extend(entry_vertical_velocity)),
                 Pickable::default(),
                 crate::GameView,
-                PlayerCoinState::default(),
+                player_state,
+                PlayerEnteringAnimation::default(),
             ))
             .id();
 
@@ -335,6 +346,36 @@ pub mod controller {
             PointerMarker,
             crate::GameView,
         ));
+    }
+
+    pub fn finish_player_entering(
+        mut next_game_state: ResMut<NextState<GameStatus>>,
+        time: Res<Time>,
+        mut player_query: Query<
+            (
+                &mut PlayerEnteringAnimation,
+                &mut PlayerCoinState,
+                &mut Velocity,
+                &mut Transform,
+            ),
+            With<PlayerCoin>,
+        >,
+    ) {
+        for (mut entry, mut player_state, mut velocity, mut transform) in &mut player_query {
+            entry.elapsed += time.delta_secs();
+            if entry.elapsed < PLAYER_ENTRY_DURATION && transform.translation.x < 0.0 {
+                continue;
+            }
+
+            transform.translation.x = 0.0;
+            transform.translation.y = 0.0;
+            transform.translation.z = SceneLayer::PlayerCoin.get_layer_base_z();
+            transform.rotation = Quat::IDENTITY;
+            transform.scale = Vec3::ONE;
+            *velocity = Velocity::default();
+            player_state.set_state(PlayerCoinBehaviorStatus::Idle);
+            next_game_state.set(GameStatus::InGame);
+        }
     }
 
     pub fn track_pointer_world_position(
@@ -723,6 +764,8 @@ pub mod controller {
     ];
 
     const PLAYER_CHARACTER_ID: u32 = 1;
+    const PLAYER_ENTRY_DURATION: f32 = 1.0;
+    const PLAYER_ENTRY_START_POSITION: Vec2 = Vec2::new(0.0, -1080.0);
 }
 
 impl Plugin for PlayerPlugin {
@@ -730,12 +773,15 @@ impl Plugin for PlayerPlugin {
         app.init_resource::<CursorWorldPosition>()
             .add_systems(
                 OnEnter(GameStatus::Loading),
-                (
-                    controller::setup_player,
-                    controller::set_player_coin_state_idle,
-                )
-                    .chain()
-                    .in_set(GameLoadingSet::BuildScene),
+                controller::set_player_coin_state_idle.in_set(GameLoadingSet::BuildScene),
+            )
+            .add_systems(
+                OnEnter(GameStatus::PlayerEntering),
+                controller::setup_player,
+            )
+            .add_systems(
+                Update,
+                controller::finish_player_entering.run_if(in_state(GameStatus::PlayerEntering)),
             )
             .add_systems(
                 Update,
@@ -772,6 +818,10 @@ impl Plugin for PlayerPlugin {
                     update_player_visuals,
                 )
                     .in_set(GameplaySet::Visual),
+            )
+            .add_systems(
+                Update,
+                update_player_visuals.run_if(in_state(GameStatus::PlayerEntering)),
             )
             .add_systems(
                 Update,

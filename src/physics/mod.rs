@@ -6,7 +6,7 @@ use crate::coin::player::controller::{PlayerCoinBehaviorStatus, PlayerCoinState}
 use crate::config::GameConfig;
 use crate::scene::terrain::{draw_editor_terrain_paths, spawn_terrain_boundary_meshes};
 use crate::tools::Disable;
-use crate::{AppStatus, GameplaySet};
+use crate::{AppStatus, GameStatus, GameplaySet};
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::*;
 
@@ -18,6 +18,12 @@ pub struct PhysicsPlugin;
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct Velocity(Vec3);
 
+impl Velocity {
+    pub fn new(value: Vec3) -> Self {
+        Self(value)
+    }
+}
+
 const PLAYER_COIN_GROUND_RING_SAMPLE_COUNT: usize = 8;
 
 impl Plugin for PhysicsPlugin {
@@ -25,6 +31,10 @@ impl Plugin for PhysicsPlugin {
         app.add_systems(
             Update,
             move_player_coin_transform.in_set(GameplaySet::PlayerPhysics),
+        )
+        .add_systems(
+            Update,
+            move_entering_player_coin_transform.run_if(in_state(GameStatus::PlayerEntering)),
         )
         .add_systems(
             Update,
@@ -40,6 +50,16 @@ impl Plugin for PhysicsPlugin {
             spawn_terrain_boundary_meshes.run_if(in_state(AppStatus::Game)),
         );
     }
+}
+
+fn move_entering_player_coin_transform(
+    config: Res<GameConfig>,
+    time: Res<Time>,
+    transform_query: Query<(Mut<PlayerCoinState>, &mut Transform, &mut Velocity), With<PlayerCoin>>,
+    obstacle_query: Query<(&Transform, &Obstacle), (Without<PlayerCoin>, Without<Disable>)>,
+    card_query: Query<(&GlobalTransform, &Card), Without<Disable>>,
+) {
+    move_player_coin_transform(config, time, transform_query, obstacle_query, card_query);
 }
 
 pub fn move_player_coin_transform(

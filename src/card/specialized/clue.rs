@@ -265,9 +265,7 @@ fn reveal_clues(
             let coverage = illuminated_area / Card::card_area();
 
             if coverage >= clue.param.reveal_threshold.get_threshold() {
-                progress
-                    .revealed_clue_instances
-                    .insert(card.instance_id.clone());
+                progress.reveal_clue(&card.instance_id);
                 despawn_clue_visual_feedback(&mut commands, &mut clue);
                 spawn_revealed_card(
                     &mut commands,

@@ -35,7 +35,9 @@ use crate::scene::demo_level::load_demo_scene;
 use crate::scene::get_layered_game_scene_camera2d_bundle;
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
+#[cfg(all(debug_assertions, feature = "dev-inspector"))]
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
+#[cfg(all(debug_assertions, feature = "dev-inspector"))]
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 #[derive(States, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -51,7 +53,9 @@ pub enum AppStatus {
 pub enum GameStatus {
     #[default]
     Loading,
+    DeckEntering,
     Dealing,
+    PlayerEntering,
     InGame,
 }
 
@@ -94,7 +98,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins((EguiPlugin::default(), WorldInspectorPlugin::new()))
+        .add_plugins(dev_inspector_plugins())
         .init_state::<AppStatus>()
         .add_sub_state::<GameStatus>()
         .configure_sets(
@@ -148,10 +152,7 @@ fn main() {
             OnEnter(GameStatus::Loading),
             setup_game_scene.in_set(GameLoadingSet::BuildScene),
         )
-        .add_systems(
-            Update,
-            start_card_dealing.run_if(in_state(GameStatus::Loading)),
-        )
+        .add_systems(Update, finish_loading.run_if(in_state(GameStatus::Loading)))
         .add_systems(Update, update_status_text.in_set(GameplaySet::Visual))
         .add_systems(
             Update,
@@ -163,14 +164,22 @@ fn main() {
         .run();
 }
 
+#[cfg(all(debug_assertions, feature = "dev-inspector"))]
+fn dev_inspector_plugins() -> (EguiPlugin, WorldInspectorPlugin) {
+    (EguiPlugin::default(), WorldInspectorPlugin::new())
+}
+
+#[cfg(not(all(debug_assertions, feature = "dev-inspector")))]
+fn dev_inspector_plugins() {}
+
 #[derive(Component)]
 pub struct GameView;
 
 #[derive(Component)]
 struct StatusText;
 
-fn start_card_dealing(mut next_game_state: ResMut<NextState<GameStatus>>) {
-    next_game_state.set(GameStatus::Dealing);
+fn finish_loading(mut next_game_state: ResMut<NextState<GameStatus>>) {
+    next_game_state.set(GameStatus::DeckEntering);
 }
 
 fn setup_game_scene(

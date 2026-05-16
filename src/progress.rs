@@ -2,25 +2,84 @@ use crate::GameplaySet;
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinState, RefPlayerCoinStateExt};
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::fs;
+use std::path::PathBuf;
 
-#[derive(Resource, Default)]
+const GAME_PROGRESS_SAVE_PATH: &str = "game-progress.toml";
+
+#[derive(Resource, Default, Serialize, Deserialize)]
 pub struct GameProgress {
+    #[serde(default)]
     pub unlocked_conditions: HashSet<String>,
 
+    #[serde(default)]
     pub last_player_stop_position: Option<Vec2>,
 
+    #[serde(default)]
     pub revealed_clue_instances: HashSet<String>,
 }
 
 impl GameProgress {
+    pub fn load() -> Self {
+        let path = Self::save_path();
+        let Ok(raw) = fs::read_to_string(&path) else {
+            return Self::default();
+        };
+
+        toml::from_str(&raw).unwrap_or_else(|error| {
+            warn!("failed to parse progress save {}: {error}", path.display());
+            Self::default()
+        })
+    }
+
+    pub fn save(&self) {
+        let path = Self::save_path();
+        match toml::to_string_pretty(self) {
+            Ok(raw) => {
+                if let Err(error) = fs::write(&path, raw) {
+                    warn!("failed to write progress save {}: {error}", path.display());
+                }
+            }
+            Err(error) => warn!(
+                "failed to serialize progress save {}: {error}",
+                path.display()
+            ),
+        }
+    }
+
+    pub fn delete_save() {
+        let path = Self::save_path();
+        if path.exists()
+            && let Err(error) = fs::remove_file(&path)
+        {
+            warn!("failed to delete progress save {}: {error}", path.display());
+        }
+    }
+
+    pub fn has_save() -> bool {
+        Self::save_path().exists()
+    }
+
     pub fn unlock(&mut self, key: impl AsRef<str>) -> bool {
         let key = key.as_ref().to_string();
         if self.unlocked_conditions.contains(&key) {
             return false;
         }
         self.unlocked_conditions.insert(key);
+        self.save();
         true
+    }
+
+    pub fn reveal_clue(&mut self, instance_id: impl AsRef<str>) -> bool {
+        let inserted = self
+            .revealed_clue_instances
+            .insert(instance_id.as_ref().to_string());
+        if inserted {
+            self.save();
+        }
+        inserted
     }
 
     pub fn is_unlocked(&self, key: &str) -> bool {
@@ -28,13 +87,17 @@ impl GameProgress {
             .iter()
             .any(|condition| condition == key)
     }
+
+    fn save_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(GAME_PROGRESS_SAVE_PATH)
+    }
 }
 
 pub struct GameProgressPlugin;
 
 impl Plugin for GameProgressPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GameProgress>().add_systems(
+        app.insert_resource(GameProgress::load()).add_systems(
             Update,
             record_player_stop_position.in_set(GameplaySet::PlayerRecordProgress),
         );
@@ -50,6 +113,10 @@ fn record_player_stop_position(
             continue;
         }
 
-        progress.last_player_stop_position = Some(transform.translation.truncate());
+        let position = transform.translation.truncate();
+        if progress.last_player_stop_position != Some(position) {
+            progress.last_player_stop_position = Some(position);
+            progress.save();
+        }
     }
 }

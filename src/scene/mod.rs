@@ -1,6 +1,7 @@
 use bevy::camera::{Camera2d, OrthographicProjection, Projection};
 use bevy::math::Vec2;
 use bevy::prelude::Transform;
+#[cfg(all(debug_assertions, feature = "dev-inspector"))]
 use bevy_inspector_egui::bevy_egui::PrimaryEguiContext;
 use serde::{Deserialize, Serialize};
 
@@ -34,6 +35,7 @@ impl SceneLayer {
     }
 }
 
+#[cfg(all(debug_assertions, feature = "dev-inspector"))]
 pub fn get_layered_game_scene_camera2d_bundle()
 -> (Camera2d, Projection, Transform, PrimaryEguiContext) {
     (
@@ -45,6 +47,19 @@ pub fn get_layered_game_scene_camera2d_bundle()
         }),
         Transform::from_xyz(0.0, 0.0, 0.0),
         PrimaryEguiContext,
+    )
+}
+
+#[cfg(not(all(debug_assertions, feature = "dev-inspector")))]
+pub fn get_layered_game_scene_camera2d_bundle() -> (Camera2d, Projection, Transform) {
+    (
+        Camera2d,
+        Projection::Orthographic(OrthographicProjection {
+            near: -10000.0,
+            far: 100.0,
+            ..OrthographicProjection::default_2d()
+        }),
+        Transform::from_xyz(0.0, 0.0, 0.0),
     )
 }
 
