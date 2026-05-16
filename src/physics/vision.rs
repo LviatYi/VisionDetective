@@ -19,7 +19,7 @@ impl Plugin for VisionPlugin {
         app.add_systems(OnEnter(GameStatus::Loading), setup_vision_system)
             .add_systems(
                 Update,
-                (update_vision_field_mesh, draw_vision_radius).in_set(GameplaySet::Visual),
+                (update_vision_field_mesh,).in_set(GameplaySet::Visual),
             );
     }
 }
@@ -212,27 +212,44 @@ pub fn build_vision_mesh(config: &GameConfig, center: Vec2, visible_points: &[Ve
         RenderAssetUsages::default(),
     );
 
-    let mut positions = vec![[center.x, center.y, 0.0]];
-    let mut uvs = vec![[0.5, 0.5]];
+    let mut positions = Vec::new();
+    let mut uvs = Vec::new();
     let mut indices = Vec::new();
 
+    let mask_radius = vision_mask_radius(config);
     for point in visible_points {
         positions.push([point.x, point.y, 0.0]);
-        let uv = ((point - center) / (config.vision.radius * 2.0)) + Vec2::splat(0.5);
-        uvs.push([uv.x, uv.y]);
+        uvs.push([0.5, 0.5]);
+
+        let direction = (*point - center).normalize_or_zero();
+        let outer_point = center + direction * mask_radius;
+        positions.push([outer_point.x, outer_point.y, 0.0]);
+        uvs.push([0.5, 0.5]);
     }
 
     if visible_points.len() >= 3 {
-        for index in 1..visible_points.len() {
-            indices.extend_from_slice(&[0_u32, index as u32, index as u32 + 1]);
+        for index in 0..visible_points.len() {
+            let next = (index + 1) % visible_points.len();
+            let inner_current = (index * 2) as u32;
+            let outer_current = inner_current + 1;
+            let inner_next = (next * 2) as u32;
+            let outer_next = inner_next + 1;
+
+            indices.extend_from_slice(&[inner_current, outer_current, outer_next]);
+            indices.extend_from_slice(&[inner_current, outer_next, inner_next]);
         }
-        indices.extend_from_slice(&[0, visible_points.len() as u32, 1]);
     }
 
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
     mesh.insert_indices(Indices::U32(indices));
     mesh
+}
+
+fn vision_mask_radius(config: &GameConfig) -> f32 {
+    let viewport_diagonal =
+        Vec2::new(config.window.width as f32, config.window.height as f32).length();
+    config.vision.radius + viewport_diagonal * 2.0
 }
 
 fn cross(a: Vec2, b: Vec2) -> f32 {

@@ -92,7 +92,7 @@ ray_count = 128
 vertex_epsilon = 0.0025
 # Tolerance used for ray angle dedup and circle-segment intersection tests.
 intersection_epsilon = 0.0001
-fill_color = [0.92, 0.95, 0.80, 0.18]
+fill_color = [0.0, 0.0, 0.0, 0.58]
 outline_color = [0.95, 0.98, 0.86, 0.42]
 
 [obstacles]
