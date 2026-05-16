@@ -192,7 +192,7 @@ description = "title: 血滴, image_path: pic/blood-drop.png, desc: 血滴（线
 type = "clue"
 
 [cards.runtime_specialized_param.params.target_card_param]
-prefab_id = 1500
+prefab_id = 1502
 
 [cards.runtime_specialized_param.params.target_card_param.runtime_specialized_param]
 type = "interactive"
@@ -605,7 +605,7 @@ order = 49.0
 description = "title: 墙, image_path: pic/street-wall.png, desc: 墙"
 
 [[cards]]
-prefab_id = 1500
+prefab_id = 1502
 
 [cards.scene_param]
 instance_id = "1500-对话-f6f79ddd-9ea5-4481-8246-bb0e3b3e3859"
@@ -1048,7 +1048,7 @@ description = "title: 打开的保险箱, image_path: pic/coffer.png, desc: 保�
 type = "clue"
 
 [cards.runtime_specialized_param.params.target_card_param]
-prefab_id = 1500
+prefab_id = 1502
 
 [cards.runtime_specialized_param.params.target_card_param.runtime_specialized_param]
 type = "interactive"
