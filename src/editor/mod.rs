@@ -919,7 +919,7 @@ fn handle_prefab_drag_start(
         };
 
         if let Some(entity) = state.drag_preview_entity.take() {
-            commands.entity(entity).despawn();
+            commands.entity(entity).try_despawn();
         }
 
         let start_position = cursor_world_position(&camera_query, event.pointer_location.position)
@@ -1099,7 +1099,7 @@ pub(crate) fn cancel_prefab_drag_with_escape(
     }
 
     if let Some(entity) = state.drag_preview_entity.take() {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
     state.dragging_prefab = None;
     state.moving_entity = None;
@@ -1153,7 +1153,7 @@ fn handle_prefab_drop(
 
     if !cursor_is_over_scene(window, release_position) {
         if let Some(entity) = preview_entity {
-            commands.entity(entity).despawn();
+            commands.entity(entity).try_despawn();
         }
         state.moving_entity = None;
         state.status_message = "已取消放置：请在主场景区域松开鼠标".into();
@@ -1771,11 +1771,11 @@ fn despawn_editor_card_with_linked_entities(
     if let Ok(linked_entities) = linked_entities_query.get(entity) {
         for linked_entity in &linked_entities.entities {
             if despawned_entities.insert(*linked_entity) {
-                commands.entity(*linked_entity).despawn();
+                commands.entity(*linked_entity).try_despawn();
             }
         }
     }
-    commands.entity(entity).despawn();
+    commands.entity(entity).try_despawn();
 }
 
 fn handle_editor_shortcuts(
@@ -3230,10 +3230,10 @@ fn restore_editor_scene(
     scene: &EditorSceneFile,
 ) {
     for (entity, _, _, _, _) in card_query.iter() {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
     for (entity, _, _, _) in terrain_query.iter() {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
 
     for card in &scene.cards {
@@ -3417,10 +3417,10 @@ fn load_scene_from_path(
     };
 
     for (entity, _, _, _, _) in card_query.iter() {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
     for (entity, _, _, _) in terrain_query.iter() {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
 
     let cards = scene.cards;

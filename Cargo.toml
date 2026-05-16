@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 bevy = { version = "0.18.1", default-features = false, features = ["2d", "default_font", "debug", "serialize"] }
+bevy-inspector-egui = "0.36"
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.9"
 rfd = "0.15"

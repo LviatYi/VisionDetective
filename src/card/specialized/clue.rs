@@ -3,7 +3,9 @@ use crate::card::card_params::{
     CardSpecializedParam, SpawnCardSystemParams,
 };
 use crate::card::specialized::obstacle::Obstacle;
-use crate::card::{Card, CardKind, CardSpecializedInstaller, spawn_card_by_card_param};
+use crate::card::{
+    Card, CardKind, CardSpecializedInstaller, normalize_asset_path, spawn_card_by_card_param,
+};
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinState, RefPlayerCoinStateExt};
 use crate::config::GameConfig;
@@ -13,7 +15,10 @@ use crate::editor::{
 };
 use crate::physics::vision::compute_visible_points;
 use crate::progress::GameProgress;
-use crate::scene::{SceneLayer, SceneParam};
+use crate::scene::{
+    SceneLayer, SceneParam, Z_OFFSET_QUESTION_MARK_CARD_IMAGE, Z_OFFSET_QUESTION_MARK_FILL_MASK,
+    Z_OFFSET_QUESTION_MARK_IMAGE,
+};
 use crate::tools::Disable;
 use crate::{AppStatus, GameView, register_card_specialized_installer};
 use crate::{GameLoadingSet, GameStatus, GameplaySet, register_card_editor_systems};
@@ -21,7 +26,6 @@ use bevy::asset::RenderAssetUsages;
 use bevy::ecs::system::EntityCommands;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
-use bevy::sprite::Anchor;
 use geo::algorithm::unary_union;
 use geo::orient::{Direction, Orient};
 use geo::{
@@ -46,7 +50,7 @@ impl CardSpecializedInstaller for ClueCardSpecializedInstaller {
         );
         app.add_systems(
             Update,
-            reveal_clues.in_set(GameplaySet::SceneModifiedCardLogic),
+            (reveal_clues, debug_log_clue_children_z).in_set(GameplaySet::SceneModifiedCardLogic),
         );
     }
 }
@@ -89,22 +93,52 @@ impl CardSpecializedParam for ClueCardParams {
         entity: &mut EntityCommands<'_>,
         spawn_params: &mut SpawnCardSystemParams<'_>,
     ) {
-        let mut question_mark = None;
+        let mut question_mark_layers = Vec::new();
         entity.with_children(|parent| {
-            question_mark = Some(
+            question_mark_layers.push(
                 parent
                     .spawn((
-                        Text2d::new("?"),
-                        TextFont {
-                            font: spawn_params
-                                .asset_server
-                                .load(spawn_params.config.assets.default_font.clone()),
-                            font_size: Card::SIZE.y * 0.42,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.08, 0.08, 0.09)),
-                        Anchor::CENTER,
-                        Transform::from_xyz(0.0, 0.0, 0.42),
+                        Mesh2d(
+                            spawn_params
+                                .meshes
+                                .add(Card::card_rounded_mesh(&spawn_params.config.cards)),
+                        ),
+                        MeshMaterial2d(
+                            spawn_params.materials.add(
+                                spawn_params
+                                    .config
+                                    .cards
+                                    .card_fill_color(CardKind::Clue)
+                                    .with_alpha(1.0),
+                            ),
+                        ),
+                        Transform::from_xyz(0.0, 0.0, Z_OFFSET_QUESTION_MARK_FILL_MASK),
+                        ClueQuestionMark,
+                    ))
+                    .id(),
+            );
+            question_mark_layers.push(
+                parent
+                    .spawn((
+                        Mesh2d(spawn_params.meshes.add(Card::card_mesh())),
+                        MeshMaterial2d(spawn_params.materials.add(ColorMaterial::from(
+                            spawn_params.asset_server.load(normalize_asset_path(
+                                &spawn_params.config.cards.background_card_image_path,
+                            )),
+                        ))),
+                        Transform::from_xyz(0.0, 0.0, Z_OFFSET_QUESTION_MARK_CARD_IMAGE),
+                        ClueQuestionMark,
+                    ))
+                    .id(),
+            );
+            question_mark_layers.push(
+                parent
+                    .spawn((
+                        Mesh2d(spawn_params.meshes.add(Card::card_mesh())),
+                        MeshMaterial2d(spawn_params.materials.add(ColorMaterial::from(
+                            spawn_params.asset_server.load("pic/question-mark.png"),
+                        ))),
+                        Transform::from_xyz(0.0, 0.0, Z_OFFSET_QUESTION_MARK_IMAGE),
                         ClueQuestionMark,
                     ))
                     .id(),
@@ -113,7 +147,7 @@ impl CardSpecializedParam for ClueCardParams {
 
         entity.insert(ClueCard {
             param: self.clone(),
-            question_mark,
+            question_mark_layers,
             illumination: None,
             illuminated_regions: Vec::new(),
         });
@@ -152,7 +186,7 @@ impl ClueRevealThreshold {
 #[derive(Component, Debug, Clone)]
 pub struct ClueCard {
     pub param: ClueCardParams,
-    question_mark: Option<Entity>,
+    question_mark_layers: Vec<Entity>,
     illumination: Option<Entity>,
     illuminated_regions: Vec<GeoMultiPolygon<f32>>,
 }
@@ -245,6 +279,79 @@ fn reveal_clues(
     }
 }
 
+fn debug_log_clue_children_z(
+    clue_query: Query<
+        (Entity, &Children),
+        (With<ClueCard>, Or<(Added<ClueCard>, Changed<Children>)>),
+    >,
+    child_query: Query<(
+        Entity,
+        Option<&Transform>,
+        Option<&GlobalTransform>,
+        Option<&Mesh2d>,
+        Option<&Text2d>,
+        Option<&Sprite>,
+        Option<&ClueQuestionMark>,
+        Option<&ClueIllumination>,
+    )>,
+) {
+    for (clue_entity, children) in &clue_query {
+        info!(
+            "debug clue children z: clue={clue_entity:?}, child_count={}",
+            children.len()
+        );
+
+        for child in children.iter() {
+            let Ok((
+                child_entity,
+                transform,
+                global_transform,
+                mesh,
+                text,
+                sprite,
+                question_mark,
+                illumination,
+            )) = child_query.get(child)
+            else {
+                info!("  child={child:?}, missing query data");
+                continue;
+            };
+
+            let local_z = transform
+                .map(|transform| transform.translation.z)
+                .unwrap_or_default();
+            let global_z = global_transform
+                .map(|transform| transform.translation().z)
+                .unwrap_or_default();
+            let mut types = Vec::new();
+
+            if mesh.is_some() {
+                types.push("Mesh2d");
+            }
+            if text.is_some() {
+                types.push("Text2d");
+            }
+            if sprite.is_some() {
+                types.push("Sprite");
+            }
+            if question_mark.is_some() {
+                types.push("ClueQuestionMark");
+            }
+            if illumination.is_some() {
+                types.push("ClueIllumination");
+            }
+            if types.is_empty() {
+                types.push("Unknown");
+            }
+
+            info!(
+                "  child={child_entity:?}, local_z={local_z:.8}, global_z={global_z:.8}, types={}",
+                types.join("|")
+            );
+        }
+    }
+}
+
 fn spawn_revealed_card(
     commands: &mut Commands,
     spawn_params: &mut SpawnCardSystemParams<'_>,
@@ -259,11 +366,11 @@ fn spawn_revealed_card(
 }
 
 fn despawn_clue_visual_feedback(commands: &mut Commands, clue: &mut ClueCard) {
-    if let Some(question_mark) = clue.question_mark.take() {
-        commands.entity(question_mark).despawn();
+    for question_mark_layer in clue.question_mark_layers.drain(..) {
+        commands.entity(question_mark_layer).try_despawn();
     }
     if let Some(illumination) = clue.illumination.take() {
-        commands.entity(illumination).despawn();
+        commands.entity(illumination).try_despawn();
     }
 }
 
@@ -279,7 +386,7 @@ fn update_clue_illumination_visual(
 ) {
     let Some(mesh) = merged_mesh else {
         if let Some(illumination) = clue.illumination.take() {
-            commands.entity(illumination).despawn();
+            commands.entity(illumination).try_despawn();
         }
         return;
     };

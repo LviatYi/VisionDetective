@@ -31,8 +31,10 @@ pub mod main_view {
     use bevy::prelude::{
         AlignItems, BackgroundColor, Button, ChildSpawnerCommands, Commands, Component, Entity,
         FlexDirection, Font, JustifyContent, KeyCode, MessageReader, NextState, Node, Pickable,
-        Query, Res, ResMut, State, Text, TextColor, TextFont, UiRect, With, default, percent, px,
+        Query, Res, ResMut, State, Text, TextColor, TextFont, Transform, UiRect, With, default,
+        percent, px,
     };
+    use bevy_inspector_egui::bevy_egui::PrimaryEguiContext;
 
     #[derive(Component)]
     pub struct MainMenuView;
@@ -49,7 +51,12 @@ pub mod main_view {
     ) {
         let ui_font = font::load_assets(&asset_server, &config, font::FontType::Default);
 
-        commands.spawn((Camera2d, MainMenuView));
+        commands.spawn((
+            Camera2d,
+            Transform::from_xyz(0.0, 0.0, 0.0),
+            PrimaryEguiContext,
+            MainMenuView,
+        ));
 
         commands
             .spawn((
@@ -202,7 +209,7 @@ pub mod main_view {
 
     pub fn cleanup_view<T: Component>(mut commands: Commands, query: Query<Entity, With<T>>) {
         for entity in &query {
-            commands.entity(entity).despawn();
+            commands.entity(entity).try_despawn();
         }
     }
 }

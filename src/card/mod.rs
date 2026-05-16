@@ -551,7 +551,9 @@ fn spawn_card_image_inner(
     image_res_path: &str,
     z: f32,
 ) {
-    if let Some(image_path) = normalize_asset_path(image_res_path) {
+    if let image_path = normalize_asset_path(image_res_path)
+        && !image_path.is_empty()
+    {
         parent.spawn((
             Mesh2d(meshes.add(Card::card_mesh())),
             MeshMaterial2d(materials.add(ColorMaterial::from(asset_server.load(image_path)))),
@@ -666,16 +668,11 @@ fn rounded_rectangle_mesh(size: Vec2, radius: f32, corner_segments: usize) -> Me
     mesh
 }
 
-fn normalize_asset_path(path: &str) -> Option<String> {
+pub fn normalize_asset_path(path: &str) -> String {
     let trimmed = path.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
 
-    Some(
-        trimmed
-            .trim_start_matches('/')
-            .trim_start_matches("assets/")
-            .replace('\\', "/"),
-    )
+    trimmed
+        .trim_start_matches('/')
+        .trim_start_matches("assets/")
+        .replace('\\', "/")
 }

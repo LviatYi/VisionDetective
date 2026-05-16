@@ -165,7 +165,7 @@ fn sync_dialogue_ui(
 
     if state.active.is_none() {
         if let Some(root) = root {
-            commands.entity(root).despawn();
+            commands.entity(root).try_despawn();
         }
         return;
     }

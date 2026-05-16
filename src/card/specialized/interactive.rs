@@ -1,9 +1,7 @@
 mod dialogue;
 mod hello_world;
 
-use crate::card::card_params::{
-    CardSpecializedConfigData, CardSpecializedParam, SpawnCardSystemParams,
-};
+use crate::card::card_params::{CardSpecializedParam, SpawnCardSystemParams};
 use crate::card::{Card, CardKind, CardSpecializedInstaller};
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinState, RefPlayerCoinStateExt};

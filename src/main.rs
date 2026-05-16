@@ -34,6 +34,8 @@ use crate::scene::demo_level::load_demo_scene;
 use crate::scene::get_layered_game_scene_camera2d_bundle;
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
+use bevy_inspector_egui::bevy_egui::EguiPlugin;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 #[derive(States, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AppStatus {
@@ -88,6 +90,7 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins((EguiPlugin::default(), WorldInspectorPlugin::new()))
         .init_state::<AppStatus>()
         .add_sub_state::<GameStatus>()
         .configure_sets(

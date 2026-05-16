@@ -1,5 +1,7 @@
 use bevy::camera::{Camera2d, OrthographicProjection, Projection};
 use bevy::math::Vec2;
+use bevy::prelude::Transform;
+use bevy_inspector_egui::bevy_egui::PrimaryEguiContext;
 use serde::{Deserialize, Serialize};
 
 pub mod demo_level;
@@ -10,6 +12,7 @@ pub enum SceneLayer {
     TerrainBackground,
     SceneObjects,
     PlayerVision,
+    PlayerCoinLandingEffect,
     PlayerCoin,
     GizmoAimingMarker,
     Coin,
@@ -18,33 +21,40 @@ pub enum SceneLayer {
 impl SceneLayer {
     pub fn get_layer_base_z(&self) -> f32 {
         match self {
-            SceneLayer::TerrainBackground => 10000.0,
-            SceneLayer::SceneObjects => 20000.0,
-            SceneLayer::PlayerVision => 40000.0,
-            SceneLayer::PlayerCoin => 40001.0,
+            SceneLayer::TerrainBackground => 1000.0,
+            SceneLayer::SceneObjects => 2000.0,
+            SceneLayer::PlayerVision => 4000.0,
+            SceneLayer::PlayerCoinLandingEffect => 4000.5,
+            SceneLayer::PlayerCoin => 4001.0,
             SceneLayer::GizmoAimingMarker => {
                 SceneLayer::PlayerCoin.get_layer_base_z() + Z_OFFSET_PLAYER_GIZMO_AIMING_MARKER
             }
-            SceneLayer::Coin => 30100.0,
+            SceneLayer::Coin => 3100.0,
         }
     }
 }
 
-pub fn get_layered_game_scene_camera2d_bundle() -> (Camera2d, Projection) {
+pub fn get_layered_game_scene_camera2d_bundle()
+-> (Camera2d, Projection, Transform, PrimaryEguiContext) {
     (
         Camera2d,
         Projection::Orthographic(OrthographicProjection {
-            near: -100000.0,
-            far: 100000.0,
+            near: -10000.0,
+            far: 100.0,
             ..OrthographicProjection::default_2d()
         }),
+        Transform::from_xyz(0.0, 0.0, 0.0),
+        PrimaryEguiContext,
     )
 }
 
-//region Card Range Z [0,0.0000001)
-pub const Z_OFFSET_CARD_BACKGROUND: f32 = 0.00000001;
-pub const Z_OFFSET_CARD_IMAGE: f32 = 0.00000002;
-pub const Z_OFFSET_CARD_TITLE: f32 = 0.00000003;
+//region Card Range Z [0,0.01)
+pub const Z_OFFSET_CARD_BACKGROUND: f32 = 0.001;
+pub const Z_OFFSET_CARD_IMAGE: f32 = 0.002;
+pub const Z_OFFSET_CARD_TITLE: f32 = 0.003;
+pub const Z_OFFSET_QUESTION_MARK_FILL_MASK: f32 = 0.004;
+pub const Z_OFFSET_QUESTION_MARK_CARD_IMAGE: f32 = 0.005;
+pub const Z_OFFSET_QUESTION_MARK_IMAGE: f32 = 0.006;
 //endregion
 
 //region Terrain Range [-0.5,0]

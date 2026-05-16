@@ -1,7 +1,8 @@
 use crate::coin::player::controller::{
     CursorWorldPosition, draw_arena_and_aim, finish_player_charge_from_pointer,
     handle_player_pointer_drag, start_player_charge_from_pointer, track_pointer_world_position,
-    update_aiming_marker, update_player_hover_state, update_player_visuals,
+    trigger_player_landing_ash_animation, update_aiming_marker, update_player_hover_state,
+    update_player_landing_ash_animation, update_player_visuals,
 };
 use crate::input::player_input_allowed;
 use crate::{GameLoadingSet, GameStatus, GameplaySet};
@@ -22,10 +23,12 @@ pub mod controller {
     use bevy::picking::pointer::PointerButton;
     use bevy::picking::prelude::{Drag, DragEnd, Move, Out, Over, Pointer, Press, Release};
     use bevy::prelude::{
-        Assets, Camera, Camera2d, Circle, ColorMaterial, Commands, Component, DetectChanges,
-        Entity, Gizmos, GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, MessageReader, Pickable,
-        Quat, Query, Res, ResMut, Resource, Time, Transform, Visibility, With,
+        AssetServer, Assets, Camera, Camera2d, Circle, ColorMaterial, Commands, Component,
+        DetectChanges, Entity, Gizmos, GlobalTransform, Mesh, Mesh2d, MeshMaterial2d,
+        MessageReader, Pickable, Quat, Query, Ref, Res, ResMut, Resource, Sprite, Time, Transform,
+        Visibility, With,
     };
+    use rand::Rng;
     use std::collections::HashSet;
     use std::ops::{Deref, DerefMut};
 
@@ -264,14 +267,35 @@ pub mod controller {
     #[derive(Component)]
     pub struct PointerMarker;
 
+    #[derive(Component, Default)]
+    pub struct PlayerLandingAshAnimation {
+        elapsed: f32,
+        target_scale: f32,
+        duration: f32,
+    }
+
+    #[derive(Resource, Clone)]
+    pub struct PlayerLandingAshAnimationAssets {
+        textures: [bevy::prelude::Handle<bevy::prelude::Image>; PLAYER_LANDING_ASH_IMAGE_COUNT],
+    }
+
     pub fn setup_player(
         mut commands: Commands,
+        asset_server: Res<AssetServer>,
         config: Res<GameConfig>,
         progress: Res<GameProgress>,
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<ColorMaterial>>,
     ) {
         let player_position = progress.last_player_stop_position.unwrap_or(Vec2::ZERO);
+        commands.insert_resource(PlayerLandingAshAnimationAssets {
+            textures: [
+                asset_server.load("pic/ash-01.png"),
+                asset_server.load("pic/ash-02.png"),
+                asset_server.load("pic/ash-03.png"),
+            ],
+        });
+
         commands.spawn((
             Mesh2d(meshes.add(Circle::new(config.visuals.player_radius))),
             MeshMaterial2d(materials.add(config.visuals.player_color())),
@@ -512,6 +536,77 @@ pub mod controller {
         }
     }
 
+    pub fn trigger_player_landing_ash_animation(
+        mut commands: Commands,
+        config: Res<GameConfig>,
+        ash_assets: Option<Res<PlayerLandingAshAnimationAssets>>,
+        player_query: Query<(Ref<PlayerCoinState>, &Transform), With<PlayerCoin>>,
+    ) {
+        let Ok((player_state, player_transform)) = player_query.single() else {
+            return;
+        };
+        if !player_state.just_on_ground() {
+            return;
+        }
+        let Some(ash_assets) = ash_assets else {
+            return;
+        };
+
+        let player_position = player_transform.translation.truncate();
+        for (index, profile) in PLAYER_LANDING_ASH_PROFILES.iter().enumerate() {
+            let rotation = rand::rng().random_range(0.0..std::f32::consts::TAU);
+            commands.spawn((
+                Sprite {
+                    image: ash_assets.textures[index].clone(),
+                    color: bevy::prelude::Color::srgba(1.0, 1.0, 1.0, 1.0),
+                    custom_size: Some(Vec2::splat(
+                        config.visuals.player_radius * PLAYER_LANDING_ASH_SIZE_RATIO,
+                    )),
+                    ..Default::default()
+                },
+                Transform::from_translation(player_position.extend(
+                    SceneLayer::PlayerCoinLandingEffect.get_layer_base_z()
+                        + index as f32 * PLAYER_LANDING_ASH_Z_STEP,
+                ))
+                .with_rotation(Quat::from_rotation_z(rotation))
+                .with_scale(Vec3::splat(PLAYER_LANDING_ASH_START_SCALE)),
+                PlayerLandingAshAnimation {
+                    elapsed: 0.0,
+                    target_scale: profile.target_scale,
+                    duration: profile.duration,
+                },
+                crate::GameView,
+            ));
+        }
+    }
+
+    pub fn update_player_landing_ash_animation(
+        mut commands: Commands,
+        time: Res<Time>,
+        mut ash_query: Query<(
+            Entity,
+            &mut PlayerLandingAshAnimation,
+            &mut Sprite,
+            &mut Transform,
+        )>,
+    ) {
+        for (entity, mut animation, mut sprite, mut transform) in ash_query.iter_mut() {
+            animation.elapsed += time.delta_secs();
+            if animation.elapsed >= animation.duration {
+                commands.entity(entity).try_despawn();
+                continue;
+            }
+
+            let scale_t = (animation.elapsed / animation.duration).clamp(0.0, 1.0);
+            let alpha = 1.0 - scale_t;
+            sprite.color = bevy::prelude::Color::srgba(1.0, 1.0, 1.0, alpha);
+
+            let scale = PLAYER_LANDING_ASH_START_SCALE
+                + (animation.target_scale - PLAYER_LANDING_ASH_START_SCALE) * scale_t;
+            transform.scale = Vec3::splat(scale);
+        }
+    }
+
     pub fn update_player_visuals(
         config: Res<GameConfig>,
         time: Res<Time>,
@@ -590,6 +685,30 @@ pub mod controller {
     const PLAYER_FLIP_DIRECTION_EPSILON: f32 = 0.01;
     const PLAYER_FLIP_DIRECTION_EPSILON_SQUARED: f32 =
         PLAYER_FLIP_DIRECTION_EPSILON * PLAYER_FLIP_DIRECTION_EPSILON;
+
+    struct PlayerLandingAshProfile {
+        target_scale: f32,
+        duration: f32,
+    }
+
+    const PLAYER_LANDING_ASH_IMAGE_COUNT: usize = 3;
+    const PLAYER_LANDING_ASH_SIZE_RATIO: f32 = 3.8;
+    const PLAYER_LANDING_ASH_START_SCALE: f32 = 0.5;
+    const PLAYER_LANDING_ASH_Z_STEP: f32 = 0.00001;
+    const PLAYER_LANDING_ASH_PROFILES: [PlayerLandingAshProfile; PLAYER_LANDING_ASH_IMAGE_COUNT] = [
+        PlayerLandingAshProfile {
+            target_scale: 1.2,
+            duration: 0.8,
+        },
+        PlayerLandingAshProfile {
+            target_scale: 3.0,
+            duration: 0.6,
+        },
+        PlayerLandingAshProfile {
+            target_scale: 2.0,
+            duration: 0.8,
+        },
+    ];
 }
 
 impl Plugin for PlayerPlugin {
@@ -621,6 +740,15 @@ impl Plugin for PlayerPlugin {
                     .after(track_pointer_world_position)
                     .in_set(GameplaySet::PlayerInput)
                     .run_if(in_state(GameStatus::InGame).and(player_input_allowed)),
+            )
+            .add_systems(
+                Update,
+                (
+                    trigger_player_landing_ash_animation,
+                    update_player_landing_ash_animation,
+                )
+                    .chain()
+                    .in_set(GameplaySet::Visual),
             )
             .add_systems(
                 Update,
