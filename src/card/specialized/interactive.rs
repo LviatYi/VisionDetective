@@ -2,25 +2,21 @@ mod dialogue;
 mod hello_world;
 
 use crate::card::card_params::{
-    CardRuntimeSpecializedConfig, CardSpecializedConfigData, CardSpecializedParam,
-    SpawnCardSystemParams,
+    CardSpecializedConfigData, CardSpecializedParam, SpawnCardSystemParams,
 };
 use crate::card::{Card, CardKind, CardSpecializedInstaller};
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinState, RefPlayerCoinStateExt};
 use crate::config::GameConfig;
-use crate::editor::EditorRuntimeSpecializedParam;
 use crate::progress::GameProgress;
 use crate::tools::Disable;
-use crate::{
-    AppStatus, GameplaySet, register_card_editor_systems, register_card_specialized_installer,
-};
+use crate::{GameplaySet, register_card_editor_systems, register_card_specialized_installer};
 use anyhow::Result;
 use bevy::app::{App, PostUpdate, Update};
 use bevy::ecs::system::EntityCommands;
 use bevy::prelude::{
     Commands, Component, DetectChanges, Entity, EntityEvent, GlobalTransform, IntoScheduleConfigs,
-    On, Query, Ref, Res, ResMut, Resource, Transform, With, Without, in_state,
+    On, Query, Ref, Res, ResMut, Resource, Transform, With, Without,
 };
 use serde::{Deserialize, Serialize};
 

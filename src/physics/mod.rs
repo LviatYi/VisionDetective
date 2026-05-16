@@ -100,6 +100,7 @@ pub fn move_player_coin_transform(
                 velocity.0 = save_velocity;
                 player_state.set_state(PlayerCoinBehaviorStatus::Upspring {
                     sim_z: 0.0,
+                    flip_elapsed: 0.0,
                     contact_count,
                 });
                 let new_sim_z = player_state.sim_z() + velocity.z * dt;

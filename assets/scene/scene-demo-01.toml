@@ -1788,21 +1788,89 @@ description = "title: 门, image_path: pic/door-inside.png, desc: 门-inside"
 type = "trap"
 path = [
     [
-        -540.0,
-        -129.0,
-    ],
+    480.0,
+    420.0,
+],
     [
-        1000.0,
-        -129.0,
-    ],
+    -1000.0,
+    420.0,
+],
     [
-        1000.0,
-        1000.0,
-    ],
+    -1000.0,
+    -270.0,
+],
     [
-        -540.0,
-        1000.0,
-    ],
+    480.0,
+    -270.0,
+],
+]
+appearance_id = 100014
+min_distance = 120.0
+rejection_attempts = 30
+rotation = 0.0
+seed = 6777197602699464998
+
+[terrains.scene_param]
+position = [
+    -631.0,
+    732.0,
+]
+rotation = 0.0
+order = 1.0
+
+[[terrains]]
+type = "trap"
+path = [
+    [
+    384.0,
+    493.0,
+],
+    [
+    388.0,
+    -492.0,
+],
+    [
+    -387.0,
+    -493.0,
+],
+    [
+    -371.0,
+    487.0,
+],
+]
+appearance_id = 100014
+min_distance = 120.0
+rejection_attempts = 30
+rotation = 0.0
+seed = 7383012144414539352
+
+[terrains.scene_param]
+position = [
+    -1624.0,
+    -28.0,
+]
+rotation = 0.0
+order = 145.0
+
+[[terrains]]
+type = "trap"
+path = [
+    [
+    -540.0,
+    -129.0,
+],
+    [
+    1000.0,
+    -129.0,
+],
+    [
+    1000.0,
+    1000.0,
+],
+    [
+    -540.0,
+    1000.0,
+],
 ]
 appearance_id = 100014
 min_distance = 120.0
@@ -1822,32 +1890,32 @@ order = 1.0
 type = "trap"
 path = [
     [
-        480.0,
-        420.0,
-    ],
+    -843.0,
+    768.0,
+],
     [
-        -1000.0,
-        420.0,
-    ],
+    -841.0,
+    -743.0,
+],
     [
-        -1000.0,
-        -270.0,
-    ],
+    843.0,
+    -768.0,
+],
     [
-        480.0,
-        -270.0,
-    ],
+    818.0,
+    762.0,
+],
 ]
 appearance_id = 100014
 min_distance = 120.0
 rejection_attempts = 30
 rotation = 0.0
-seed = 6777197602699464998
+seed = 13213106131458140525
 
 [terrains.scene_param]
 position = [
-    -631.0,
-    732.0,
+    1766.0,
+    560.0,
 ]
 rotation = 0.0
-order = 1.0
+order = 146.0

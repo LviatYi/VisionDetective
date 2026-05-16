@@ -24,7 +24,7 @@ pub mod controller {
     use bevy::prelude::{
         Assets, Camera, Camera2d, Circle, ColorMaterial, Commands, Component, DetectChanges,
         Entity, Gizmos, GlobalTransform, Mesh, Mesh2d, MeshMaterial2d, MessageReader, Pickable,
-        Query, Res, ResMut, Resource, Transform, Visibility, With,
+        Quat, Query, Res, ResMut, Resource, Time, Transform, Visibility, With,
     };
     use std::collections::HashSet;
     use std::ops::{Deref, DerefMut};
@@ -41,6 +41,7 @@ pub mod controller {
         Upspring {
             contact_count: u8,
             sim_z: f32,
+            flip_elapsed: f32,
         },
         Contact {
             contact_count: u8,
@@ -55,6 +56,7 @@ pub mod controller {
             Self::Upspring {
                 contact_count: 0,
                 sim_z: 0.0,
+                flip_elapsed: 0.0,
             }
         }
 
@@ -136,6 +138,23 @@ pub mod controller {
             match self {
                 PlayerCoinBehaviorStatus::Upspring { sim_z, .. } => {
                     *sim_z = in_sim_z;
+                    true
+                }
+                _ => false,
+            }
+        }
+
+        pub fn flip_elapsed(&self) -> f32 {
+            match self {
+                PlayerCoinBehaviorStatus::Upspring { flip_elapsed, .. } => *flip_elapsed,
+                _ => 0.0,
+            }
+        }
+
+        pub fn add_flip_elapsed(&mut self, dt: f32) -> bool {
+            match self {
+                PlayerCoinBehaviorStatus::Upspring { flip_elapsed, .. } => {
+                    *flip_elapsed += dt;
                     true
                 }
                 _ => false,
@@ -495,12 +514,37 @@ pub mod controller {
 
     pub fn update_player_visuals(
         config: Res<GameConfig>,
-        mut player_query: Query<(&PlayerCoinState, &mut Transform), With<PlayerCoin>>,
+        time: Res<Time>,
+        mut player_query: Query<
+            (&mut PlayerCoinState, &Velocity, &mut Transform),
+            With<PlayerCoin>,
+        >,
     ) {
-        for (player_state, mut transform) in player_query.iter_mut() {
-            let scale = 1.0 + player_state.sim_z() * config.player.height_scale_factor;
+        for (mut player_state, velocity, mut transform) in player_query.iter_mut() {
+            let height_scale = 1.0 + player_state.sim_z() * config.player.height_scale_factor;
 
-            transform.scale = Vec3::splat(scale);
+            if !player_state.is_airborne() {
+                transform.rotation = Quat::IDENTITY;
+                transform.scale = Vec3::splat(height_scale);
+                continue;
+            }
+
+            let planar_velocity = velocity.truncate();
+            if planar_velocity.length_squared() <= PLAYER_FLIP_DIRECTION_EPSILON_SQUARED {
+                transform.rotation = Quat::IDENTITY;
+                transform.scale = Vec3::splat(height_scale);
+                player_state.add_flip_elapsed(time.delta_secs());
+                continue;
+            }
+
+            let direction_angle = planar_velocity.y.atan2(planar_velocity.x);
+            let flip_frame =
+                (player_state.flip_elapsed() * PLAYER_FLIP_DROPPED_FRAME_RATE).floor() as i32;
+            let direction_scale = (flip_frame as f32 * PLAYER_FLIP_FRAME_STEP).cos().abs();
+
+            transform.rotation = Quat::from_rotation_z(direction_angle);
+            transform.scale = Vec3::new(height_scale * direction_scale, height_scale, 1.0);
+            player_state.add_flip_elapsed(time.delta_secs());
         }
     }
 
@@ -540,6 +584,12 @@ pub mod controller {
             }
         }
     }
+
+    const PLAYER_FLIP_DROPPED_FRAME_RATE: f32 = 24.0;
+    const PLAYER_FLIP_FRAME_STEP: f32 = std::f32::consts::FRAC_PI_4;
+    const PLAYER_FLIP_DIRECTION_EPSILON: f32 = 0.01;
+    const PLAYER_FLIP_DIRECTION_EPSILON_SQUARED: f32 =
+        PLAYER_FLIP_DIRECTION_EPSILON * PLAYER_FLIP_DIRECTION_EPSILON;
 }
 
 impl Plugin for PlayerPlugin {
