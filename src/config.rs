@@ -1,12 +1,12 @@
 pub mod card_config;
 pub mod character_config;
 
+use crate::asset::runtime_root;
 use bevy::color::Color;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::{Resource, Srgba};
 use serde::Deserialize;
 use std::fs;
-use std::path::PathBuf;
 
 #[derive(Resource, Clone, Deserialize)]
 pub struct GameConfig {
@@ -24,7 +24,7 @@ pub struct GameConfig {
 
 impl GameConfig {
     pub fn load() -> Self {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        let path = runtime_root()
             .join("assets")
             .join("config")
             .join("game-static-config.toml");

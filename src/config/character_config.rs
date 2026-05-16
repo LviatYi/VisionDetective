@@ -1,7 +1,7 @@
+use crate::asset::runtime_root;
 use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
 
 #[derive(Resource, Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CharacterConfig {
@@ -11,7 +11,7 @@ pub struct CharacterConfig {
 
 impl CharacterConfig {
     pub fn load() -> Self {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        let path = runtime_root()
             .join("assets")
             .join("config")
             .join("character-presets.toml");

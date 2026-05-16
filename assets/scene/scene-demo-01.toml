@@ -1793,35 +1793,35 @@ description = "title: 门, image_path: pic/door-inside.png, desc: 门-inside"
 type = "trap"
 path = [
     [
-    -843.0,
-    768.0,
+    480.0,
+    420.0,
 ],
     [
-    -841.0,
-    -743.0,
+    -1000.0,
+    420.0,
 ],
     [
-    843.0,
-    -768.0,
+    -1000.0,
+    -270.0,
 ],
     [
-    818.0,
-    762.0,
+    480.0,
+    -270.0,
 ],
 ]
 appearance_id = 100014
 min_distance = 120.0
 rejection_attempts = 30
 rotation = 0.0
-seed = 13213106131458140525
+seed = 6777197602699464998
 
 [terrains.scene_param]
 position = [
-    1766.0,
-    560.0,
+    -631.0,
+    732.0,
 ]
 rotation = 0.0
-order = 146.0
+order = 1.0
 
 [[terrains]]
 type = "trap"
@@ -1861,35 +1861,65 @@ order = 1.0
 type = "trap"
 path = [
     [
-    480.0,
-    420.0,
+    -843.0,
+    768.0,
 ],
     [
-    -1000.0,
-    420.0,
+    -841.0,
+    -743.0,
 ],
     [
-    -1000.0,
-    -270.0,
+    843.0,
+    -768.0,
 ],
     [
-    480.0,
-    -270.0,
+    818.0,
+    762.0,
 ],
 ]
 appearance_id = 100014
 min_distance = 120.0
 rejection_attempts = 30
 rotation = 0.0
-seed = 6777197602699464998
+seed = 13213106131458140525
 
 [terrains.scene_param]
 position = [
-    -631.0,
-    732.0,
+    1766.0,
+    560.0,
 ]
 rotation = 0.0
-order = 1.0
+order = 146.0
+
+[[terrains]]
+type = "trap"
+path = [
+    [
+    476.0,
+    -154.0,
+],
+    [
+    -448.0,
+    288.0,
+],
+    [
+    -475.0,
+    -288.0,
+],
+]
+appearance_id = 100014
+min_distance = 120.0
+rejection_attempts = 30
+rotation = 0.0
+seed = 8900277695249465589
+
+[terrains.scene_param]
+position = [
+    -788.0,
+    -219.0,
+]
+rotation = 0.0
+order = 148.0
 
 [[terrains]]
 type = "trap"
@@ -1924,6 +1954,52 @@ position = [
 ]
 rotation = 0.0
 order = 145.0
+
+[[terrains]]
+type = "trap"
+path = [
+    [
+    -1292.0,
+    543.0,
+],
+    [
+    956.0,
+    881.0,
+],
+    [
+    2651.0,
+    861.0,
+],
+    [
+    2808.0,
+    -881.0,
+],
+    [
+    -1725.0,
+    -814.0,
+],
+    [
+    -2808.0,
+    -628.0,
+],
+    [
+    -1969.0,
+    545.0,
+],
+]
+appearance_id = 100014
+min_distance = 120.0
+rejection_attempts = 30
+rotation = 0.0
+seed = 14294814982902963005
+
+[terrains.scene_param]
+position = [
+    -43.0,
+    -1066.0,
+]
+rotation = 0.0
+order = 147.0
 
 [[character_coins]]
 character_id = 2

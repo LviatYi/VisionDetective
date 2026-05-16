@@ -1,5 +1,6 @@
 use crate::GameStatus;
 use crate::GameView;
+use crate::asset::runtime_root;
 use crate::card::Card;
 use crate::card::card_params::{CardParam, SpawnCardSystemParams};
 use crate::card::spawn_card_by_card_param;
@@ -133,7 +134,7 @@ fn spawn_runtime_scene_cards(
 }
 
 fn demo_scene_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(DEMO_SCENE_PATH)
+    runtime_root().join(DEMO_SCENE_PATH)
 }
 
 fn spawn_runtime_character_coins(

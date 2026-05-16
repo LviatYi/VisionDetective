@@ -1,4 +1,5 @@
 use crate::GameplaySet;
+use crate::asset::runtime_root;
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinState, RefPlayerCoinStateExt};
 use bevy::prelude::*;
@@ -89,7 +90,7 @@ impl GameProgress {
     }
 
     fn save_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(GAME_PROGRESS_SAVE_PATH)
+        runtime_root().join(GAME_PROGRESS_SAVE_PATH)
     }
 }
 

@@ -13,6 +13,7 @@ pub mod scene;
 pub mod tools;
 
 use crate::asset::font;
+use crate::asset::runtime_root;
 use crate::camera_control::{CameraControlPlugin, GameCamera};
 use crate::card::CardPlugin;
 use crate::card::card_params::SpawnCardSystemParams;
@@ -89,15 +90,25 @@ fn main() {
         .insert_resource(card_presets_config.clone())
         .insert_resource(character_config)
         .init_resource::<GameplayInputBlocker>()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: config.window.title.clone().into(),
-                resolution: WindowResolution::new(config.window.width, config.window.height),
-                resizable: config.window.resizable,
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(AssetPlugin {
+                    file_path: runtime_root().join("assets").to_string_lossy().into_owned(),
+                    ..default()
+                })
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: config.window.title.clone().into(),
+                        resolution: WindowResolution::new(
+                            config.window.width,
+                            config.window.height,
+                        ),
+                        resizable: config.window.resizable,
+                        ..default()
+                    }),
+                    ..default()
+                }),
+        )
         .add_plugins(dev_inspector_plugins())
         .init_state::<AppStatus>()
         .add_sub_state::<GameStatus>()

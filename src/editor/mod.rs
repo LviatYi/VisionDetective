@@ -1,4 +1,5 @@
 use crate::AppStatus;
+use crate::asset::runtime_root;
 use crate::card::card_params::{
     CardParam, CardRuntimeSpecializedConfig, CardSceneParam, SpawnCardSystemParams,
 };
@@ -3519,7 +3520,7 @@ fn load_scene_from_path(
 }
 
 fn editor_scene_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(EDITOR_SCENE_DIR)
+    runtime_root().join(EDITOR_SCENE_DIR)
 }
 
 fn editor_state_path() -> PathBuf {

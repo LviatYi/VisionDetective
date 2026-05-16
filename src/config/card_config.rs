@@ -1,8 +1,8 @@
+use crate::asset::runtime_root;
 use crate::card::card_params::{CardAppearanceConfig, CardPrefab, CardSpecializedConfig};
 use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
 
 #[derive(Resource, Debug, Serialize, Deserialize, Clone)]
 pub struct CardPresetsConfig {
@@ -15,7 +15,7 @@ pub struct CardPresetsConfig {
 
 impl CardPresetsConfig {
     pub fn load() -> Self {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        let path = runtime_root()
             .join("assets")
             .join("config")
             .join("card-presets.json");
