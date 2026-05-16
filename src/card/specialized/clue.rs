@@ -50,7 +50,8 @@ impl CardSpecializedInstaller for ClueCardSpecializedInstaller {
         );
         app.add_systems(
             Update,
-            reveal_clues.in_set(GameplaySet::SceneModifiedCardLogic),
+            (reveal_clues, update_revealed_card_slide_animation)
+                .in_set(GameplaySet::SceneModifiedCardLogic),
         );
     }
 }
@@ -197,6 +198,13 @@ struct ClueQuestionMark;
 #[derive(Component)]
 struct ClueIllumination;
 
+#[derive(Component)]
+pub struct RevealedCardSlideAnimation {
+    elapsed: f32,
+    start_position: Vec2,
+    target_position: Vec2,
+}
+
 //endregion
 
 fn restore_reveal_clues(
@@ -215,7 +223,7 @@ fn restore_reveal_clues(
         }
 
         despawn_clue_visual_feedback(&mut commands, &mut clue);
-        spawn_revealed_card(&mut commands, &mut card_spawn_params, &clue);
+        spawn_revealed_card(&mut commands, &mut card_spawn_params, &clue, None);
         continue;
     }
 }
@@ -261,7 +269,12 @@ fn reveal_clues(
                     .revealed_clue_instances
                     .insert(card.instance_id.clone());
                 despawn_clue_visual_feedback(&mut commands, &mut clue);
-                spawn_revealed_card(&mut commands, &mut card_spawn_params, &clue);
+                spawn_revealed_card(
+                    &mut commands,
+                    &mut card_spawn_params,
+                    &clue,
+                    Some(global_transform.translation().truncate()),
+                );
                 continue;
             }
 
@@ -283,13 +296,62 @@ fn spawn_revealed_card(
     commands: &mut Commands,
     spawn_params: &mut SpawnCardSystemParams<'_>,
     clue: &ClueCard,
+    slide_start_position: Option<Vec2>,
 ) {
     let Some(target_card_param) = clue.param.target_card_param.as_ref() else {
         return;
     };
 
     let entity = spawn_card_by_card_param(commands, spawn_params, target_card_param, false);
-    commands.entity(entity).insert(GameView);
+    let mut entity_commands = commands.entity(entity);
+    entity_commands.insert(GameView);
+
+    if let Some(start_position) = slide_start_position {
+        let target_position = target_card_param.scene_param.data.position;
+        let target_z =
+            SceneLayer::SceneObjects.get_layer_base_z() + target_card_param.scene_param.data.order;
+        entity_commands.insert((
+            Transform::from_translation(start_position.extend(target_z)).with_rotation(
+                Quat::from_rotation_z(target_card_param.scene_param.data.rotation),
+            ),
+            Pickable::IGNORE,
+            RevealedCardSlideAnimation {
+                elapsed: 0.0,
+                start_position,
+                target_position,
+            },
+        ));
+    }
+}
+
+fn update_revealed_card_slide_animation(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut card_query: Query<(Entity, &mut RevealedCardSlideAnimation, &mut Transform)>,
+) {
+    for (entity, mut animation, mut transform) in &mut card_query {
+        animation.elapsed += time.delta_secs();
+        let progress = (animation.elapsed / REVEALED_CARD_SLIDE_DURATION).clamp(0.0, 1.0);
+        let eased = smoothstep(progress);
+        let position = animation
+            .start_position
+            .lerp(animation.target_position, eased);
+        transform.translation.x = position.x;
+        transform.translation.y = position.y;
+
+        if progress >= 1.0 {
+            transform.translation.x = animation.target_position.x;
+            transform.translation.y = animation.target_position.y;
+            commands
+                .entity(entity)
+                .remove::<RevealedCardSlideAnimation>()
+                .insert(Pickable::default());
+        }
+    }
+}
+
+fn smoothstep(t: f32) -> f32 {
+    t * t * (3.0 - 2.0 * t)
 }
 
 fn despawn_clue_visual_feedback(commands: &mut Commands, clue: &mut ClueCard) {
@@ -462,6 +524,7 @@ fn polygon_from_points(points: Vec<Vec2>) -> Option<GeoPolygon<f32>> {
 
 const GEOMETRY_EPSILON: f32 = 0.001;
 const GEOMETRY_EPSILON_SQUARED: f32 = GEOMETRY_EPSILON * GEOMETRY_EPSILON;
+const REVEALED_CARD_SLIDE_DURATION: f32 = 0.5;
 const DEFAULT_EDITOR_CLUE_TARGET_PREFAB_ID: u32 = 1904;
 const DEFAULT_EDITOR_CLUE_TARGET_OFFSET: Vec2 = Vec2::new(0.0, -Card::SIZE.y * 0.4);
 const EDITOR_CLUE_TARGET_ORDER_OFFSET: f32 = 1.0;

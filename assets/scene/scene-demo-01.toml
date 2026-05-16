@@ -1080,7 +1080,7 @@ text = "门外那个慌张的邻居似乎说的是「卧室里死了个人」...
 [[cards.runtime_specialized_param.params.target_card_param.runtime_specialized_param.params.params.nodes]]
 id = 5
 source = 1
-text = "好像有一些眉目了，再想想吧。"
+text = "好像有一些眉目了，再想想再想想..."
 
 [cards.runtime_specialized_param.params.target_card_param.scene_param]
 instance_id = "1904-对话交互卡-661c1837-60c4-4ace-9339-e961093beace"
@@ -1560,6 +1560,11 @@ text = "好吧，好吧...我坦白，是他先炫耀他的宝贝钻石...我是
 id = 11
 source = 2
 text = "我这算自首吧？！"
+
+[[cards.runtime_specialized_param.params.params.nodes]]
+id = 12
+source = 1
+text = "哼哼"
 
 [[cards]]
 prefab_id = 1211

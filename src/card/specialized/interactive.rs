@@ -2,6 +2,7 @@ mod dialogue;
 mod hello_world;
 
 use crate::card::card_params::{CardSpecializedParam, SpawnCardSystemParams};
+use crate::card::specialized::clue::RevealedCardSlideAnimation;
 use crate::card::{Card, CardKind, CardSpecializedInstaller};
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinState, RefPlayerCoinStateExt};
@@ -163,7 +164,11 @@ fn update_active_interaction(
     player_query: Query<(Ref<PlayerCoinState>, &Transform), With<PlayerCoin>>,
     interaction_query: Query<
         (Entity, &Card, &GlobalTransform),
-        (With<Interactive>, Without<Disable>),
+        (
+            With<Interactive>,
+            Without<Disable>,
+            Without<RevealedCardSlideAnimation>,
+        ),
     >,
     mut active_interaction: ResMut<ActiveInteraction>,
 ) {
