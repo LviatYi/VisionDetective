@@ -1924,3 +1924,14 @@ position = [
 ]
 rotation = 0.0
 order = 146.0
+
+[[character_coins]]
+character_id = 2
+
+[character_coins.scene_param]
+position = [
+    -120.0,
+    200.0,
+]
+rotation = 0.0
+order = 0.0

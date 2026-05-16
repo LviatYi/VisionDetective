@@ -42,16 +42,12 @@ pub struct WindowConfig {
     pub width: u32,
     pub height: u32,
     pub resizable: bool,
-    pub clear_color: [f32; 3],
+    pub clear_color: String,
 }
 
 impl WindowConfig {
     pub fn clear_color(&self) -> Color {
-        Color::srgb(
-            self.clear_color[0],
-            self.clear_color[1],
-            self.clear_color[2],
-        )
+        Color::Srgba(Srgba::hex(&self.clear_color).unwrap_or(Srgba::WHITE))
     }
 }
 

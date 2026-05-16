@@ -7,8 +7,8 @@ width = 1280
 # Primary window height in logical pixels.
 height = 720
 resizable = false
-# Background clear color, RGB in 0..1.
-clear_color = [0.06, 0.09, 0.11]
+# Background clear color.
+clear_color = "#7B7B7B"
 
 [visuals]
 # Player coin radius in world units.

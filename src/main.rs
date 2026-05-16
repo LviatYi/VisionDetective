@@ -187,7 +187,6 @@ fn setup_game_scene(
     mut card_spawn_params: SpawnCardSystemParams<'_>,
     progress: Res<GameProgress>,
     mut scene_cards: ResMut<scene::demo_level::RuntimeSceneCards>,
-    character_config: Res<CharacterConfig>,
 ) {
     commands.spawn((
         get_layered_game_scene_camera2d_bundle(),
@@ -200,7 +199,6 @@ fn setup_game_scene(
         &mut card_spawn_params,
         &progress,
         &mut scene_cards,
-        &*character_config,
     );
 
     let ui_font = font::load_assets(

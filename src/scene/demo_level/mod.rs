@@ -30,10 +30,16 @@ struct SceneFile {
 #[derive(Resource, Default)]
 pub struct RuntimeSceneCards {
     cards: Vec<RuntimeSceneCard>,
+    character_coins: Vec<RuntimeSceneCharacterCoin>,
 }
 
 struct RuntimeSceneCard {
     param: CardParam,
+    entity: Option<Entity>,
+}
+
+struct RuntimeSceneCharacterCoin {
+    param: CharacterCoinParam,
     entity: Option<Entity>,
 }
 
@@ -55,6 +61,10 @@ impl Plugin for RuntimeScenePlugin {
             Update,
             update_card_dealing.run_if(in_state(GameStatus::Dealing)),
         );
+        app.add_systems(
+            OnEnter(GameStatus::PlayerEntering),
+            spawn_runtime_character_coins,
+        );
     }
 }
 
@@ -63,7 +73,6 @@ pub fn load_demo_scene(
     spawn_params: &mut SpawnCardSystemParams<'_>,
     _progress: &GameProgress,
     runtime_cards: &mut RuntimeSceneCards,
-    character_config: &CharacterConfig,
 ) {
     runtime_cards.cards.clear();
 
@@ -90,23 +99,18 @@ pub fn load_demo_scene(
             entity: None,
         })
         .collect();
+    runtime_cards.character_coins = scene
+        .character_coins
+        .into_iter()
+        .map(|param| RuntimeSceneCharacterCoin {
+            param,
+            entity: None,
+        })
+        .collect();
     spawn_runtime_scene_cards(commands, spawn_params, runtime_cards);
 
     for terrain in &scene.terrains {
         spawn_terrain(commands, spawn_params, terrain);
-    }
-
-    for character_coin in &scene.character_coins {
-        spawn_character_coin(
-            commands,
-            spawn_params.asset_server.as_ref(),
-            spawn_params.meshes.as_mut(),
-            spawn_params.materials.as_mut(),
-            &*spawn_params.config,
-            character_config,
-            character_coin,
-            GameView,
-        );
     }
 }
 
@@ -130,6 +134,30 @@ fn spawn_runtime_scene_cards(
 
 fn demo_scene_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(DEMO_SCENE_PATH)
+}
+
+fn spawn_runtime_character_coins(
+    mut commands: Commands,
+    mut spawn_params: SpawnCardSystemParams<'_>,
+    character_config: Res<CharacterConfig>,
+    mut runtime_cards: ResMut<RuntimeSceneCards>,
+) {
+    for character_coin in &mut runtime_cards.character_coins {
+        if character_coin.entity.is_some() {
+            continue;
+        }
+
+        character_coin.entity = spawn_character_coin(
+            &mut commands,
+            spawn_params.asset_server.as_ref(),
+            spawn_params.meshes.as_mut(),
+            spawn_params.materials.as_mut(),
+            &*spawn_params.config,
+            &character_config,
+            &character_coin.param,
+            GameView,
+        );
+    }
 }
 
 #[derive(Component)]

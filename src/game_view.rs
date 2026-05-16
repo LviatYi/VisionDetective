@@ -11,6 +11,7 @@ pub struct GameViewPlugin;
 impl Plugin for GameViewPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<main_view::MainMenuSelection>();
+        app.init_resource::<main_view::MainMenuBannerState>();
         app.add_systems(OnEnter(AppStatus::MainMenu), setup_main_menu)
             .add_systems(OnExit(AppStatus::MainMenu), cleanup_view::<MainMenuView>)
             .add_systems(
@@ -56,6 +57,11 @@ pub mod main_view {
         elapsed: f32,
     }
 
+    #[derive(Resource, Default)]
+    pub struct MainMenuBannerState {
+        shown: bool,
+    }
+
     #[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
     enum MainMenuPhase {
         #[default]
@@ -98,8 +104,14 @@ pub mod main_view {
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<ColorMaterial>>,
         mut selection: ResMut<MainMenuSelection>,
+        mut banner_state: ResMut<MainMenuBannerState>,
     ) {
         *selection = MainMenuSelection::default();
+        if banner_state.shown {
+            selection.phase = MainMenuPhase::Dealing;
+        } else {
+            banner_state.shown = true;
+        }
 
         let ui_font = font::load_assets(&asset_server, &config, font::FontType::Default);
         let has_save = GameProgress::has_save();
@@ -130,7 +142,7 @@ pub mod main_view {
 
         commands.spawn((
             Mesh2d(meshes.add(rectangle_mesh(MAIN_MENU_BACKGROUND_SIZE))),
-            MeshMaterial2d(materials.add(Color::srgba(0.05, 0.06, 0.08, 0.96))),
+            MeshMaterial2d(materials.add(config.window.clear_color())),
             Transform::from_xyz(0.0, 0.0, MAIN_MENU_BACKGROUND_Z),
             Pickable::IGNORE,
             MainMenuView,
@@ -523,12 +535,12 @@ pub mod main_view {
 
     const MAIN_MENU_BACKGROUND_SIZE: Vec2 = Vec2::new(4000.0, 3000.0);
     const MAIN_MENU_BACKGROUND_Z: f32 = -10.0;
-    const MAIN_MENU_BANNER_SIZE: Vec2 = Vec2::new(760.0, 320.0);
+    const MAIN_MENU_BANNER_SIZE: Vec2 = Vec2::new(1920.0, 1080.0);
     const MAIN_MENU_BANNER_Z: f32 = 4.0;
     const MAIN_MENU_CARD_Z: f32 = 0.0;
     const MAIN_MENU_TEXT_Z: f32 = 2.0;
     const MAIN_MENU_TEXT_Z_OFFSET: f32 = 0.3;
-    const MAIN_MENU_BANNER_DURATION: f32 = 2.0;
+    const MAIN_MENU_BANNER_DURATION: f32 = 5.0;
     const MAIN_MENU_BANNER_FADE_IN: f32 = 0.35;
     const MAIN_MENU_BANNER_FADE_OUT: f32 = 0.45;
     const MAIN_MENU_TITLE_START: Vec3 = Vec3::new(-1920.0, 245.0, MAIN_MENU_TEXT_Z);
