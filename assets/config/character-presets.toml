@@ -1,0 +1,13 @@
+[[characters]]
+id = 1
+name = "视界侦探"
+description = ""
+dialogue_portrait_image_path = "assets/pic/detective-cg.png"
+coin_portrait_image_path = "assets/pic/detective-coin.png"
+
+[[characters]]
+id = 2
+name = "慌张的邻居"
+description = ""
+dialogue_portrait_image_path = "assets/pic/neighbour-cg.png"
+coin_portrait_image_path = "assets/pic/neighbour-coin.png"

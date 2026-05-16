@@ -104,6 +104,8 @@ vertex_radius = 3.0
 [scene]
 # Number of samples generated per cubic bezier segment.
 bezier_steps_per_curve = 8
+# World position of the card stack used by the level-enter dealing animation.
+card_dealing_deck_position = [0.0, 0.0]
 
 [assets]
 default_font = "fonts/LXGWWenKai/LXGWWenKai-Regular.ttf"

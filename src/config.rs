@@ -208,6 +208,7 @@ impl ObstacleRenderConfig {
 #[derive(Clone, Deserialize)]
 pub struct SceneConfig {
     pub bezier_steps_per_curve: usize,
+    pub card_dealing_deck_position: [f32; 2],
 }
 
 #[derive(Clone, Deserialize)]

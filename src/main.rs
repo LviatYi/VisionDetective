@@ -51,6 +51,7 @@ pub enum AppStatus {
 pub enum GameStatus {
     #[default]
     Loading,
+    Dealing,
     InGame,
 }
 
@@ -147,7 +148,7 @@ fn main() {
         )
         .add_systems(
             Update,
-            finish_game_loading.run_if(in_state(GameStatus::Loading)),
+            start_card_dealing.run_if(in_state(GameStatus::Loading)),
         )
         .add_systems(Update, update_status_text.in_set(GameplaySet::Visual))
         .add_systems(
@@ -166,8 +167,8 @@ pub struct GameView;
 #[derive(Component)]
 struct StatusText;
 
-fn finish_game_loading(mut next_game_state: ResMut<NextState<GameStatus>>) {
-    next_game_state.set(GameStatus::InGame);
+fn start_card_dealing(mut next_game_state: ResMut<NextState<GameStatus>>) {
+    next_game_state.set(GameStatus::Dealing);
 }
 
 fn setup_game_scene(
