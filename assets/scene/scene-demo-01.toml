@@ -615,7 +615,7 @@ position = [
 ]
 rotation = 0.5235989
 order = 50.0
-description = "title: 对话, image_path: pic/talk-bubble.png, desc: 空对话"
+description = "title: 思考, image_path: pic/thinking.png, desc: 思考"
 
 [cards.runtime_specialized_param]
 type = "interactive"
@@ -1097,8 +1097,8 @@ prefab_id = 1206
 [cards.scene_param]
 instance_id = "1206-椅子-b2c086c4-bd74-4fa1-a804-8f5c2b4ba445"
 position = [
-    -747.0,
-    1652.0,
+    -752.0,
+    1665.0,
 ]
 rotation = 1.0471976
 order = 95.0
@@ -1123,8 +1123,8 @@ prefab_id = 1217
 [cards.scene_param]
 instance_id = "1217-柜子-b2cd853a-6098-4f43-96fb-82f094192a9c"
 position = [
-    -698.0,
-    1705.0,
+    -712.0,
+    1686.0,
 ]
 rotation = 0.0
 order = 98.0
@@ -1793,89 +1793,55 @@ description = "title: 门, image_path: pic/door-inside.png, desc: 门-inside"
 type = "trap"
 path = [
     [
-        480.0,
-        420.0,
-    ],
+    -843.0,
+    768.0,
+],
     [
-        -1000.0,
-        420.0,
-    ],
+    -841.0,
+    -743.0,
+],
     [
-        -1000.0,
-        -270.0,
-    ],
+    843.0,
+    -768.0,
+],
     [
-        480.0,
-        -270.0,
-    ],
+    818.0,
+    762.0,
+],
 ]
 appearance_id = 100014
 min_distance = 120.0
 rejection_attempts = 30
 rotation = 0.0
-seed = 6777197602699464998
+seed = 13213106131458140525
 
 [terrains.scene_param]
 position = [
-    -631.0,
-    732.0,
+    1766.0,
+    560.0,
 ]
 rotation = 0.0
-order = 1.0
+order = 146.0
 
 [[terrains]]
 type = "trap"
 path = [
     [
-        384.0,
-        493.0,
-    ],
+    -540.0,
+    -129.0,
+],
     [
-        388.0,
-        -492.0,
-    ],
+    1000.0,
+    -129.0,
+],
     [
-        -387.0,
-        -493.0,
-    ],
+    1000.0,
+    1000.0,
+],
     [
-        -371.0,
-        487.0,
-    ],
-]
-appearance_id = 100014
-min_distance = 120.0
-rejection_attempts = 30
-rotation = 0.0
-seed = 7383012144414539352
-
-[terrains.scene_param]
-position = [
-    -1624.0,
-    -28.0,
-]
-rotation = 0.0
-order = 145.0
-
-[[terrains]]
-type = "trap"
-path = [
-    [
-        -540.0,
-        -129.0,
-    ],
-    [
-        1000.0,
-        -129.0,
-    ],
-    [
-        1000.0,
-        1000.0,
-    ],
-    [
-        -540.0,
-        1000.0,
-    ],
+    -540.0,
+    1000.0,
+],
 ]
 appearance_id = 100014
 min_distance = 120.0
@@ -1895,35 +1861,69 @@ order = 1.0
 type = "trap"
 path = [
     [
-        -843.0,
-        768.0,
-    ],
+    480.0,
+    420.0,
+],
     [
-        -841.0,
-        -743.0,
-    ],
+    -1000.0,
+    420.0,
+],
     [
-        843.0,
-        -768.0,
-    ],
+    -1000.0,
+    -270.0,
+],
     [
-        818.0,
-        762.0,
-    ],
+    480.0,
+    -270.0,
+],
 ]
 appearance_id = 100014
 min_distance = 120.0
 rejection_attempts = 30
 rotation = 0.0
-seed = 13213106131458140525
+seed = 6777197602699464998
 
 [terrains.scene_param]
 position = [
-    1766.0,
-    560.0,
+    -631.0,
+    732.0,
 ]
 rotation = 0.0
-order = 146.0
+order = 1.0
+
+[[terrains]]
+type = "trap"
+path = [
+    [
+    384.0,
+    493.0,
+],
+    [
+    388.0,
+    -492.0,
+],
+    [
+    -387.0,
+    -493.0,
+],
+    [
+    -371.0,
+    487.0,
+],
+]
+appearance_id = 100014
+min_distance = 120.0
+rejection_attempts = 30
+rotation = 0.0
+seed = 7383012144414539352
+
+[terrains.scene_param]
+position = [
+    -1624.0,
+    -28.0,
+]
+rotation = 0.0
+order = 145.0
 
 [[character_coins]]
 character_id = 2
@@ -1933,5 +1933,5 @@ position = [
     -120.0,
     200.0,
 ]
-rotation = 0.0
+rotation = -0.0
 order = 0.0
