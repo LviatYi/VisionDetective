@@ -107,12 +107,14 @@ fn main() {
             Update,
             (
                 GameplaySet::PlayerRespawn,
-                GameplaySet::PlayerPhysics,
                 GameplaySet::SceneModifiedCardLogic,
+                GameplaySet::PlayerPhysics,
+                GameplaySet::PlayerDeathCheck,
+                GameplaySet::PlayerRecordProgress,
                 GameplaySet::InteractiveCardLogic,
                 GameplaySet::PlayerInput,
                 GameplaySet::Visual,
-                GameplaySet::PlayerDeathCheck,
+                GameplaySet::InteractiveCardCheck,
             )
                 .chain()
                 .run_if(in_state(GameStatus::InGame)),
