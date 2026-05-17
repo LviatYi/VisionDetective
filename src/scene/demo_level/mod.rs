@@ -1,5 +1,6 @@
 use crate::GameStatus;
 use crate::GameView;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::asset::runtime_root;
 use crate::card::Card;
 use crate::card::card_params::{CardParam, SpawnCardSystemParams};
@@ -11,7 +12,9 @@ use crate::progress::GameProgress;
 use crate::scene::terrain::{TerrainParam, spawn_terrain};
 use bevy::prelude::*;
 use serde::Deserialize;
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs;
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
 
 const DEMO_SCENE_PATH: &str = "assets/scene/scene-demo-01.toml";
@@ -77,13 +80,28 @@ pub fn load_demo_scene(
 ) {
     runtime_cards.cards.clear();
 
+    #[cfg(target_arch = "wasm32")]
+    let scene_result =
+        toml::from_str::<SceneFile>(include_str!("../../../assets/scene/scene-demo-01.toml"))
+            .map_err(|error| error.to_string());
+
+    #[cfg(not(target_arch = "wasm32"))]
+    let scene_result = {
+        let scene_path = demo_scene_path();
+        fs::read_to_string(&scene_path)
+            .map_err(|error| error.to_string())
+            .and_then(|raw| toml::from_str::<SceneFile>(&raw).map_err(|error| error.to_string()))
+    };
+
+    #[cfg(not(target_arch = "wasm32"))]
     let scene_path = demo_scene_path();
-    let scene = match fs::read_to_string(&scene_path)
-        .map_err(|error| error.to_string())
-        .and_then(|raw| toml::from_str::<SceneFile>(&raw).map_err(|error| error.to_string()))
-    {
+    let scene = match scene_result {
         Ok(scene) => scene,
         Err(error) => {
+            #[cfg(target_arch = "wasm32")]
+            bevy::log::error!("failed to load embedded demo scene {DEMO_SCENE_PATH}: {error}");
+
+            #[cfg(not(target_arch = "wasm32"))]
             bevy::log::error!(
                 "failed to load demo scene {}: {error}",
                 scene_path.display()
@@ -133,6 +151,7 @@ fn spawn_runtime_scene_cards(
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn demo_scene_path() -> PathBuf {
     runtime_root().join(DEMO_SCENE_PATH)
 }

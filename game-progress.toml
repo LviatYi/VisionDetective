@@ -1,0 +1,6 @@
+unlocked_conditions = []
+last_player_stop_position = [
+    0.0,
+    0.0,
+]
+revealed_clue_instances = []

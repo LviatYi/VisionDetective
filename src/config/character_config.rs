@@ -1,6 +1,8 @@
+#[cfg(not(target_arch = "wasm32"))]
 use crate::asset::runtime_root;
 use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs;
 
 #[derive(Resource, Debug, Clone, Serialize, Deserialize, Default)]
@@ -10,6 +12,16 @@ pub struct CharacterConfig {
 }
 
 impl CharacterConfig {
+    #[cfg(target_arch = "wasm32")]
+    pub fn load() -> Self {
+        let raw = include_str!("../../assets/config/character-presets.toml");
+
+        toml::from_str::<Self>(raw).unwrap_or_else(|error| {
+            panic!("failed to parse embedded config assets/config/character-presets.toml: {error}")
+        })
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn load() -> Self {
         let path = runtime_root()
             .join("assets")

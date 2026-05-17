@@ -546,7 +546,7 @@ pub mod main_view {
     const MAIN_MENU_TITLE_START: Vec3 = Vec3::new(-1920.0, 245.0, MAIN_MENU_TEXT_Z);
     const MAIN_MENU_TITLE_IDLE: Vec3 = Vec3::new(-300.0, 245.0, MAIN_MENU_TEXT_Z);
     const MAIN_MENU_TITLE_DEAL_DURATION: f32 = 0.75;
-    const MAIN_MENU_CARD_DECK_POSITION: Vec2 = Vec2::new(760.0, -80.0);
+    const MAIN_MENU_CARD_DECK_POSITION: Vec2 = Vec2::new(1080.0, -80.0);
     const MAIN_MENU_CARD_DEAL_DURATION: f32 = 0.52;
     const MAIN_MENU_CARD_DEAL_INTERVAL: f32 = 0.12;
     const MAIN_MENU_COLLECT_DURATION: f32 = 0.55;

@@ -1,13 +1,17 @@
 use crate::GameplaySet;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::asset::runtime_root;
 use crate::coin::player::PlayerCoin;
 use crate::coin::player::controller::{PlayerCoinState, RefPlayerCoinStateExt};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs;
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
 
+#[cfg(not(target_arch = "wasm32"))]
 const GAME_PROGRESS_SAVE_PATH: &str = "game-progress.toml";
 
 #[derive(Resource, Default, Serialize, Deserialize)]
@@ -23,6 +27,12 @@ pub struct GameProgress {
 }
 
 impl GameProgress {
+    #[cfg(target_arch = "wasm32")]
+    pub fn load() -> Self {
+        Self::default()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn load() -> Self {
         let path = Self::save_path();
         let Ok(raw) = fs::read_to_string(&path) else {
@@ -35,6 +45,10 @@ impl GameProgress {
         })
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub fn save(&self) {}
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn save(&self) {
         let path = Self::save_path();
         match toml::to_string_pretty(self) {
@@ -50,6 +64,10 @@ impl GameProgress {
         }
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub fn delete_save() {}
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn delete_save() {
         let path = Self::save_path();
         if path.exists()
@@ -59,6 +77,12 @@ impl GameProgress {
         }
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub fn has_save() -> bool {
+        false
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn has_save() -> bool {
         Self::save_path().exists()
     }
@@ -89,6 +113,7 @@ impl GameProgress {
             .any(|condition| condition == key)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn save_path() -> PathBuf {
         runtime_root().join(GAME_PROGRESS_SAVE_PATH)
     }

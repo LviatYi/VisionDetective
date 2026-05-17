@@ -1,11 +1,13 @@
 pub mod card_config;
 pub mod character_config;
 
+#[cfg(not(target_arch = "wasm32"))]
 use crate::asset::runtime_root;
 use bevy::color::Color;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::{Resource, Srgba};
 use serde::Deserialize;
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs;
 
 #[derive(Resource, Clone, Deserialize)]
@@ -23,6 +25,16 @@ pub struct GameConfig {
 }
 
 impl GameConfig {
+    #[cfg(target_arch = "wasm32")]
+    pub fn load() -> Self {
+        let raw = include_str!("../assets/config/game-static-config.toml");
+
+        toml::from_str(raw).unwrap_or_else(|error| {
+            panic!("failed to parse embedded config assets/config/game-static-config.toml: {error}")
+        })
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn load() -> Self {
         let path = runtime_root()
             .join("assets")

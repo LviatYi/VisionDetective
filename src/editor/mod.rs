@@ -31,6 +31,7 @@ use bevy::sprite::Anchor;
 use bevy::window::{PrimaryWindow, Window};
 use geo::TriangulateEarcut;
 use geo::{Coord as GeoCoord, LineString as GeoLineString, Polygon as GeoPolygon};
+#[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
@@ -47,6 +48,7 @@ const PREFAB_CARD_GAP: f32 = 12.0;
 const PREFAB_SCROLL_STEP: f32 = 28.0;
 const ROTATION_HANDLE_RADIUS: f32 = 14.0;
 const EDITOR_SCENE_DIR: &str = "assets/editor";
+#[cfg(not(target_arch = "wasm32"))]
 const EDITOR_SCENE_TOML: &str = "editor_scene.toml";
 const EDITOR_STATE_TOML: &str = "editor-state.toml";
 const CARD_ORDER_STEP: f32 = 1.0;
@@ -3556,34 +3558,52 @@ fn remember_editor_scene_path(file_state: &mut EditorFileState, path: PathBuf) {
 }
 
 fn pick_scene_export_path(current_path: Option<&Path>) -> Option<PathBuf> {
-    let directory = current_path
-        .and_then(Path::parent)
-        .map(Path::to_path_buf)
-        .unwrap_or_else(editor_scene_dir);
-    let file_name = current_path
-        .and_then(Path::file_name)
-        .and_then(|name| name.to_str())
-        .unwrap_or(EDITOR_SCENE_TOML);
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = current_path;
+        return None;
+    }
 
-    FileDialog::new()
-        .set_title("导出场景")
-        .set_directory(directory)
-        .set_file_name(file_name)
-        .add_filter("场景文件", &["toml"])
-        .save_file()
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let directory = current_path
+            .and_then(Path::parent)
+            .map(Path::to_path_buf)
+            .unwrap_or_else(editor_scene_dir);
+        let file_name = current_path
+            .and_then(Path::file_name)
+            .and_then(|name| name.to_str())
+            .unwrap_or(EDITOR_SCENE_TOML);
+
+        FileDialog::new()
+            .set_title("导出场景")
+            .set_directory(directory)
+            .set_file_name(file_name)
+            .add_filter("场景文件", &["toml"])
+            .save_file()
+    }
 }
 
 fn pick_scene_import_path(current_path: Option<&Path>) -> Option<PathBuf> {
-    let directory = current_path
-        .and_then(Path::parent)
-        .map(Path::to_path_buf)
-        .unwrap_or_else(editor_scene_dir);
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = current_path;
+        return None;
+    }
 
-    FileDialog::new()
-        .set_title("导入场景")
-        .set_directory(directory)
-        .add_filter("场景文件", &["toml"])
-        .pick_file()
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let directory = current_path
+            .and_then(Path::parent)
+            .map(Path::to_path_buf)
+            .unwrap_or_else(editor_scene_dir);
+
+        FileDialog::new()
+            .set_title("导入场景")
+            .set_directory(directory)
+            .add_filter("场景文件", &["toml"])
+            .pick_file()
+    }
 }
 
 fn scene_file_format_from_path(path: &Path) -> Result<SceneFileFormat, String> {

@@ -1,7 +1,9 @@
+#[cfg(not(target_arch = "wasm32"))]
 use crate::asset::runtime_root;
 use crate::card::card_params::{CardAppearanceConfig, CardPrefab, CardSpecializedConfig};
 use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs;
 
 #[derive(Resource, Debug, Serialize, Deserialize, Clone)]
@@ -14,6 +16,16 @@ pub struct CardPresetsConfig {
 }
 
 impl CardPresetsConfig {
+    #[cfg(target_arch = "wasm32")]
+    pub fn load() -> Self {
+        let raw = include_str!("../../assets/config/card-presets.json");
+
+        Self::load_from(raw).unwrap_or_else(|error| {
+            panic!("failed to parse embedded config assets/config/card-presets.json: {error}")
+        })
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn load() -> Self {
         let path = runtime_root()
             .join("assets")

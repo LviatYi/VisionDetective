@@ -1,5 +1,11 @@
 use std::path::PathBuf;
 
+#[cfg(target_arch = "wasm32")]
+pub fn runtime_root() -> PathBuf {
+    PathBuf::from(".")
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn runtime_root() -> PathBuf {
     let exe_root = std::env::current_exe()
         .ok()
